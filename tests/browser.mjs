@@ -108,18 +108,17 @@ try {
   await page.locator("#class").selectOption("2반");
   assert.equal(await page.locator(".card").count(), 0);
   await page.locator("#reset").click();
-  await page.locator("#sort").selectOption("recent");
-  assert.match(await page.locator(".card").first().innerText(), /20149/);
-  pass("24개 더 보기·검색·반 필터 동시 적용·최근 수정 정렬");
+  assert.match(await page.locator(".card").first().innerText(), /20100/);
+  pass("24개 더 보기·검색·반 필터 동시 적용·학번순 카드");
   await page.locator("#reset").click();
   await page.locator("#class").selectOption("1반");
   await page.locator("#more").click();
   await page.evaluate(() => scrollTo(0, 500));
   await page.waitForTimeout(100);
   const y = await page.evaluate(() => scrollY);
-  await page.locator(".card h2 a").first().click();
+  await page.locator(".card").nth(4).click();
   await page.waitForSelector("#work:not([hidden])");
-  assert.equal(await page.locator("iframe").count(), 0);
+  assert.equal(await page.locator("iframe").count(), 1);
   await page.locator("a.back").click();
   await page.waitForSelector(".card");
   assert.equal(await page.locator("#class").inputValue(), "1반");
@@ -157,94 +156,48 @@ try {
     await fs.readFile(path.join(root, "20100/index.html"), "utf8"),
   );
   pass("학생 폴더 직접 접속·새로고침·새 탭 동작·다운로드 원본·저장 키 독립");
-  await page.locator("#preview-start").click();
   await page.waitForSelector("iframe");
+  assert.equal(await page.locator("iframe").count(), 1);
   assert.equal(
     await page.locator("iframe").getAttribute("sandbox"),
     "allow-scripts allow-forms",
   );
-  await page.waitForFunction(() =>
-    document
-      .querySelector("#preview-status")
-      .textContent.includes("정상 작동을 확인한 것은 아닙니다"),
+  await page.frameLocator("iframe").locator("button").click();
+  assert.equal(
+    await page.frameLocator("iframe").locator("button").textContent(),
+    "실행 완료",
   );
   await page.locator("#restart").click();
+  await page
+    .frameLocator("iframe")
+    .getByRole("button", { name: "테스트", exact: true })
+    .waitFor();
   assert.equal(await page.locator("iframe").count(), 1);
-  await page.locator("#grow").click();
-  assert.ok(
-    (await page.locator("iframe").evaluate((e) => e.offsetHeight)) > 600,
-  );
-  await page.locator("#stop").click();
-  assert.equal(await page.locator("iframe").count(), 0);
   assert.equal(
-    await page.evaluate(() => document.activeElement.id),
-    "preview-start",
+    await page
+      .locator("#preview-start, #prd-open, #prompt-copy, #code-panel, #hero")
+      .count(),
+    0,
   );
   await page.route("**/20100/", async (route) => {
     await new Promise((r) => setTimeout(r, 11000));
     await route.continue().catch(() => {});
   });
-  await page.locator("#preview-start").click();
+  await page.goto(base + "work.html?id=20100", {
+    waitUntil: "domcontentloaded",
+  });
   await page.waitForFunction(
     () =>
-      document.querySelector("#preview-status").textContent.includes("10초"),
+      document
+        .querySelector("#preview-status")
+        .textContent.includes("시간이 걸립니다"),
     {},
     { timeout: 14000 },
   );
-  await page.locator("#stop").click();
   await page.unroute("**/20100/");
-  pass("iframe 지연 안내·로드 안내·sandbox·재시작·크기·종료 포커스");
-  await page.locator("#prd-open").click();
-  await page.waitForFunction(() =>
-    document.querySelector("#prd-text").textContent.includes("공개 기획서"),
+  pass(
+    "상세 자동 실행·단일 iframe·게임 조작·sandbox·재시작·지연 안내·불필요한 메뉴 제거",
   );
-  assert.equal(await page.evaluate(() => window.PRD_EXECUTED), undefined);
-  assert.match(
-    await page.locator("#prd-download").getAttribute("href"),
-    /prd\/20100.md/,
-  );
-  await page.locator("#code-panel summary").click();
-  await page.locator("#code-load").click();
-  await page.waitForFunction(() =>
-    document.querySelector("#code").value.includes("정상 작품"),
-  );
-  await page.evaluate(() =>
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: {
-        writeText: async () => {
-          throw Error("denied");
-        },
-      },
-    }),
-  );
-  await page.locator("#prompt-copy").click();
-  assert.match(await page.locator("#copy-status").textContent(), /직접 복사/);
-  assert.equal(await page.locator("#prompt-panel").getAttribute("open"), "");
-  assert.match(await page.locator("#prompt").inputValue(), /20100/);
-  await page.evaluate(() =>
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: {
-        writeText: async (t) => {
-          window.copied = t;
-        },
-      },
-    }),
-  );
-  await page.locator("#prompt-copy").click();
-  assert.match(
-    await page.locator("#copy-status").textContent(),
-    /복사했습니다/,
-  );
-  assert.match(
-    await page.evaluate(() => window.copied),
-    /없는 오류를 만들어내지 마/,
-  );
-  pass("PRD 원문 안전 표시·HTML 대안·복사 실패 수동 복사·성공 안내");
-  await page.goto(base + "work.html?id=20101");
-  await page.locator("#prd-open").click();
-  assert.match(await page.locator("#prd-status").textContent(), /아직 등록/);
   await page.goto(base + "work.html?id=99999");
   await page.waitForFunction(() =>
     document.querySelector("#status").textContent.includes("등록되지"),
@@ -253,7 +206,7 @@ try {
   await page.waitForFunction(() =>
     document.querySelector("#status").textContent.includes("잘못된"),
   );
-  pass("기획서 없음·없는 작품·잘못된 id");
+  pass("없는 작품·잘못된 id");
   await context.clearCookies();
   await page.goto(base);
   await page.locator("#reset").click();
@@ -303,9 +256,9 @@ try {
   );
   await page.reload();
   await page.waitForSelector(".placeholder");
-  assert.ok((await page.locator(".card .actions a").count()) > 0);
+  assert.ok((await page.locator("a.card[href]").count()) > 0);
   await page.unroute("**/thumbnails/*.png");
-  pass("개별 썸네일 실패에도 정보·실행·다운로드 유지");
+  pass("개별 썸네일 실패에도 카드 정보·작품 진입 유지");
   await fs.writeFile(path.join(root, "dist/projects.json"), "[]");
   await page.reload();
   await page.getByText(/등록된 작품이 없습니다/).waitFor();

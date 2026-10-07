@@ -96,7 +96,6 @@ try {
   await page.locator('a[href="work.html?id=10100"]').first().click();
   await page.waitForSelector("#work:not([hidden])");
   assert.match(await page.locator("#title").textContent(), /숫자 야구/);
-  await page.locator("#preview-start").click();
   await page.frameLocator("iframe").locator("#guess").fill("123");
   await page.frameLocator("iframe").locator("#submit").click();
   assert.equal(

@@ -1,4 +1,4 @@
-import { $, el, json, date, shot, link } from "./common.js";
+import { $, el, json, shot, link } from "./common.js";
 const key = "sih26:gallery:v1";
 let projects = [],
   limit = 24,
@@ -7,7 +7,6 @@ try {
   const s = JSON.parse(sessionStorage.getItem(key));
   if (s) {
     $("search").value = s.q || "";
-    $("sort").value = s.sort === "recent" ? "recent" : "id";
     limit = Math.max(24, Math.min(200, Number(s.limit) || 24));
     restoreY = Number(s.y) || 0;
     $("class").dataset.restore = s.group || "";
@@ -20,7 +19,6 @@ function save() {
       JSON.stringify({
         q: $("search").value,
         group: $("class").value,
-        sort: $("sort").value,
         limit,
         y: scrollY,
       }),
@@ -28,30 +26,17 @@ function save() {
   } catch {}
 }
 function card(p) {
-  const n = el("article", undefined, "card");
-  const a = link("", `work.html?id=${p.id}`, "");
-  a.setAttribute("aria-label", `${p.title} 상세 보기`);
-  a.append(shot(p));
-  n.append(a);
-  const b = el("div", undefined, "card-body");
-  b.append(el("span", p.id, "eyebrow"));
-  const h = el("h2");
-  h.append(link(p.title, `work.html?id=${p.id}`, ""));
-  b.append(h, el("p", p.description, "desc"));
-  const tags = el("p", undefined, "tags");
-  tags.append(el("span", p.class, "tag"));
-  if (p.status) tags.append(el("span", p.status, "tag"));
-  b.append(tags, el("p", date(p.updatedAt), "date"));
-  const actions = el("div", undefined, "actions"),
-    run = link("실행하기 ↗", p.path);
-  run.target = "_blank";
-  run.rel = "noopener noreferrer";
-  const dl = link("HTML 다운로드", `${p.path}index.html`);
-  dl.download = `${p.id}.html`;
-  actions.append(run, dl);
-  b.append(actions);
-  n.append(b);
-  return n;
+  const card = link("", `work.html?id=${p.id}`, "card");
+  card.setAttribute("aria-label", `${p.id} ${p.title} 실행하기`);
+  card.append(shot(p));
+  const body = el("div", undefined, "card-body");
+  body.append(
+    el("p", `${p.id} · ${p.class}`, "card-label"),
+    el("h2", p.title),
+    el("p", p.description, "desc"),
+  );
+  card.append(body);
+  return card;
 }
 function render() {
   const q = $("search").value.trim().toLocaleLowerCase(),
@@ -61,13 +46,7 @@ function render() {
       (!group || p.class === group) &&
       `${p.id} ${p.title} ${p.description}`.toLocaleLowerCase().includes(q),
   );
-  result.sort(
-    $("sort").value === "recent"
-      ? (a, b) =>
-          (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0) ||
-          a.id.localeCompare(b.id)
-      : (a, b) => a.id.localeCompare(b.id),
-  );
+  result.sort((a, b) => a.id.localeCompare(b.id));
   $("cards").replaceChildren(...result.slice(0, limit).map(card));
   $("result").textContent =
     `전체 ${projects.length}개 중 ${result.length}개 · ${Math.min(limit, result.length)}개 표시`;
@@ -101,7 +80,7 @@ async function load() {
   }
 }
 $("filters").onsubmit = (e) => e.preventDefault();
-for (const id of ["search", "class", "sort"])
+for (const id of ["search", "class"])
   $(id).addEventListener(id === "search" ? "input" : "change", () => {
     limit = 24;
     render();
@@ -113,7 +92,6 @@ $("more").onclick = () => {
 $("reset").onclick = () => {
   $("search").value = "";
   $("class").value = "";
-  $("sort").value = "id";
   limit = 24;
   render();
 };

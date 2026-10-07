@@ -31,20 +31,18 @@ try {
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   );
-  await page.locator("#preview-start").focus();
-  await page.keyboard.press("Enter");
   await page.waitForSelector("iframe");
-  await page.locator("#stop").focus();
+  assert.equal(await page.locator("iframe").count(), 1);
+  await page.locator("#restart").focus();
   await page.keyboard.press("Enter");
-  assert.equal(await page.locator("iframe").count(), 0);
-  assert.equal(
-    await page.evaluate(() => document.activeElement.id),
-    "preview-start",
-  );
+  assert.equal(await page.locator("iframe").count(), 1);
+  assert.equal(await page.evaluate(() => document.activeElement.id), "restart");
+  await page
+    .frameLocator("iframe")
+    .getByRole("heading", { name: "오늘의 시간표" })
+    .waitFor();
   await page.screenshot({ path: "test-results/detail-mobile.png" });
-  console.log(
-    "PASS 상세 360px 넘침 없음·키보드로 미리보기 시작/종료·포커스 복귀",
-  );
+  console.log("PASS 상세 360px 넘침 없음·자동 실행·키보드 재시작");
 } finally {
   if (browser) await browser.close();
   if (server) await new Promise((r) => server.close(r));

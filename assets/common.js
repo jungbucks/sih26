@@ -42,19 +42,6 @@ export function link(text, href, cls = "button") {
   a.href = href;
   return a;
 }
-export async function copy(text, field, status) {
-  try {
-    await navigator.clipboard.writeText(text);
-    status.textContent = "복사했습니다.";
-  } catch {
-    const d = field.closest("details");
-    if (d) d.open = true;
-    field.focus();
-    field.select();
-    status.textContent =
-      "자동 복사에 실패했습니다. 선택한 내용을 직접 복사하세요 (Ctrl+C / ⌘C).";
-  }
-}
 json("build-info.json")
   .then((b) => {
     $("build-info").textContent =
