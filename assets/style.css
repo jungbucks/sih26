@@ -564,6 +564,8 @@ a.card:hover h2 {
   font-size: 18px;
 }
 .gallery-page .brand span {
+  min-width: 0;
+  flex: 1;
   display: inline;
   margin: 0;
   font-size: 11px;
