@@ -127,3 +127,39 @@ test("정확히 2MiB는 지원하고 JSON의 상속 속성 이름은 거부", as
   );
   await assert.rejects(catalog(r), /잘못된 메타 필드/);
 });
+
+test("컨테이너 소유권 차이가 있어도 명시한 저장소의 Git 수정일을 읽음", async (t) => {
+  const root = await fixture(t);
+  await student(root, "10100");
+  execFileSync("git", ["init", root], { stdio: "ignore" });
+  execFileSync("git", ["-C", root, "add", "."]);
+  execFileSync(
+    "git",
+    [
+      "-C",
+      root,
+      "-c",
+      "user.name=Test",
+      "-c",
+      "user.email=test@example.invalid",
+      "commit",
+      "-m",
+      "fixture",
+    ],
+    { stdio: "ignore" },
+  );
+  const before = process.env.GIT_TEST_ASSUME_DIFFERENT_OWNER;
+  process.env.GIT_TEST_ASSUME_DIFFERENT_OWNER = "1";
+  try {
+    assert.throws(() =>
+      execFileSync("git", ["-C", root, "rev-parse", "HEAD"], {
+        stdio: "ignore",
+      }),
+    );
+    assert.ok((await catalog(root)).projects[0].updatedAt);
+  } finally {
+    if (before === undefined)
+      delete process.env.GIT_TEST_ASSUME_DIFFERENT_OWNER;
+    else process.env.GIT_TEST_ASSUME_DIFFERENT_OWNER = before;
+  }
+});

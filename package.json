@@ -10,7 +10,8 @@
     "test:browser": "node tests/browser.mjs",
     "test:scale": "node tests/scale.mjs",
     "test:capture": "node tests/capture.mjs",
-    "test:detail": "node tests/detail.mjs"
+    "test:detail": "node tests/detail.mjs",
+    "test:baseball": "node tests/baseball.mjs"
   },
   "devDependencies": {
     "playwright": "1.58.2",

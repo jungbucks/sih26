@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <!-- 작품 제목·설명·반 메타 정보 -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>10100 테스트 · 숫자 야구</title>
+    <meta
+      name="description"
+      content="서로 다른 세 자리 숫자를 10번 안에 맞혀 보세요. 스트라이크와 볼 힌트로 정답을 추리하는 테스트 작품입니다."
+    />
+    <meta name="class" content="테스트" />
+    <!-- 스타일 -->
+    <style>
+      :root {
+        font-family:
+          system-ui,
+          -apple-system,
+          "Noto Sans CJK KR",
+          sans-serif;
+        color: #152c46;
+        background: #edf2f8;
+        color-scheme: light;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 32px 20px;
+      }
+      main {
+        max-width: 920px;
+        margin: auto;
+      }
+      header {
+        margin: 8px 0 28px;
+      }
+      .eyebrow {
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        color: #365f9b;
+      }
+      h1 {
+        font-size: clamp(32px, 6vw, 48px);
+        line-height: 1.2;
+        margin: 12px 0;
+      }
+      p {
+        line-height: 1.7;
+      }
+      .intro {
+        color: #526478;
+        margin-bottom: 0;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+      }
+      .panel {
+        border: 1px solid #d0dbe8;
+        background: #fff;
+        border-radius: 20px;
+        padding: 26px;
+      }
+      .scoreboard {
+        background: #193c67;
+        color: #fff;
+        border-radius: 14px;
+        padding: 22px;
+        margin-bottom: 24px;
+      }
+      .scoreboard p {
+        margin: 0;
+        font-size: 13px;
+        color: #d8e6fa;
+      }
+      .digits {
+        display: flex;
+        gap: 12px;
+        margin: 18px 0;
+      }
+      .digits span {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 64px;
+        height: 76px;
+        background: #2c527f;
+        border: 1px solid #7d9bbf;
+        border-radius: 10px;
+        font-size: 38px;
+        font-weight: 800;
+      }
+      .scoreboard strong {
+        font-size: 16px;
+      }
+      label {
+        display: block;
+        font-weight: 750;
+        margin-bottom: 8px;
+      }
+      input,
+      button {
+        font: inherit;
+        min-height: 48px;
+        border-radius: 9px;
+      }
+      input {
+        width: 100%;
+        border: 1px solid #71859d;
+        padding: 12px 14px;
+        font-size: 24px;
+        letter-spacing: 8px;
+        color: #152c46;
+        background: #fff;
+      }
+      input:disabled {
+        background: #edf2f8;
+      }
+      button {
+        padding: 12px 18px;
+        border: 1px solid #193c67;
+        cursor: pointer;
+        font-weight: 750;
+        background: #193c67;
+        color: #fff;
+      }
+      button:hover {
+        background: #28558b;
+      }
+      button:disabled {
+        opacity: 0.65;
+        cursor: default;
+      }
+      .buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      .buttons button {
+        flex: 1;
+      }
+      .secondary {
+        background: white;
+        color: #193c67;
+      }
+      .secondary:hover {
+        background: #edf2f8;
+      }
+      :focus-visible {
+        outline: 3px solid #b7630b;
+        outline-offset: 4px;
+      }
+      .hint {
+        font-size: 13px;
+        color: #526478;
+        line-height: 1.65;
+      }
+      #message {
+        min-height: 54px;
+        margin-bottom: 0;
+        font-weight: 650;
+      }
+      h2 {
+        font-size: 20px;
+        margin: 0 0 16px;
+      }
+      .badge {
+        display: inline-block;
+        padding: 3px 9px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 800;
+        background: #e5f0e9;
+        color: #1b5a3a;
+      }
+      .ball {
+        background: #fff0d9;
+        color: #754609;
+      }
+      .out {
+        background: #edf2f8;
+        color: #46586d;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 14px;
+      }
+      th,
+      td {
+        padding: 12px 6px;
+        border-bottom: 1px solid #e1e8ef;
+      }
+      th {
+        color: #526478;
+        font-weight: 600;
+      }
+      td:nth-child(2) {
+        font-size: 18px;
+        letter-spacing: 3px;
+        font-weight: 750;
+      }
+      td:last-child {
+        white-space: nowrap;
+      }
+      .rules {
+        margin-top: 22px;
+        background: #f8fafc;
+      }
+      summary {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        font-weight: 750;
+        cursor: pointer;
+      }
+      ul {
+        padding-left: 20px;
+        line-height: 1.9;
+      }
+      .footer {
+        text-align: center;
+        color: #526478;
+        font-size: 12px;
+        margin-top: 24px;
+      }
+      @media (max-width: 680px) {
+        body {
+          padding: 20px 14px;
+        }
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .panel {
+          padding: 20px;
+        }
+        .digits span {
+          height: 68px;
+        }
+        .intro {
+          font-size: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 화면 구조 -->
+    <main>
+      <header>
+        <div class="eyebrow">10100 · TEST PROJECT</div>
+        <h1>숫자 야구</h1>
+        <p class="intro">
+          세 자리 속에 숨은 정답을 찾아라!<br />스트라이크와 볼을 단서로, 10번
+          안에 맞혀 보세요.
+        </p>
+      </header>
+      <div class="layout">
+        <section class="panel" aria-label="숫자 맞히기">
+          <div class="scoreboard">
+            <p>오늘의 비밀 숫자</p>
+            <div class="digits" id="answer" aria-label="정답은 아직 비공개">
+              <span aria-hidden="true">?</span><span aria-hidden="true">?</span
+              ><span aria-hidden="true">?</span>
+            </div>
+            <strong id="remaining">남은 기회 10 / 10</strong>
+          </div>
+          <form id="guess-form" novalidate>
+            <label for="guess">세 자리 숫자를 입력하세요</label
+            ><input
+              id="guess"
+              type="text"
+              inputmode="numeric"
+              maxlength="3"
+              autocomplete="off"
+              placeholder="예: 123"
+              aria-describedby="input-help message"
+            />
+            <p id="input-help" class="hint">
+              100~999 사이 · 숫자 중복 없이 · 첫 자리는 0 불가
+            </p>
+            <div class="buttons">
+              <button id="submit" type="submit">던지기</button
+              ><button class="secondary" id="new-game" type="button">
+                새 게임
+              </button>
+            </div>
+          </form>
+          <p id="message" role="status" aria-live="polite">
+            첫 숫자를 던져 보세요. 틀려도 힌트가 남아요!
+          </p>
+        </section>
+        <section class="panel" aria-labelledby="history-title">
+          <h2 id="history-title">나의 투구 기록</h2>
+          <p id="empty" class="hint">
+            아직 던진 숫자가 없어요.<br />입력한 숫자와 힌트를 여기서 비교해
+            보세요.
+          </p>
+          <table id="history-table" hidden>
+            <caption class="hint">
+              최근 기록이 위에 표시됩니다.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">회차</th>
+                <th scope="col">숫자</th>
+                <th scope="col">결과</th>
+              </tr>
+            </thead>
+            <tbody id="history"></tbody>
+          </table>
+        </section>
+      </div>
+      <details class="panel rules" open>
+        <summary>처음이라면? 게임 규칙</summary>
+        <ul>
+          <li><strong>스트라이크(S)</strong>: 숫자도, 자리도 맞았어요.</li>
+          <li><strong>볼(B)</strong>: 숫자는 있지만 자리가 달라요.</li>
+          <li><strong>아웃</strong>: 맞는 숫자가 하나도 없어요.</li>
+          <li>
+            예를 들어 정답이 <strong>427</strong>일 때 <strong>472</strong>를
+            던지면 <strong>1S 2B</strong>입니다.
+          </li>
+          <li>
+            <strong>3S</strong>면 성공! 잘못된 입력과 이미 던진 숫자는 기회를
+            쓰지 않아요.
+          </li>
+        </ul>
+        <p class="hint">
+          새 게임을 누르면 현재 기록을 지우고 새 정답으로 시작합니다.
+          새로고침해도 게임이 초기화됩니다.
+        </p>
+      </details>
+      <p class="footer">
+        전시판 동작 확인용 테스트 작품 · 로그인·저장·외부 연결 없이 실행됩니다.
+      </p>
+    </main>
+    <script>
+      "use strict";
+      // 예시 데이터와 설정값
+      const SETTINGS = Object.freeze({ digits: 3, maxTurns: 10 });
+      // 데이터·상태 (저장소를 사용하지 않아 다른 작품의 데이터에 접근하지 않음)
+      const state = { answer: "", history: [], finished: false };
+      const ui = Object.fromEntries(
+        [
+          "guess-form",
+          "guess",
+          "submit",
+          "new-game",
+          "message",
+          "remaining",
+          "answer",
+          "history",
+          "history-table",
+          "empty",
+        ].map((id) => [id, document.getElementById(id)]),
+      );
+      // 처리 함수
+      function createAnswer() {
+        const pool = Array.from({ length: 10 }, (_, i) => String(i));
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        if (pool[0] === "0") {
+          const index = pool.findIndex((n) => n !== "0");
+          [pool[0], pool[index]] = [pool[index], pool[0]];
+        }
+        return pool.slice(0, SETTINGS.digits).join("");
+      }
+      function scoreGuess(guess, answer) {
+        let strikes = 0,
+          balls = 0;
+        for (let i = 0; i < guess.length; i++) {
+          if (guess[i] === answer[i]) strikes++;
+          else if (answer.includes(guess[i])) balls++;
+        }
+        return { strikes, balls };
+      }
+      function validateGuess(value) {
+        if (!/^[1-9][0-9]{2}$/.test(value))
+          return "첫 자리가 0이 아닌 세 자리 숫자를 입력해 주세요.";
+        if (new Set(value).size !== SETTINGS.digits)
+          return "서로 다른 숫자 세 개를 입력해 주세요.";
+        if (state.history.some((turn) => turn.guess === value))
+          return "이미 던진 숫자예요. 기록을 보고 다른 숫자를 골라 주세요.";
+        return "";
+      }
+      function startGame(focus = true) {
+        state.answer = createAnswer();
+        state.history = [];
+        state.finished = false;
+        ui.guess.value = "";
+        ui.guess.removeAttribute("aria-invalid");
+        render();
+        announce("새 게임! 첫 숫자를 던져 보세요.");
+        if (focus) ui.guess.focus();
+      }
+      function submitGuess(event) {
+        event.preventDefault();
+        if (state.finished) return;
+        const guess = ui.guess.value.trim(),
+          error = validateGuess(guess);
+        if (error) {
+          ui.guess.setAttribute("aria-invalid", "true");
+          announce(error);
+          ui.guess.focus();
+          return;
+        }
+        ui.guess.removeAttribute("aria-invalid");
+        const result = scoreGuess(guess, state.answer);
+        state.history.push({ guess, ...result });
+        state.finished =
+          result.strikes === SETTINGS.digits ||
+          state.history.length === SETTINGS.maxTurns;
+        render();
+        if (result.strikes === SETTINGS.digits)
+          announce(
+            `홈런! ${state.history.length}번 만에 정답 ${state.answer}을 맞혔어요. 새 게임으로 다시 도전하세요.`,
+          );
+        else if (state.finished)
+          announce(
+            `기회를 모두 사용했어요. 정답은 ${state.answer}입니다. 새 게임으로 다시 도전하세요.`,
+          );
+        else {
+          announce(
+            `${guess}: ${result.strikes} 스트라이크, ${result.balls} 볼. 남은 기회 ${SETTINGS.maxTurns - state.history.length}번.`,
+          );
+          ui.guess.value = "";
+          ui.guess.focus();
+        }
+      }
+      // 화면 갱신
+      function announce(message) {
+        ui.message.textContent = message;
+      }
+      function badge(text, className = "") {
+        const span = document.createElement("span");
+        span.className = `badge ${className}`;
+        span.textContent = text;
+        return span;
+      }
+      function render() {
+        ui.remaining.textContent = `남은 기회 ${SETTINGS.maxTurns - state.history.length} / ${SETTINGS.maxTurns}`;
+        ui.guess.disabled = state.finished;
+        ui.submit.disabled = state.finished;
+        ui.answer.setAttribute(
+          "aria-label",
+          state.finished ? `정답 ${state.answer}` : "정답은 아직 비공개",
+        );
+        [...ui.answer.children].forEach((node, index) => {
+          node.textContent = state.finished ? state.answer[index] : "?";
+        });
+        ui.empty.hidden = state.history.length > 0;
+        ui["history-table"].hidden = state.history.length === 0;
+        ui.history.replaceChildren();
+        state.history.forEach((turn, index) => {
+          const row = document.createElement("tr");
+          for (const value of [String(index + 1), turn.guess]) {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            row.append(cell);
+          }
+          const result = document.createElement("td");
+          if (turn.strikes === 0 && turn.balls === 0)
+            result.append(badge("아웃", "out"));
+          else {
+            result.append(
+              badge(`${turn.strikes}S`),
+              document.createTextNode(" "),
+              badge(`${turn.balls}B`, "ball"),
+            );
+          }
+          row.append(result);
+          ui.history.prepend(row);
+        });
+      }
+      // 이벤트 연결
+      ui["guess-form"].addEventListener("submit", submitGuess);
+      ui["new-game"].addEventListener("click", () => startGame());
+      startGame(false);
+    </script>
+  </body>
+</html>

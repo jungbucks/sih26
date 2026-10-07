@@ -106,7 +106,17 @@ export async function catalog(root) {
     try {
       const d = execFileSync(
         "git",
-        ["-C", root, "log", "-1", "--format=%cI", "--", `${id}/index.html`],
+        [
+          "-c",
+          `safe.directory=${path.resolve(root)}`,
+          "-C",
+          root,
+          "log",
+          "-1",
+          "--format=%cI",
+          "--",
+          `${id}/index.html`,
+        ],
         { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
       ).trim();
       if (d) updatedAt = d;

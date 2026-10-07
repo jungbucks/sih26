@@ -159,10 +159,21 @@ export async function build({
     published: false,
   };
   try {
-    report.commit = execFileSync("git", ["-C", root, "rev-parse", "HEAD"], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
+    report.commit = execFileSync(
+      "git",
+      [
+        "-c",
+        `safe.directory=${path.resolve(root)}`,
+        "-C",
+        root,
+        "rev-parse",
+        "HEAD",
+      ],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+    ).trim();
   } catch {}
   let server;
   try {
@@ -315,7 +326,11 @@ export async function build({
   }
 }
 export function summary(r) {
-  return `## 빌드 결과 (게시 완료 아님)\n- 실행 커밋: ${r.commit || "미커밋"}\n- 등록 ${r.registered}, 제외 ${r.excluded.length}\n- 새 촬영 ${r.captured}, 캐시 ${r.cached}, 실패 ${r.failed.length}\n- 촬영 ${r.captureSeconds}초, 빌드 ${r.buildSeconds}초\n${[...r.excluded, ...r.failed].map((x) => `- ${x.id}: ${x.reason}`).join("\n")}\n${r.warnings.map((x) => `- ${x}`).join("\n")}\n- 다음 조치: 제외 파일·메타를 수정하고, 실패 작품은 새 탭에서 점검 후 다시 실행하세요. 배포 작업 결과를 별도로 확인하세요.\n`;
+  const next =
+    r.excluded.length || r.failed.length || r.warnings.length
+      ? "제외·실패·경고 내역을 확인하고 해당 작품을 수정한 뒤 다시 실행하세요. 배포 결과는 deploy 작업에서 확인하세요."
+      : "빌드가 완료되었습니다. deploy 작업에서 게시 완료 여부를 확인하세요.";
+  return `## 빌드 결과 (게시 완료 아님)\n- 실행 커밋: ${r.commit || "미커밋"}\n- 등록 ${r.registered}, 제외 ${r.excluded.length}\n- 새 촬영 ${r.captured}, 캐시 ${r.cached}, 실패 ${r.failed.length}\n- 촬영 ${r.captureSeconds}초, 빌드 ${r.buildSeconds}초\n${[...r.excluded, ...r.failed].map((x) => `- ${x.id}: ${x.reason}`).join("\n")}\n${r.warnings.map((x) => `- ${x}`).join("\n")}\n- 다음 조치: ${next}\n`;
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
