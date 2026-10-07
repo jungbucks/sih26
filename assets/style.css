@@ -430,10 +430,11 @@ a {
   display: block;
   height: 75vh;
   min-height: 560px;
-  border-radius: 10px;
+  border: 0;
+  border-radius: 0;
 }
 .work-page #frame {
-  margin: 12px 0 20px;
+  margin: 0;
 }
 .work-page .intro {
   margin-bottom: 8px;
@@ -480,4 +481,74 @@ a.card:hover h2 {
     font-size: 13px;
     padding: 8px 10px;
   }
+}
+
+.work-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  flex-wrap: wrap;
+  margin: 16px 0 20px;
+}
+.work-heading h1 {
+  margin: 0;
+  flex: 1 1 280px;
+  min-width: 0;
+}
+.work-heading .actions {
+  margin: 0;
+}
+.preview-area {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+}
+.preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 2px 16px;
+  background: #eaf0ed;
+  border-bottom: 1px solid var(--line);
+}
+.preview-heading h2 {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0;
+}
+.preview-heading button {
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  padding: 8px;
+  color: var(--muted);
+}
+.preview-heading button:hover {
+  color: var(--ink);
+  background: #dce7e1;
+}
+.work-page .preview-area #preview-status:not(:empty) {
+  margin: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.work-details {
+  margin-top: 20px;
+}
+@media (max-width: 540px) {
+  .work-heading {
+    gap: 14px;
+  }
+  .work-heading .actions {
+    width: 100%;
+  }
+  .preview-heading {
+    padding-inline: 12px;
+  }
+}
+.preview-heading button:focus-visible {
+  outline-offset: -3px;
 }

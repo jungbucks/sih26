@@ -103,3 +103,7 @@ GitHub 기본 Pages 규칙에 따른 예상 주소만 `https://jungbucks.github.
 ## 후속: 전시판 로컬 웹폰트
 
 Paperlogy Bold(700)와 Wanted Sans Variable 원본 WOFF2 및 각 SIL OFL 1.1 라이선스를 공식 저장소에서 가져와 `assets/fonts/`에 포함했습니다. 제목·카드 제목은 Paperlogy, 본문은 Wanted Sans로 실제 렌더링되는 것을 Chromium의 플랫폼 폰트 정보로 확인했습니다. Pages 산출물 내 폰트 파일의 HTTP 200·font/woff2 MIME, 외부 요청 없음, 목록·상세 360px 넘침 없음, iframe의 기존 숫자 야구 동작을 확인했습니다. 학생 `10100/index.html`은 변경하지 않았습니다.
+
+## 후속: 작품 미리보기 프레임 레이아웃
+
+상단 제목·다운로드/새 탭 버튼 아래, 얇은 ‘작품 미리보기’ 제목 줄과 넓은 iframe을 하나의 영역으로 묶었습니다. 학번과 설명은 실행 영역 아래에 배치했습니다. 기존 상세 자동 실행·키보드 재시작·360px 넘침 검사를 통과했고 데스크톱/모바일 화면을 확인했습니다.

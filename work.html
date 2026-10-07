@@ -16,21 +16,32 @@
       <a href="./" class="back">← 목록으로 돌아가기</a>
       <p id="status" role="status">작품을 불러오는 중…</p>
       <article id="work" hidden>
-        <p id="identity" class="eyebrow"></p>
-        <h1 id="title"></h1>
-        <div class="actions">
-          <a id="download" class="button primary">HTML 다운로드</a>
-          <a id="run" class="button" target="_blank" rel="noopener noreferrer"
-            >새 탭 실행 ↗</a
-          >
-          <button id="restart" type="button">다시 시작</button>
+        <div class="work-heading">
+          <h1 id="title"></h1>
+          <div class="actions">
+            <a id="download" class="button primary">HTML 다운로드</a>
+            <a id="run" class="button" target="_blank" rel="noopener noreferrer"
+              >새 탭 실행 ↗</a
+            >
+          </div>
         </div>
-        <p class="hint">작동하지 않거나 저장이 안 되면 새 탭에서 실행하세요.</p>
-        <p id="preview-status" class="hint" role="status"></p>
-        <div id="frame"></div>
-        <p id="description" class="intro"></p>
-        <p id="meta" class="hint"></p>
-        <p id="changes" class="hint"></p>
+        <section class="preview-area" aria-labelledby="preview-label">
+          <div class="preview-heading">
+            <h2 id="preview-label">작품 미리보기</h2>
+            <button id="restart" type="button">다시 시작</button>
+          </div>
+          <p id="preview-status" class="hint" role="status"></p>
+          <div id="frame"></div>
+        </section>
+        <div class="work-details">
+          <p id="identity" class="eyebrow"></p>
+          <p id="description" class="intro"></p>
+          <p id="meta" class="hint"></p>
+          <p id="changes" class="hint"></p>
+          <p class="hint">
+            작동하지 않거나 저장이 안 되면 새 탭에서 실행하세요.
+          </p>
+        </div>
       </article>
     </main>
     <footer id="build-info"></footer>
