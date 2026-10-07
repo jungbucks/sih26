@@ -552,3 +552,68 @@ a.card:hover h2 {
 .preview-heading button:focus-visible {
   outline-offset: -3px;
 }
+
+/* 목록은 첫 화면에서 작품에 빠르게 도달하도록 조밀하게 배치합니다. */
+.gallery-page header {
+  padding-block: 12px;
+}
+.gallery-page .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+}
+.gallery-page .brand span {
+  display: inline;
+  margin: 0;
+  font-size: 11px;
+}
+.gallery-page main {
+  padding-top: 20px;
+}
+.gallery-page h1 {
+  margin: 0;
+  font-size: clamp(26px, 3vw, 36px);
+}
+.gallery-page .intro {
+  margin: 8px 0 18px;
+}
+.gallery-page .result-bar {
+  min-height: 44px;
+  margin: 4px 0 12px;
+}
+.gallery-page #result {
+  margin: 0;
+}
+.gallery-page #reset {
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 14px;
+}
+.card-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.student-id {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.student-class {
+  font-size: 12px;
+  color: var(--muted);
+}
+.card h2 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.card-arrow {
+  flex: none;
+  font-family: "Wanted Sans", sans-serif;
+  font-size: 18px;
+  color: var(--accent);
+}

@@ -110,7 +110,7 @@ try {
   await page.locator("#reset").click();
   assert.match(await page.locator(".card").first().innerText(), /20100/);
   pass("24개 더 보기·검색·반 필터 동시 적용·학번순 카드");
-  await page.locator("#reset").click();
+  assert.ok(await page.locator("#reset").isHidden());
   await page.locator("#class").selectOption("1반");
   await page.locator("#more").click();
   await page.evaluate(() => scrollTo(0, 500));

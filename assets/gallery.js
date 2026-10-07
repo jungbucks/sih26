@@ -30,11 +30,16 @@ function card(p) {
   card.setAttribute("aria-label", `${p.id} ${p.title} 실행하기`);
   card.append(shot(p));
   const body = el("div", undefined, "card-body");
-  body.append(
-    el("p", `${p.id} · ${p.class}`, "card-label"),
-    el("h2", p.title),
-    el("p", p.description, "desc"),
+  const identity = el("p", undefined, "card-label");
+  identity.append(
+    el("strong", p.id, "student-id"),
+    el("span", p.class, "student-class"),
   );
+  const title = el("h2", p.title);
+  const arrow = el("span", "→", "card-arrow");
+  arrow.setAttribute("aria-hidden", "true");
+  title.append(arrow);
+  body.append(identity, title, el("p", p.description, "desc"));
   card.append(body);
   return card;
 }
@@ -49,7 +54,8 @@ function render() {
   result.sort((a, b) => a.id.localeCompare(b.id));
   $("cards").replaceChildren(...result.slice(0, limit).map(card));
   $("result").textContent =
-    `전체 ${projects.length}개 중 ${result.length}개 · ${Math.min(limit, result.length)}개 표시`;
+    q || group ? `검색 결과 ${result.length}개` : `작품 ${projects.length}개`;
+  $("reset").hidden = !$("search").value && !group;
   $("message").textContent = !projects.length
     ? "등록된 작품이 없습니다. 곧 학생들의 프로그램을 만나 보세요."
     : !result.length
@@ -94,6 +100,7 @@ $("reset").onclick = () => {
   $("class").value = "";
   limit = 24;
   render();
+  $("search").focus();
 };
 addEventListener("pagehide", save);
 addEventListener("scroll", save, { passive: true });
