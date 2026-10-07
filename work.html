@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>작품 상세 · 학생 프로그램 전시판</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script type="module" src="assets/work.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">본문으로 이동</a>
+    <header>
+      <a class="brand" href="./"
+        >SIH26 <span>정보 수업 · 프로젝트 아카이브</span></a
+      >
+    </header>
+    <main id="main">
+      <a href="./" class="back">← 목록으로 돌아가기</a>
+      <p id="status" role="status">불러오는 중…</p>
+      <article id="work" hidden>
+        <p id="identity" class="eyebrow"></p>
+        <h1 id="title"></h1>
+        <p id="description" class="intro"></p>
+        <p id="meta"></p>
+        <p id="changes"></p>
+        <div class="actions">
+          <a
+            id="run"
+            class="button primary"
+            target="_blank"
+            rel="noopener noreferrer"
+            >프로그램 실행 ↗</a
+          ><a id="download" class="button">HTML 다운로드</a
+          ><button id="preview-start">여기서 미리 실행</button
+          ><button id="prd-open">기획서 보기</button
+          ><a href="./" class="button">목록으로 돌아가기</a>
+        </div>
+        <p class="hint">
+          다운로드는 저장 요청입니다. 브라우저의 다운로드 목록을 확인하세요.
+        </p>
+        <div id="hero"></div>
+        <section id="preview" class="panel" hidden>
+          <h2>Live Preview</h2>
+          <p>
+            저장·팝업·다운로드가 제한될 수 있습니다. 실제 기능 테스트는 새 탭
+            실행을 권장합니다.
+          </p>
+          <div class="actions">
+            <a
+              id="preview-run"
+              class="button"
+              target="_blank"
+              rel="noopener noreferrer"
+              >새 탭 실행 ↗</a
+            ><button id="restart">다시 시작</button
+            ><button id="grow">높이 늘리기</button
+            ><button id="stop">종료</button>
+          </div>
+          <p id="preview-status" role="status"></p>
+          <div id="frame"></div>
+        </section>
+        <section id="prd-panel" class="panel" hidden>
+          <h2>공개 기획서</h2>
+          <p id="prd-status" role="status"></p>
+          <pre id="prd-text"></pre>
+          <a id="prd-download" class="button" hidden>기획서 다운로드</a>
+        </section>
+        <details id="code-panel" class="panel">
+          <summary>다운로드가 어렵나요? 코드 보기·복사</summary>
+          <p>
+            전체 코드를 복사해 텍스트 편집기에 붙여 넣고 UTF-8 형식의 학번.html
+            파일로 저장하세요.
+          </p>
+          <button id="code-load">코드 불러오기</button
+          ><button id="code-copy" hidden>코드 복사</button
+          ><label for="code">HTML 원본 (수동 복사 가능)</label
+          ><textarea id="code" readonly rows="10"></textarea>
+          <p id="code-status" role="status"></p>
+        </details>
+        <section class="panel coaching">
+          <p class="eyebrow">다음 버전을 위한 대화</p>
+          <h2>AI와 개선 상담</h2>
+          <ol>
+            <li>새 탭에서 프로그램을 직접 사용하고 테스트하기</li>
+            <li>HTML과 등록된 기획서 내려받기</li>
+            <li>개선 상담 프롬프트 복사하기</li>
+            <li>
+              사용하는 AI에 파일을 첨부하거나 코드를 붙여 넣고 관찰 결과 답하기
+            </li>
+          </ol>
+          <button id="prompt-copy" class="primary">
+            개선 상담 프롬프트 복사
+          </button>
+          <p id="copy-status" role="status" aria-live="polite"></p>
+          <details id="prompt-panel">
+            <summary>상담 프롬프트 원문 · 수동 복사</summary>
+            <label for="prompt">상담 프롬프트</label
+            ><textarea id="prompt" readonly rows="18"></textarea>
+          </details>
+          <p class="hint">
+            파일과 코드는 AI에 자동 전송되지 않으며 자동 평가하지 않습니다.
+          </p>
+        </section>
+      </article>
+    </main>
+    <footer id="build-info"></footer>
+  </body>
+</html>

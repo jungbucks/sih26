@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>학생 프로그램 전시판</title>
+    <link rel="stylesheet" href="assets/style.css" />
+    <script type="module" src="assets/gallery.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">본문으로 이동</a>
+    <header>
+      <a class="brand" href="./"
+        >SIH26 <span>정보 수업 · 프로젝트 아카이브</span></a
+      >
+    </header>
+    <main id="main">
+      <p class="eyebrow">만들고, 실행하고, 함께 개선하기</p>
+      <h1>학생 프로그램 전시판</h1>
+      <p class="intro">
+        친구들의 아이디어를 만나 보세요. 직접 실행하고 다음 개선점을 찾아보세요.
+      </p>
+      <form id="filters" class="filters" role="search">
+        <label class="search"
+          >작품 검색<input
+            id="search"
+            type="search"
+            placeholder="학번, 제목, 설명으로 검색"
+            autocomplete="off" /></label
+        ><label
+          >반<select id="class">
+            <option value="">모든 반</option>
+          </select></label
+        ><label
+          >정렬<select id="sort">
+            <option value="id">학번순</option>
+            <option value="recent">최근 수정순</option>
+          </select></label
+        >
+      </form>
+      <div class="result-bar">
+        <p id="result" role="status" aria-live="polite">불러오는 중…</p>
+        <button id="reset" type="button">전체 보기</button>
+      </div>
+      <div id="message" class="message"></div>
+      <section id="cards" class="grid" aria-label="학생 작품"></section>
+      <button id="more" class="more" hidden>더 보기</button>
+    </main>
+    <footer id="build-info">빌드 정보를 불러오는 중…</footer>
+  </body>
+</html>
