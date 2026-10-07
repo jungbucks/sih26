@@ -24,6 +24,8 @@ export async function serve(root, { port = 0, base = "/sih26/" } = {}) {
             ".js": "text/javascript",
             ".css": "text/css",
             ".png": "image/png",
+            ".woff2": "font/woff2",
+            ".txt": "text/plain; charset=utf-8",
             ".md": "text/plain; charset=utf-8",
           }[path.extname(target)] || "application/octet-stream",
         "X-Content-Type-Options": "nosniff",

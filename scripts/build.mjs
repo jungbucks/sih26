@@ -185,6 +185,19 @@ export async function build({
         path.join(root, "assets", file),
         path.join(staging, "assets", file),
       );
+    await fs.mkdir(path.join(staging, "assets/fonts"));
+    for (const file of [
+      "Paperlogy-7Bold.woff2",
+      "WantedSansVariable.woff2",
+      "Paperlogy-OFL.txt",
+      "WantedSans-OFL.txt",
+      "SOURCES.md",
+    ]) {
+      await fs.copyFile(
+        path.join(root, "assets/fonts", file),
+        path.join(staging, "assets/fonts", file),
+      );
+    }
     await fs.mkdir(path.join(staging, "thumbnails"));
     await fs.mkdir(path.join(staging, "prd"));
     await fs.writeFile(path.join(staging, ".nojekyll"), "");
