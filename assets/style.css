@@ -1,3 +1,4 @@
+/* ── 글꼴: 로고·제목 Paperlogy Bold, 본문 Wanted Sans (assets/fonts, 외부 CDN 없음) ── */
 @font-face {
   font-family: "Paperlogy";
   src: url("./fonts/Paperlogy-7Bold.woff2") format("woff2");
@@ -12,20 +13,24 @@
   font-weight: 400 1000;
   font-display: swap;
 }
-h1,
-h2,
-h3 {
-  font-family: "Paperlogy", sans-serif;
-  font-weight: 700;
-}
+
+/* ── 토큰: 간격은 4·8·12·16·24·32·48·64, 둥글기는 8(조작 요소)·12(카드·영역) ── */
 :root {
   color-scheme: light;
   --ink: #172c37;
   --muted: #536570;
   --line: #d4dfe1;
   --accent: #126252;
+  --accent-dark: #0c493e;
   --paper: #f5f7f6;
+  --tint: #eaf0ed;
+  --tint-strong: #dce7e1;
+  --focus: #9c4e09;
+  --r-sm: 8px;
+  --r-lg: 12px;
 }
+
+/* ── 기본 ── */
 * {
   box-sizing: border-box;
 }
@@ -34,26 +39,45 @@ body {
   background: var(--paper);
   color: var(--ink);
   font:
-    16px/1.65 "Wanted Sans",
+    17px/1.7 "Wanted Sans",
     system-ui,
     -apple-system,
     "Noto Sans CJK KR",
     sans-serif;
+  letter-spacing: -0.01em;
+  /* 한글은 단어 단위로 줄바꿈, 칸을 넘는 긴 영문·숫자만 쪼갠다 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+h1,
+h2,
+h3 {
+  font-family: "Paperlogy", sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+h1 {
+  font-size: clamp(28px, 3.2vw, 38px);
+  line-height: 1.3;
+  margin: 0;
+}
+h2 {
+  font-size: 24px;
+  line-height: 1.4;
 }
 a {
   color: var(--accent);
   text-underline-offset: 4px;
 }
+[hidden] {
+  display: none !important;
+}
+
+/* ── 조작 요소 (44px 이상) ── */
 button,
 input,
-select,
-textarea {
+select {
   font: inherit;
-}
-button,
-.button,
-select,
-input {
   min-height: 44px;
 }
 button,
@@ -61,14 +85,18 @@ button,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 9px 16px;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 16px;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: var(--r-sm);
   background: white;
   color: var(--ink);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.4;
   text-decoration: none;
   cursor: pointer;
-  font-weight: 650;
 }
 button:hover,
 .button:hover {
@@ -77,94 +105,23 @@ button:hover,
 }
 .primary {
   background: var(--accent);
-  color: white;
   border-color: var(--accent);
+  color: white;
 }
 .primary:hover {
-  background: #0c493e;
+  background: var(--accent-dark);
   color: white;
 }
 input,
-select,
-textarea {
-  border: 1px solid #93a6ab;
-  border-radius: 8px;
-  padding: 10px;
-  background: white;
-  color: var(--ink);
+select {
   width: 100%;
   min-width: 0;
-}
-textarea {
-  display: block;
-  resize: vertical;
-}
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-summary:focus-visible,
-textarea:focus-visible {
-  outline: 3px solid #9c4e09;
-  outline-offset: 4px;
-}
-[hidden] {
-  display: none !important;
-}
-header {
-  border-bottom: 1px solid var(--line);
-  background: #fff;
-  padding: 20px max(24px, calc((100% - 1280px) / 2));
-}
-.brand {
-  font-family: "Paperlogy", sans-serif;
-  font-size: 21px;
-  font-weight: 700;
-  text-decoration: none;
-  letter-spacing: 1px;
-}
-.brand span {
-  font-family: "Wanted Sans", sans-serif;
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 500;
-  letter-spacing: 0;
-  margin-left: 18px;
-}
-main {
-  max-width: 1328px;
-  padding: 40px 24px 64px;
-  margin: auto;
-  min-height: 80vh;
-}
-h1 {
-  font-size: clamp(28px, 4vw, 42px);
-  letter-spacing: -1.5px;
-  line-height: 1.3;
-  margin: 8px 0 14px;
-}
-h2 {
-  font-size: 24px;
-  line-height: 1.4;
-}
-.eyebrow {
-  font-size: 13px;
-  letter-spacing: 1px;
-  color: var(--accent);
-  font-weight: 750;
-  margin: 8px 0;
-}
-.intro {
-  color: var(--muted);
-  margin: 0 0 30px;
-}
-.filters {
-  display: grid;
-  grid-template-columns: 1fr 180px;
-  gap: 16px;
-  padding: 0;
-  background: transparent;
-  border-radius: 12px;
+  padding: 8px 12px;
+  border: 1px solid #93a6ab;
+  border-radius: var(--r-sm);
+  background: white;
+  color: var(--ink);
+  font-size: 16px;
 }
 label {
   display: block;
@@ -173,40 +130,140 @@ label {
 }
 label input,
 label select {
-  margin-top: 7px;
+  margin-top: 8px;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 4px;
+}
+
+/* ── 공통 틀 ── */
+.skip {
+  position: absolute;
+  top: -100px;
+  left: 12px;
+  z-index: 5;
+  padding: 12px;
+  background: white;
+}
+.skip:focus {
+  top: 8px;
+}
+header {
+  padding: 12px max(24px, calc((100% - 1280px) / 2));
+  border-bottom: 1px solid var(--line);
+  background: white;
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-family: "Paperlogy", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-decoration: none;
+}
+.brand span {
+  font-family: "Wanted Sans", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+main {
+  max-width: 1328px;
+  min-height: 80vh;
+  margin: auto;
+  padding: 24px 24px 64px;
+}
+footer {
+  padding: 24px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.intro {
+  margin: 8px 0 24px;
+  color: var(--muted);
+}
+.hint {
+  font-size: 14px;
+  color: var(--muted);
+}
+.eyebrow {
+  margin: 8px 0;
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-bottom: 4px;
+}
+
+/* ── 목록 ── */
+.filters {
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  gap: 16px;
 }
 .result-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 22px 0;
   gap: 16px;
+  min-height: 44px;
+  margin: 8px 0 16px;
 }
 #result {
+  margin: 0;
   font-size: 14px;
   color: var(--muted);
+}
+#reset {
+  padding: 8px 12px;
+  font-size: 14px;
 }
 .grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 22px;
+  gap: 24px;
 }
 .card {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: white;
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+.card:hover {
+  border-color: var(--accent);
+}
+.card:hover h2 {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 .shot {
+  display: block;
   width: 100%;
   height: auto;
   aspect-ratio: 16/10;
-  display: block;
   object-fit: cover;
-  background: #e8eeeb;
   border-bottom: 1px solid var(--line);
+  background: #e8eeeb;
 }
 .placeholder {
   display: flex;
@@ -216,298 +273,92 @@ label select {
   font-size: 14px;
 }
 .card-body {
-  padding: 19px;
   display: flex;
-  flex-direction: column;
   flex: 1;
+  flex-direction: column;
+  padding: 16px 20px 20px;
+}
+.card-label {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+.student-id {
+  font-size: 14px;
+  font-weight: 700;
+}
+.student-class {
+  font-size: 13px;
+  color: var(--muted);
+}
+.seen-badge {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--accent);
 }
 .card h2 {
+  margin: 8px 0;
   font-size: 19px;
-  line-height: 1.4;
-  margin: 9px 0;
-}
-.card h2 a {
-  color: var(--ink);
-  text-decoration: none;
-}
-.card h2 a:hover {
-  text-decoration: underline;
-}
-.card p {
-  margin: 5px 0;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
 }
 .card .desc {
-  color: var(--muted);
-  font-size: 14px;
   display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.tags {
-  display: flex;
-  gap: 7px;
-  flex-wrap: wrap;
-  font-size: 12px;
-}
-.tag {
-  background: #edf2ef;
-  border-radius: 4px;
-  padding: 2px 7px;
-}
-.date {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: auto !important;
-  padding: 18px 0 8px;
-}
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 14px 0;
-}
-.card .actions {
-  margin: 0;
-  gap: 8px;
-}
-.card .button {
-  font-size: 13px;
-  padding: 8px 10px;
-  flex: 1;
 }
 .more {
-  margin: 32px auto 0;
   display: flex;
   min-width: 180px;
+  margin: 32px auto 0;
 }
 .message {
+  padding: 24px;
   text-align: center;
-  padding: 20px;
   color: var(--muted);
 }
 .message:empty {
   display: none;
 }
-footer {
-  border-top: 1px solid var(--line);
-  padding: 24px;
-  text-align: center;
-  color: var(--muted);
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-.back {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  margin-bottom: 18px;
-}
-#hero {
-  max-width: 1024px;
-  margin: 28px auto;
-}
-#hero .shot {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-}
-.panel {
-  padding: 24px;
-  background: white;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  margin: 24px 0;
-}
-.panel h2 {
-  margin-top: 0;
-}
-.hint {
-  font-size: 13px;
-  color: var(--muted);
-}
-iframe {
-  width: 100%;
-  height: 600px;
-  border: 1px solid var(--line);
-  background: white;
-}
-pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-summary {
-  cursor: pointer;
-  min-height: 44px;
-  padding: 9px 0;
-  font-weight: 650;
-}
-.coaching {
-  background: #edf3ef;
-}
-.coaching li {
-  margin: 7px 0;
-}
-.skip {
-  position: absolute;
-  top: -100px;
-  left: 12px;
-  background: white;
-  padding: 12px;
-  z-index: 5;
-}
-.skip:focus {
-  top: 8px;
-}
-h1,
-h2,
-p,
-a {
-  overflow-wrap: anywhere;
-}
-@media (max-width: 1100px) {
-  .grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-@media (max-width: 850px) {
-  .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .filters {
-    grid-template-columns: 1fr 1fr;
-  }
-  .search {
-    grid-column: 1/-1;
-  }
-}
-@media (max-width: 540px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-  main {
-    padding: 28px 16px 48px;
-  }
-  header {
-    padding: 16px;
-  }
-  .brand span {
-    font-family: "Wanted Sans", sans-serif;
-    display: block;
-    margin: 2px 0 0;
-  }
-  .filters {
-    padding: 14px;
-    gap: 12px;
-  }
-  .panel {
-    padding: 16px;
-  }
-  .actions > * {
-    flex-grow: 1;
-  }
-  h1 {
-    letter-spacing: -1px;
-  }
-}
 
-/* 작품을 선택하면 실행 화면부터 보여 주는 간단한 수업용 상세 */
-.work-page main {
-  padding-top: 20px;
-}
-.work-page .back {
-  margin-bottom: 4px;
-}
-.work-page h1 {
-  font-size: clamp(24px, 3vw, 32px);
-}
-.work-page .actions {
-  margin: 12px 0;
-}
-.work-page .hint {
-  margin: 6px 0;
-}
-.work-page iframe {
-  display: block;
-  height: 75vh;
-  min-height: 560px;
-  border: 0;
-  border-radius: 0;
-}
-.work-page #frame {
-  margin: 0;
-}
-.work-page .intro {
-  margin-bottom: 8px;
-}
-
-a.card {
-  color: var(--ink);
-  text-decoration: none;
-  transition: border-color 0.15s;
-}
-a.card:hover {
-  border-color: var(--accent);
-}
-a.card:hover h2 {
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-.card-label {
-  font-size: 12px;
-  color: var(--muted);
-}
-@media (max-width: 850px) {
-  .filters {
-    grid-template-columns: 1fr 150px;
-  }
-  .search {
-    grid-column: auto;
-  }
-}
-@media (max-width: 540px) {
-  .filters {
-    padding: 0;
-    grid-template-columns: 1fr 110px;
-  }
-}
-#preview-status:empty {
-  display: none;
-}
-@media (max-width: 540px) {
-  .work-page .actions {
-    gap: 8px;
-  }
-  .work-page .actions > * {
-    font-size: 13px;
-    padding: 8px 10px;
-  }
-}
-
+/* ── 작품 화면 ── */
 .work-heading {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 12px 24px;
-  flex-wrap: wrap;
-  margin: 16px 0 20px;
+  margin: 16px 0 24px;
 }
 .work-title {
   flex: 1 1 280px;
   min-width: 0;
 }
-.work-heading h1 {
-  margin: 0;
+.work-title h1 {
+  font-size: clamp(24px, 3vw, 32px);
+  line-height: 1.35;
 }
-.work-page .work-title .intro {
-  margin: 6px 0 0;
+.work-title .intro {
+  margin: 8px 0 0;
+  font-size: 16px;
 }
-.work-heading .actions {
-  margin: 0;
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .preview-area {
-  border: 1px solid var(--line);
-  border-radius: 12px;
   overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
   background: white;
 }
 .preview-heading {
@@ -515,9 +366,9 @@ a.card:hover h2 {
   align-items: center;
   flex-wrap: wrap;
   gap: 4px 16px;
-  padding: 2px 16px;
-  background: #eaf0ed;
+  padding: 0 16px;
   border-bottom: 1px solid var(--line);
+  background: var(--tint);
 }
 .preview-heading h2 {
   margin: 0;
@@ -532,128 +383,42 @@ a.card:hover h2 {
   text-align: right;
 }
 .preview-heading button {
-  gap: 6px;
-  margin: 6px 0;
-  font-size: 14px;
-  padding: 6px 14px;
-  background: white;
-}
-.preview-heading button:hover {
-  background: #dce7e1;
-}
-.work-page .preview-area #preview-status:not(:empty) {
-  margin: 0;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--line);
-}
-.work-details {
-  margin-top: 20px;
-}
-@media (max-width: 540px) {
-  .work-heading {
-    gap: 14px;
-  }
-  .work-heading .actions {
-    width: 100%;
-  }
-  .preview-heading {
-    padding-inline: 12px;
-  }
-  .preview-tip {
-    order: 3;
-    flex-basis: 100%;
-    text-align: left;
-    padding-bottom: 8px;
-  }
-  .preview-heading h2 {
-    flex: 1;
-  }
-  .work-nav .button {
-    flex: 1 1 0;
-  }
-}
-.preview-heading button:focus-visible {
-  outline-offset: -3px;
-}
-
-/* 목록은 첫 화면에서 작품에 빠르게 도달하도록 조밀하게 배치합니다. */
-header {
-  padding-block: 12px;
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 18px;
-}
-.brand span {
-  min-width: 0;
-  flex: 1;
-  display: inline;
-  margin: 0;
-  font-size: 11px;
-}
-.gallery-page main {
-  padding-top: 20px;
-}
-.gallery-page h1 {
-  margin: 0;
-  font-size: clamp(26px, 3vw, 36px);
-}
-.gallery-page .intro {
-  margin: 8px 0 18px;
-}
-.gallery-page .result-bar {
-  min-height: 44px;
-  margin: 4px 0 12px;
-}
-.gallery-page #result {
-  margin: 0;
-}
-.gallery-page #reset {
-  min-height: 44px;
+  margin: 8px 0;
   padding: 8px 12px;
   font-size: 14px;
 }
-.card-label {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
+.preview-heading button:hover {
+  background: var(--tint-strong);
 }
-.student-id {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--ink);
+#preview-status {
+  margin: 0;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
 }
-.student-class {
-  font-size: 12px;
-  color: var(--muted);
+#preview-status:empty {
+  display: none;
 }
-.card h2 {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-.seen-badge {
-  margin-left: auto;
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--accent);
+#frame iframe {
+  display: block;
+  width: 100%;
+  height: 75vh;
+  min-height: 560px;
+  border: 0;
+  background: white;
 }
 .work-nav {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  margin: 16px 0 0;
+  margin-top: 16px;
 }
 .work-nav .button {
   flex-direction: column;
   align-items: flex-start;
-  max-width: 48%;
-  padding: 10px 16px;
+  gap: 0;
   min-width: 0;
+  max-width: 48%;
+  padding: 8px 16px;
 }
 .work-nav #next {
   margin-left: auto;
@@ -665,16 +430,72 @@ header {
 }
 .nav-title {
   max-width: 100%;
+  overflow: hidden;
   font-size: 13px;
   font-weight: 500;
   color: var(--muted);
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.card-arrow {
-  flex: none;
-  font-family: "Wanted Sans", sans-serif;
-  font-size: 18px;
-  color: var(--accent);
+.work-details {
+  margin-top: 24px;
+}
+.work-details .hint {
+  margin: 4px 0;
+}
+
+/* ── 반응형 ── */
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 850px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .filters {
+    grid-template-columns: 1fr 160px;
+  }
+}
+@media (max-width: 540px) {
+  header {
+    padding: 12px 16px;
+  }
+  main {
+    padding: 24px 16px 48px;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .filters {
+    grid-template-columns: 1fr 112px;
+    gap: 12px;
+  }
+  .work-heading {
+    gap: 16px;
+  }
+  .work-heading .actions {
+    width: 100%;
+  }
+  .actions > * {
+    flex: 1 1 0;
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+  .preview-heading {
+    padding-inline: 12px;
+  }
+  .preview-heading h2 {
+    flex: 1;
+  }
+  .preview-tip {
+    order: 3;
+    flex-basis: 100%;
+    padding-bottom: 8px;
+    text-align: left;
+  }
+  .work-nav .button {
+    flex: 1 1 0;
+  }
 }

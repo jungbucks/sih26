@@ -35,7 +35,7 @@ async function init() {
     const list = await json("projects.json");
     const p = list.find((x) => x.id === id);
     if (!p) throw new ShownError("등록되지 않은 작품입니다.");
-    document.title = `${p.title} · 학생 프로그램 전시판`;
+    document.title = `${p.title} · 레이트 바이브 코딩 프로젝트`;
     $("identity").textContent = `${id} · ${p.class}`;
     $("title").textContent = p.title;
     $("description").textContent = p.description;

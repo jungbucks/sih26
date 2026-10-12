@@ -46,9 +46,6 @@ function card(p) {
   );
   if (seen.has(p.id)) identity.append(el("span", "✓ 봄", "seen-badge"));
   const title = el("h2", p.title);
-  const arrow = el("span", "→", "card-arrow");
-  arrow.setAttribute("aria-hidden", "true");
-  title.append(arrow);
   body.append(identity, title, el("p", p.description, "desc"));
   card.append(body);
   return card;
