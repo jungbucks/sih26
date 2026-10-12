@@ -14,18 +14,65 @@
   font-display: swap;
 }
 
+/*
+ * 색·카드 호버·강조 버튼은 Uiverse.io의 Prismfield 카드·버튼(by uiverse-astronaut)을
+ * 바탕으로 수정했습니다(--pf-* 토큰, .card:hover, .primary).
+ *
+ * MIT License
+ * Copyright (c) 2023 Uiverse.io
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 /* ── 토큰: 간격은 4·8·12·16·24·32·48·64, 둥글기는 8(조작 요소)·12(카드·영역) ── */
 :root {
   color-scheme: light;
-  --ink: #172c37;
-  --muted: #536570;
-  --line: #d4dfe1;
-  --accent: #126252;
-  --accent-dark: #0c493e;
-  --paper: #f5f7f6;
-  --tint: #eaf0ed;
-  --tint-strong: #dce7e1;
-  --focus: #9c4e09;
+  /* 무채색 바탕 (Prismfield 뉴트럴) */
+  --canvas: #ffffff;
+  --paper: #faf9f6;
+  --ink: #0b0b0f;
+  --muted: #5a5a66;
+  --line: #e4e2dd;
+  --line-strong: #d4d2cc;
+  --field: #8f8c84; /* 입력칸 테두리: 흰 바탕 대비 3:1 이상 */
+  --tint: #f2f0eb;
+  --tint-strong: #e9e6df;
+  --focus: #0b0b0f;
+  /* 프리즘 — 장식(헤더 띠·카드 호버·버튼 번짐)에만, 글자색으로는 쓰지 않는다 */
+  --pf-magenta: #e8429b;
+  --pf-violet: #9b5be8;
+  --pf-cyan: #3fc7e8;
+  --pf-prism-lime: #b8f25f;
+  --pf-amber: #f5b946;
+  --pf-lime: #7ce25b;
+  --pf-lime-edge: #5fc73f;
+  --pf-lime-hover: #92ea73;
+  --pf-lime-ink: #0b1a05;
+  --prism: linear-gradient(
+    90deg,
+    var(--pf-magenta),
+    var(--pf-violet),
+    var(--pf-cyan),
+    var(--pf-prism-lime),
+    var(--pf-amber)
+  );
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --r-sm: 8px;
   --r-lg: 12px;
 }
@@ -66,7 +113,7 @@ h2 {
   line-height: 1.4;
 }
 a {
-  color: var(--accent);
+  color: var(--ink);
   text-underline-offset: 4px;
 }
 [hidden] {
@@ -88,38 +135,69 @@ button,
   gap: 8px;
   min-height: 44px;
   padding: 8px 16px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-sm);
-  background: white;
+  background: var(--canvas);
   color: var(--ink);
   font-size: 15px;
   font-weight: 650;
   line-height: 1.4;
   text-decoration: none;
   cursor: pointer;
+  transition:
+    background 120ms var(--ease),
+    border-color 120ms var(--ease);
 }
 button:hover,
 .button:hover {
-  background: #e6eeeb;
-  border-color: #7f9a91;
+  background: var(--tint);
+  border-color: var(--ink);
 }
+/* 강조 버튼 = Prismfield 버튼: 연두 바탕 + 마우스를 올리면 프리즘 번짐 */
 .primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
+  position: relative;
+  isolation: isolate;
+  background: var(--pf-lime);
+  border-color: var(--pf-lime-edge);
+  color: var(--pf-lime-ink);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 8px 18px -10px rgba(124, 226, 91, 0.6),
+    0 2px 4px rgba(11, 11, 15, 0.08);
+  transition:
+    transform 120ms var(--ease),
+    background 120ms var(--ease);
+}
+.primary::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  z-index: -1;
+  border-radius: var(--r-lg); /* 버튼 8px + 바깥 4px */
+  background: var(--prism);
+  filter: blur(8px);
+  opacity: 0;
+  transition: opacity 220ms var(--ease);
 }
 .primary:hover {
-  background: var(--accent-dark);
-  color: white;
+  background: var(--pf-lime-hover);
+  border-color: var(--pf-lime-edge);
+  transform: translateY(-1px);
+}
+.primary:hover::before {
+  opacity: 0.7;
+}
+.primary:active {
+  transform: translateY(1px);
 }
 input,
 select {
   width: 100%;
   min-width: 0;
   padding: 8px 12px;
-  border: 1px solid #93a6ab;
+  border: 1px solid var(--field);
   border-radius: var(--r-sm);
-  background: white;
+  background: var(--canvas);
   color: var(--ink);
   font-size: 16px;
 }
@@ -147,15 +225,23 @@ select:focus-visible {
   left: 12px;
   z-index: 5;
   padding: 12px;
-  background: white;
+  background: var(--canvas);
 }
 .skip:focus {
   top: 8px;
 }
+/* 헤더 아래 3px 프리즘 띠 — 사이트의 시그니처는 이것 하나 */
 header {
-  padding: 12px max(24px, calc((100% - 1280px) / 2));
-  border-bottom: 1px solid var(--line);
-  background: white;
+  position: relative;
+  padding: 12px max(24px, calc((100% - 1280px) / 2)) 15px;
+  background: var(--canvas);
+}
+header::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 3px;
+  background: var(--prism);
 }
 .brand {
   display: flex;
@@ -178,7 +264,7 @@ main {
   max-width: 1328px;
   min-height: 80vh;
   margin: auto;
-  padding: 24px 24px 64px;
+  padding: 32px 24px 64px;
 }
 footer {
   padding: 24px;
@@ -199,9 +285,9 @@ footer {
 .eyebrow {
   margin: 8px 0;
   font-size: 14px;
-  font-weight: 750;
+  font-weight: 700;
   letter-spacing: 0.04em;
-  color: var(--accent);
+  color: var(--ink);
 }
 .back {
   display: inline-flex;
@@ -238,19 +324,38 @@ footer {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 24px;
 }
+/* 카드 = Prismfield 카드: 평소엔 옅은 선, 마우스를 올리면 프리즘 테두리 */
 .card {
   display: flex;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  background: white;
+  background: var(--canvas);
   color: var(--ink);
   text-decoration: none;
-  transition: border-color 0.15s;
+  box-shadow:
+    0 1px 0 rgba(11, 11, 15, 0.02),
+    0 8px 24px -16px rgba(11, 11, 15, 0.18);
+  transition:
+    box-shadow 220ms var(--ease),
+    transform 220ms var(--ease);
 }
 .card:hover {
-  border-color: var(--accent);
+  border-color: transparent;
+  background:
+    linear-gradient(var(--canvas), var(--canvas)) padding-box,
+    linear-gradient(
+        135deg,
+        var(--pf-magenta),
+        var(--pf-violet),
+        var(--pf-cyan),
+        var(--pf-prism-lime),
+        var(--pf-amber)
+      )
+      border-box;
+  box-shadow: 0 16px 36px -18px rgba(11, 11, 15, 0.32);
+  transform: translateY(-2px);
 }
 .card:hover h2 {
   text-decoration: underline;
@@ -263,7 +368,7 @@ footer {
   aspect-ratio: 16/10;
   object-fit: cover;
   border-bottom: 1px solid var(--line);
-  background: #e8eeeb;
+  background: var(--tint);
 }
 .placeholder {
   display: flex;
@@ -280,27 +385,52 @@ footer {
 }
 .card-label {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
   margin: 0;
 }
+/* 학번: 고정폭 + 넓은 자간 */
 .student-id {
+  font-family: ui-monospace, "D2Coding", Consolas, monospace;
   font-size: 14px;
   font-weight: 700;
+  letter-spacing: 0.08em;
 }
+/* 반: 작은 칩 */
 .student-class {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--paper);
   font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
   color: var(--muted);
 }
+/* 이 탭에서 본 작품: 연두 점 + '봄' */
 .seen-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   margin-left: auto;
   font-size: 13px;
-  font-weight: 650;
-  color: var(--accent);
+  font-weight: 600;
+  color: var(--muted);
+}
+.seen-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pf-lime);
+  box-shadow: 0 0 0 3px rgba(124, 226, 91, 0.2);
 }
 .card h2 {
-  margin: 8px 0;
+  margin: 12px 0 8px;
   font-size: 19px;
   line-height: 1.45;
   letter-spacing: -0.01em;
@@ -359,7 +489,8 @@ footer {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  background: white;
+  background: var(--canvas);
+  box-shadow: 0 8px 24px -16px rgba(11, 11, 15, 0.18);
 }
 .preview-heading {
   display: flex;
@@ -404,7 +535,7 @@ footer {
   height: 75vh;
   min-height: 560px;
   border: 0;
-  background: white;
+  background: var(--canvas);
 }
 .work-nav {
   display: flex;
@@ -444,6 +575,22 @@ footer {
   margin: 4px 0;
 }
 
+/* ── 움직임 줄이기 설정 존중 ── */
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .primary,
+  .primary::before,
+  button,
+  .button {
+    transition: none;
+  }
+  .card:hover,
+  .primary:hover,
+  .primary:active {
+    transform: none;
+  }
+}
+
 /* ── 반응형 ── */
 @media (max-width: 1100px) {
   .grid {
@@ -460,7 +607,7 @@ footer {
 }
 @media (max-width: 540px) {
   header {
-    padding: 12px 16px;
+    padding: 12px 16px 15px;
   }
   main {
     padding: 24px 16px 48px;

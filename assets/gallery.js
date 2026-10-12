@@ -44,7 +44,7 @@ function card(p) {
     el("strong", p.id, "student-id"),
     el("span", p.class, "student-class"),
   );
-  if (seen.has(p.id)) identity.append(el("span", "✓ 봄", "seen-badge"));
+  if (seen.has(p.id)) identity.append(el("span", "봄", "seen-badge"));
   const title = el("h2", p.title);
   body.append(identity, title, el("p", p.description, "desc"));
   card.append(body);
