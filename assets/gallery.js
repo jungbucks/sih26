@@ -1,8 +1,18 @@
-import { $, el, json, shot, link } from "./common.js";
-const key = "sih26:gallery:v1";
+import {
+  $,
+  el,
+  json,
+  shot,
+  link,
+  VIEW_KEY,
+  filterProjects,
+  seenIds,
+} from "./common.js";
+const key = VIEW_KEY;
 let projects = [],
   limit = 24,
   restoreY = 0;
+const seen = seenIds();
 try {
   const s = JSON.parse(sessionStorage.getItem(key));
   if (s) {
@@ -27,7 +37,6 @@ function save() {
 }
 function card(p) {
   const card = link("", `work.html?id=${p.id}`, "card");
-  card.setAttribute("aria-label", `${p.id} ${p.title} 실행하기`);
   card.append(shot(p));
   const body = el("div", undefined, "card-body");
   const identity = el("p", undefined, "card-label");
@@ -35,6 +44,7 @@ function card(p) {
     el("strong", p.id, "student-id"),
     el("span", p.class, "student-class"),
   );
+  if (seen.has(p.id)) identity.append(el("span", "✓ 봄", "seen-badge"));
   const title = el("h2", p.title);
   const arrow = el("span", "→", "card-arrow");
   arrow.setAttribute("aria-hidden", "true");
@@ -44,14 +54,9 @@ function card(p) {
   return card;
 }
 function render() {
-  const q = $("search").value.trim().toLocaleLowerCase(),
+  const q = $("search").value.trim(),
     group = $("class").value;
-  const result = projects.filter(
-    (p) =>
-      (!group || p.class === group) &&
-      `${p.id} ${p.title} ${p.description}`.toLocaleLowerCase().includes(q),
-  );
-  result.sort((a, b) => a.id.localeCompare(b.id));
+  const result = filterProjects(projects, q, group);
   $("cards").replaceChildren(...result.slice(0, limit).map(card));
   $("result").textContent =
     q || group ? `검색 결과 ${result.length}개` : `작품 ${projects.length}개`;

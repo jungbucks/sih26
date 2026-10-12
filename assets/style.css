@@ -491,10 +491,15 @@ a.card:hover h2 {
   flex-wrap: wrap;
   margin: 16px 0 20px;
 }
-.work-heading h1 {
-  margin: 0;
+.work-title {
   flex: 1 1 280px;
   min-width: 0;
+}
+.work-heading h1 {
+  margin: 0;
+}
+.work-page .work-title .intro {
+  margin: 6px 0 0;
 }
 .work-heading .actions {
   margin: 0;
@@ -508,8 +513,8 @@ a.card:hover h2 {
 .preview-heading {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 4px 16px;
   padding: 2px 16px;
   background: #eaf0ed;
   border-bottom: 1px solid var(--line);
@@ -519,15 +524,21 @@ a.card:hover h2 {
   font-size: 14px;
   letter-spacing: 0;
 }
-.preview-heading button {
-  border: 0;
-  background: transparent;
+.preview-tip {
+  flex: 1;
+  margin: 0;
   font-size: 13px;
-  padding: 8px;
   color: var(--muted);
+  text-align: right;
+}
+.preview-heading button {
+  gap: 6px;
+  margin: 6px 0;
+  font-size: 14px;
+  padding: 6px 14px;
+  background: white;
 }
 .preview-heading button:hover {
-  color: var(--ink);
   background: #dce7e1;
 }
 .work-page .preview-area #preview-status:not(:empty) {
@@ -548,22 +559,34 @@ a.card:hover h2 {
   .preview-heading {
     padding-inline: 12px;
   }
+  .preview-tip {
+    order: 3;
+    flex-basis: 100%;
+    text-align: left;
+    padding-bottom: 8px;
+  }
+  .preview-heading h2 {
+    flex: 1;
+  }
+  .work-nav .button {
+    flex: 1 1 0;
+  }
 }
 .preview-heading button:focus-visible {
   outline-offset: -3px;
 }
 
 /* 목록은 첫 화면에서 작품에 빠르게 도달하도록 조밀하게 배치합니다. */
-.gallery-page header {
+header {
   padding-block: 12px;
 }
-.gallery-page .brand {
+.brand {
   display: flex;
   align-items: center;
   gap: 12px;
   font-size: 18px;
 }
-.gallery-page .brand span {
+.brand span {
   min-width: 0;
   flex: 1;
   display: inline;
@@ -612,6 +635,42 @@ a.card:hover h2 {
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
+}
+.seen-badge {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--accent);
+}
+.work-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 0 0;
+}
+.work-nav .button {
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 48%;
+  padding: 10px 16px;
+  min-width: 0;
+}
+.work-nav #next {
+  margin-left: auto;
+  align-items: flex-end;
+  text-align: right;
+}
+.nav-dir {
+  font-size: 14px;
+}
+.nav-title {
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .card-arrow {
   flex: none;

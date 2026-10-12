@@ -42,11 +42,53 @@ export function link(text, href, cls = "button") {
   a.href = href;
   return a;
 }
+// 목록의 검색 조건은 탭 단위(sessionStorage)로 기억 — 상세 화면의 이전·다음도 같은 조건을 따른다
+export const VIEW_KEY = "sih26:gallery:v1";
+export function loadView() {
+  try {
+    return JSON.parse(sessionStorage.getItem(VIEW_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+export function filterProjects(list, q, group) {
+  const query = (q || "").trim().toLocaleLowerCase();
+  return list
+    .filter(
+      (p) =>
+        (!group || p.class === group) &&
+        `${p.id} ${p.title} ${p.description}`
+          .toLocaleLowerCase()
+          .includes(query),
+    )
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
+// 본 작품 표시: 공용 PC에서 다음 반 학생에게 남지 않도록 탭이 닫히면 사라지는 sessionStorage 사용
+const SEEN_KEY = "sih26:gallery:seen";
+export function seenIds() {
+  try {
+    return new Set(JSON.parse(sessionStorage.getItem(SEEN_KEY)) || []);
+  } catch {
+    return new Set();
+  }
+}
+export function markSeen(id) {
+  try {
+    const seen = seenIds();
+    seen.add(id);
+    sessionStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
+  } catch {}
+}
 json("build-info.json")
   .then((b) => {
+    const when = new Intl.DateTimeFormat("ko-KR", {
+      dateStyle: "long",
+      timeZone: "Asia/Seoul",
+    }).format(new Date(b.generatedAt));
     $("build-info").textContent =
-      `적용 커밋 ${b.commit || "미커밋 작업본"} · 산출물 생성 ${new Date(b.generatedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} (한국 시간)`;
+      `마지막 업데이트 ${when}` +
+      (b.commit ? ` · 버전 ${b.commit.slice(0, 7)}` : "");
   })
   .catch(() => {
-    $("build-info").textContent = "빌드 정보를 확인할 수 없습니다.";
+    $("build-info").textContent = "";
   });
