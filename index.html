@@ -19,11 +19,27 @@
       <p class="intro">작품을 눌러 실행해 보세요.</p>
       <form id="filters" class="filters" role="search">
         <label class="search"
-          >작품 검색<input
-            id="search"
-            type="search"
-            placeholder="학번, 제목, 설명으로 검색"
-            autocomplete="off" /></label
+          >작품 검색<span class="search-field"
+            ><svg
+              class="search-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" /></svg
+            ><input
+              id="search"
+              type="search"
+              placeholder="학번, 제목, 설명으로 검색"
+              autocomplete="off"
+              aria-keyshortcuts="/" /><kbd class="search-kbd" aria-hidden="true"
+              >/</kbd
+            ></span
+          ></label
         ><label
           >반<select id="class">
             <option value="">모든 반</option>

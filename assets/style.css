@@ -16,7 +16,7 @@
 
 /*
  * 색·카드 호버·강조 버튼은 Uiverse.io의 Prismfield 카드·버튼(by uiverse-astronaut)을
- * 바탕으로 수정했습니다(--pf-* 토큰, .card:hover, .primary).
+ * 바탕으로 수정했습니다(--pf-* 토큰, .card:hover, .primary, .search-field).
  *
  * MIT License
  * Copyright (c) 2023 Uiverse.io
@@ -51,6 +51,7 @@
   --line: #e4e2dd;
   --line-strong: #d4d2cc;
   --field: #8f8c84; /* 입력칸 테두리: 흰 바탕 대비 3:1 이상 */
+  --placeholder: #6e6e78; /* 흰 바탕 대비 4.5:1 이상 */
   --tint: #f2f0eb;
   --tint-strong: #e9e6df;
   --focus: #0b0b0f;
@@ -73,6 +74,7 @@
     var(--pf-amber)
   );
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --r-xs: 4px; /* 키 표시 같은 아주 작은 표식 */
   --r-sm: 8px;
   --r-lg: 12px;
 }
@@ -216,6 +218,90 @@ input:focus-visible,
 select:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 4px;
+}
+
+/* 검색창 = Prismfield 검색: 아이콘 + 입력 + '/' 키 표시, 포커스되면 프리즘 테두리 */
+.search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  margin-top: 8px;
+  padding: 0 12px 0 40px;
+  border: 1px solid var(--field);
+  border-radius: var(--r-sm);
+  background: var(--canvas);
+  transition:
+    border-color 120ms var(--ease),
+    background 200ms var(--ease);
+}
+.search-field:hover {
+  border-color: var(--ink);
+}
+/* 포커스 링: 뒤에 깔린 프리즘 판이 투명해진 테두리 + 바깥 2px로 드러나 3px 링이 된다 (크기 변화 없음) */
+.search-field::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  z-index: -1;
+  border-radius: calc(var(--r-sm) + 3px);
+  background: var(--prism);
+  opacity: 0;
+  transition: opacity 200ms var(--ease);
+}
+.search-field:focus-within {
+  border-color: transparent;
+  background-clip: padding-box;
+}
+.search-field:focus-within::before {
+  opacity: 1;
+}
+.search-icon {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+  transition: color 120ms var(--ease);
+}
+.search-field:focus-within .search-icon {
+  color: var(--ink);
+}
+label .search-field input {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+}
+.search-field input::placeholder {
+  color: var(--placeholder);
+}
+.search-kbd {
+  flex: none;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xs);
+  background: var(--paper);
+  font-family: ui-monospace, "D2Coding", Consolas, monospace;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--muted);
+}
+/* 키보드가 없는 기기(휴대폰·태블릿)와 입력 중에는 '/' 표시를 숨긴다 */
+.search-field:focus-within .search-kbd {
+  display: none;
+}
+@media (hover: none), (pointer: coarse) {
+  .search-kbd {
+    display: none;
+  }
 }
 
 /* ── 공통 틀 ── */
@@ -581,7 +667,10 @@ footer {
   .primary,
   .primary::before,
   button,
-  .button {
+  .button,
+  .search-field,
+  .search-field::before,
+  .search-icon {
     transition: none;
   }
   .card:hover,

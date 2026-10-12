@@ -88,6 +88,13 @@ async function load() {
   }
 }
 $("filters").onsubmit = (e) => e.preventDefault();
+// '/' 키로 검색창 이동 (입력 중이 아닐 때만)
+addEventListener("keydown", (e) => {
+  if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName)) return;
+  e.preventDefault();
+  $("search").focus();
+});
 for (const id of ["search", "class"])
   $(id).addEventListener(id === "search" ? "input" : "change", () => {
     limit = 24;
