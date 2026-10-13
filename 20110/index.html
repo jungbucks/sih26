@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>등교 준비물 체크리스트</title>
+<meta name="description" content="날짜와 과목별로 준비물을 적고, 챙긴 것을 체크해 빠뜨림을 줄이는 체크리스트">
+<meta name="class" content="O반 (2-5)">
+<meta name="status" content="PRD">
+<style>
+  /* ===== 색과 기본 글꼴 ===== */
+  :root {
+    --bg: #f6f7f8;
+    --card: #ffffff;
+    --ink: #1f2328;
+    --muted: #5b636d;
+    --line: #dde1e6;
+    --accent: #1f6f5c;      /* 강조색: 차분한 초록 */
+    --accent-soft: #e6f2ee;
+    --danger: #a3332b;
+    --danger-soft: #fbeceb;
+    --warn-soft: #fff6dc;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  main { max-width: 42rem; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; line-height: 1.35; }
+  h2 { font-size: 1.15rem; margin: 0 0 12px; }
+  p { margin: 0 0 8px; }
+  .lead { color: var(--muted); }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px;
+    margin-top: 16px;
+  }
+  label { display: block; font-weight: 600; margin-bottom: 4px; }
+  input[type="text"], input[type="date"], select {
+    font: inherit;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #b9c0c8;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+    min-height: 46px;
+  }
+  .row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+  .row > .grow { flex: 1 1 180px; min-width: 0; }
+  .field { margin-bottom: 12px; }
+  button {
+    font: inherit;
+    font-size: 16px;
+    min-height: 46px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  button.ghost { background: #fff; color: var(--accent); }
+  button.danger { background: #fff; color: var(--danger); border-color: var(--danger); }
+  button.danger.solid { background: var(--danger); color: #fff; }
+  button.small { min-height: 40px; padding: 4px 12px; font-size: 15px; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 3px solid #f0b429; outline-offset: 2px;
+  }
+  .hint { color: var(--muted); font-size: 15px; }
+  /* 안내 메시지: 색 + 앞머리 글자로 구분 */
+  .msg { margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-size: 16px; }
+  .msg:empty { display: none; }
+  .msg.error { background: var(--danger-soft); color: var(--danger); }
+  .msg.ok { background: var(--accent-soft); color: var(--accent); }
+  .msg.info { background: var(--warn-soft); color: #6b4e00; }
+
+  .notice { background: var(--warn-soft); border-color: #ecd9a0; }
+  .notice ul { margin: 0; padding-left: 20px; }
+
+  /* 진행 요약 */
+  .summary { font-weight: 600; font-size: 1.05rem; }
+  .save-state { font-size: 15px; margin-top: 4px; }
+
+  /* 과목별 목록 */
+  .subject { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+  .subject:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+  .subject-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .subject-name { font-weight: 700; font-size: 1.08rem; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  ul.items { list-style: none; margin: 8px 0 0; padding: 0; }
+  ul.items li {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 8px 0; border-bottom: 1px dashed var(--line);
+  }
+  ul.items li:last-child { border-bottom: 0; }
+  .check { display: flex; align-items: center; gap: 10px; flex: 1 1 160px; min-width: 0; font-weight: 400; margin: 0; cursor: pointer; }
+  .check input { width: 24px; height: 24px; flex: none; accent-color: var(--accent); }
+  .state-tag {
+    font-size: 14px; padding: 1px 8px; border-radius: 999px; flex: none;
+    border: 1px solid var(--line); color: var(--muted);
+  }
+  li.done .state-tag { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  li.done .item-name { color: var(--muted); text-decoration: line-through; }
+  .empty { color: var(--muted); padding: 8px 0; }
+  .inline-box { width: 100%; margin-top: 6px; padding: 10px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); }
+  .inline-box.confirm { background: var(--danger-soft); border-color: #e7b9b5; }
+  .inline-box p { margin-bottom: 8px; }
+  .danger-zone .btns { margin-top: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <!-- ===== 화면 구조 ===== -->
+  <header>
+    <h1>등교 준비물 체크리스트</h1>
+    <p class="lead">내일 가방에 넣을 물건, 머릿속에만 두면 하나쯤 빠지기 쉬워요. 날짜를 고르고 과목과 준비물을 적은 뒤, 실제로 챙긴 것에 체크해 보세요.</p>
+    <p class="hint">사용 순서: ① 날짜 선택 → ② 과목 추가 → ③ 준비물 추가 → ④ 챙긴 물건 체크</p>
+  </header>
+
+  <section class="card" aria-labelledby="date-title">
+    <h2 id="date-title">1. 날짜 선택</h2>
+    <div class="field">
+      <label for="date-input">준비할 날짜</label>
+      <input type="date" id="date-input">
+    </div>
+    <div class="msg" id="date-msg" role="status"></div>
+    <div class="btns">
+      <button type="button" class="ghost small" id="sample-btn">가상 예시 불러오기 (2026-10-14)</button>
+    </div>
+    <p class="hint">예시는 실제 학교 시간표나 실제 학생의 준비물이 아닌 가상 데이터예요. 그 날짜에 이미 목록이 있으면 덮어쓰지 않아요.</p>
+  </section>
+
+  <section class="card" aria-labelledby="add-title">
+    <h2 id="add-title">2. 과목과 준비물 추가</h2>
+    <form id="subject-form" class="field" novalidate>
+      <div class="row">
+        <div class="grow">
+          <label for="subject-input">과목 이름</label>
+          <input type="text" id="subject-input" placeholder="예: 수학" autocomplete="off">
+        </div>
+        <button type="submit" id="subject-add-btn">과목 추가</button>
+      </div>
+      <div class="msg" id="subject-msg" role="status"></div>
+    </form>
+
+    <form id="item-form" novalidate>
+      <div class="field">
+        <label for="item-subject">어느 과목의 준비물인가요?</label>
+        <select id="item-subject"></select>
+      </div>
+      <div class="row">
+        <div class="grow">
+          <label for="item-input">준비물 이름</label>
+          <input type="text" id="item-input" placeholder="예: 수학 교과서" autocomplete="off">
+        </div>
+        <button type="submit" id="item-add-btn">준비물 추가</button>
+      </div>
+      <div class="msg" id="item-msg" role="status"></div>
+    </form>
+    <p class="hint">한 날짜에 과목은 최대 10개, 준비물은 최대 30개까지. 이름은 50자 이내로 적어 주세요.</p>
+  </section>
+
+  <section class="card" aria-labelledby="list-title">
+    <h2 id="list-title">3. <span id="list-date-label">선택한 날짜</span>의 준비물</h2>
+    <p class="summary" id="summary" aria-live="polite"></p>
+    <p class="save-state" id="save-state" aria-live="polite"></p>
+    <div class="msg" id="list-msg" role="status"></div>
+    <div id="list"></div>
+  </section>
+
+  <section class="card notice" aria-labelledby="notice-title">
+    <h2 id="notice-title">꼭 알아 두세요</h2>
+    <ul>
+      <li>이 목록은 내가 직접 적은 내용일 뿐이에요. 출발 전에 실제 시간표와 학교 공지를 한 번 더 비교해 보세요.</li>
+      <li>목록은 지금 쓰는 브라우저에만 저장돼요. 다른 사람이나 다른 기기와 자동으로 공유되지 않아요.</li>
+      <li>공용 컴퓨터라면 브라우저를 닫아도 기록이 남을 수 있어요. 다 쓴 뒤 아래 "전체 데이터 삭제"를 눌러 주세요.</li>
+    </ul>
+  </section>
+
+  <section class="card danger-zone" aria-labelledby="reset-title">
+    <h2 id="reset-title">초기화</h2>
+    <div class="btns">
+      <button type="button" class="danger" id="clear-day-btn">이 날짜 목록만 지우기</button>
+      <button type="button" class="danger" id="clear-all-btn">전체 데이터 삭제</button>
+    </div>
+    <div id="reset-confirm"></div>
+    <div class="msg" id="reset-msg" role="status"></div>
+  </section>
+</main>
+
+<script>
+/* ===== 예시 데이터·설정 ===== */
+const STORAGE_KEY = "sih26:20110:checklist"; // 이 프로그램만 쓰는 저장 이름
+const MAX_SUBJECTS = 10;  // 날짜별 과목 최대 개수
+const MAX_ITEMS = 30;     // 날짜별 준비물 최대 개수
+const MAX_NAME = 50;      // 이름 최대 글자 수(앞뒤 공백 제외)
+
+// 가상 예시 데이터(실제 학교·학생 정보 아님)
+const SAMPLE_DATE = "2026-10-14";
+const SAMPLE = [
+  { name: "국어", items: ["국어 교과서", "공책"] },
+  { name: "수학", items: ["수학 교과서", "문제집"] },
+  { name: "과학", items: ["과학 공책"] }
+];
+
+/* ===== 데이터·상태 ===== */
+// allData 구조: { "2026-10-14": [ {id, name, items:[{id, name, done}]} , ... ], ... }
+// 날짜(문자열)를 열쇠로 쓰는 객체 → 날짜마다 목록이 따로 관리돼서 섞이지 않아요.
+let allData = {};
+let currentDate = "";
+let storageWorks = true;   // 저장소를 쓸 수 있는지
+let pending = null;        // 지금 열려 있는 수정/삭제 확인 창 {type, id}
+let nextId = 1;
+
+/* ===== 처리 함수 ===== */
+
+// 고유 번호 만들기: 같은 이름의 준비물이 있어도 번호로 정확히 구분해요.
+function makeId() {
+  return "id" + Date.now().toString(36) + "_" + (nextId++);
+}
+
+// 오늘 날짜를 "YYYY-MM-DD" 모양으로
+function todayString() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return d.getFullYear() + "-" + mm + "-" + dd;
+}
+
+// 이름 검사: 앞뒤 공백을 지우고, 비었거나 너무 길면 오류 문장을 돌려줘요.
+function checkName(raw, what) {
+  const name = String(raw || "").trim();
+  if (name === "") return { ok: false, error: "오류: " + what + " 이름이 비어 있어요. 한 글자 이상 입력해 주세요." };
+  if (name.length > MAX_NAME) {
+    return { ok: false, error: "오류: " + what + " 이름이 너무 길어요(" + name.length + "자). " + MAX_NAME + "자 이내로 줄여 주세요." };
+  }
+  return { ok: true, name: name };
+}
+
+// 지금 날짜의 과목 배열(없으면 빈 배열)
+function getSubjects(date) {
+  return allData[date] || [];
+}
+
+function countItems(date) {
+  let total = 0, done = 0;
+  getSubjects(date).forEach(function (s) {
+    total += s.items.length;
+    s.items.forEach(function (it) { if (it.done) done++; });
+  });
+  return { total: total, done: done };
+}
+
+// 아이디로 과목/준비물 찾기 (이미 지워졌으면 null)
+function findSubject(id) {
+  return getSubjects(currentDate).find(function (s) { return s.id === id; }) || null;
+}
+function findItem(id) {
+  for (const s of getSubjects(currentDate)) {
+    const it = s.items.find(function (x) { return x.id === id; });
+    if (it) return { subject: s, item: it };
+  }
+  return null;
+}
+
+// 빈 날짜는 저장 데이터에서 빼서 깔끔하게 유지
+function tidyDate(date) {
+  if (allData[date] && allData[date].length === 0) delete allData[date];
+}
+
+/* --- 저장과 불러오기 --- */
+// 저장: 성공하면 true, 실패하면 false. 실패를 성공이라고 표시하지 않아요.
+function saveData() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
+    storageWorks = true;
+    return true;
+  } catch (e) {
+    storageWorks = false;
+    return false;
+  }
+}
+
+// 불러오기: 저장된 게 없거나 망가져 있어도 빈 목록으로 시작해요.
+function loadData() {
+  let text = null;
+  try {
+    text = localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    storageWorks = false;
+    return {};
+  }
+  if (!text) return {};
+  try {
+    const parsed = JSON.parse(text);
+    return cleanLoaded(parsed);
+  } catch (e) {
+    return {};
+  }
+}
+
+// 읽어 온 데이터 모양이 이상한 부분은 버리고 쓸 수 있는 부분만 남기기
+function cleanLoaded(obj) {
+  const result = {};
+  if (!obj || typeof obj !== "object") return result;
+  Object.keys(obj).forEach(function (date) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Array.isArray(obj[date])) return;
+    const subjects = [];
+    obj[date].forEach(function (s) {
+      if (!s || typeof s.name !== "string" || !Array.isArray(s.items)) return;
+      subjects.push({
+        id: typeof s.id === "string" ? s.id : makeId(),
+        name: s.name,
+        items: s.items.filter(function (it) { return it && typeof it.name === "string"; })
+          .map(function (it) {
+            return { id: typeof it.id === "string" ? it.id : makeId(), name: it.name, done: it.done === true };
+          })
+      });
+    });
+    if (subjects.length) result[date] = subjects;
+  });
+  return result;
+}
+
+// 바꾼 뒤 저장하고 화면에 결과 문구를 보여 주는 공통 함수
+function commit(okText) {
+  const saved = saveData();
+  showSaveState(saved, okText);
+  render();
+}
+
+/* --- 추가·수정·삭제 --- */
+function addSubject(raw) {
+  if (!currentDate) return "오류: 먼저 날짜를 선택해 주세요.";
+  const check = checkName(raw, "과목");
+  if (!check.ok) return check.error;
+  const subjects = getSubjects(currentDate);
+  if (subjects.length >= MAX_SUBJECTS) return "이 날짜에는 과목을 " + MAX_SUBJECTS + "개까지만 추가할 수 있어요.";
+  if (subjects.some(function (s) { return s.name === check.name; })) {
+    return "오류: '" + check.name + "' 과목은 이미 있어요. 아래 목록에서 그 과목을 골라 준비물을 추가해 주세요.";
+  }
+  allData[currentDate] = subjects.concat([{ id: makeId(), name: check.name, items: [] }]);
+  return null;
+}
+
+function addItem(subjectId, raw) {
+  if (!currentDate) return "오류: 먼저 날짜를 선택해 주세요.";
+  const subject = findSubject(subjectId);
+  if (!subject) return "오류: 준비물을 넣을 과목을 먼저 추가하고 골라 주세요.";
+  const check = checkName(raw, "준비물");
+  if (!check.ok) return check.error;
+  if (countItems(currentDate).total >= MAX_ITEMS) return "이 날짜에는 준비물을 " + MAX_ITEMS + "개까지만 추가할 수 있어요.";
+  subject.items.push({ id: makeId(), name: check.name, done: false });
+  return null;
+}
+
+// 체크 상태 바꾸기: 체크하면 완료, 다시 누르면 미완료
+function toggleItem(itemId, done) {
+  const found = findItem(itemId);
+  if (!found) return false;
+  found.item.done = done;
+  return true;
+}
+
+function renameSubject(id, raw) {
+  const subject = findSubject(id);
+  if (!subject) return "이미 삭제된 과목이에요.";
+  const check = checkName(raw, "과목");
+  if (!check.ok) return check.error;
+  if (getSubjects(currentDate).some(function (s) { return s.id !== id && s.name === check.name; })) {
+    return "오류: '" + check.name + "' 과목이 이미 있어요. 다른 이름을 써 주세요.";
+  }
+  subject.name = check.name;
+  return null;
+}
+
+function renameItem(id, raw) {
+  const found = findItem(id);
+  if (!found) return "이미 삭제된 준비물이에요.";
+  const check = checkName(raw, "준비물");
+  if (!check.ok) return check.error;
+  found.item.name = check.name;
+  return null;
+}
+
+// 삭제: 이미 지워진 항목이면 아무 일도 하지 않아요(여러 번 눌러도 오류 없음).
+function deleteItem(id) {
+  const found = findItem(id);
+  if (!found) return false;
+  found.subject.items = found.subject.items.filter(function (x) { return x.id !== id; });
+  return true;
+}
+
+function deleteSubject(id) {
+  if (!findSubject(id)) return false;
+  allData[currentDate] = getSubjects(currentDate).filter(function (s) { return s.id !== id; });
+  tidyDate(currentDate);
+  return true;
+}
+
+function loadSample() {
+  if (getSubjects(SAMPLE_DATE).length > 0) return false; // 기존 목록은 덮어쓰지 않음
+  allData[SAMPLE_DATE] = SAMPLE.map(function (s) {
+    return {
+      id: makeId(), name: s.name,
+      items: s.items.map(function (n) { return { id: makeId(), name: n, done: false }; })
+    };
+  });
+  return true;
+}
+
+/* ===== 화면 갱신 ===== */
+const $ = function (id) { return document.getElementById(id); };
+
+function setMsg(id, text, kind) {
+  const el = $(id);
+  el.textContent = text || "";
+  el.className = "msg" + (text ? " " + (kind || "error") : "");
+}
+
+function clearMsgs() {
+  ["subject-msg", "item-msg", "list-msg", "reset-msg", "date-msg"].forEach(function (id) { setMsg(id, ""); });
+}
+
+function showSaveState(saved, okText) {
+  const el = $("save-state");
+  if (saved) {
+    el.textContent = "저장 상태: 저장됨 — " + (okText || "이 브라우저에 저장했어요.");
+    el.style.color = "var(--accent)";
+  } else {
+    el.textContent = "저장 상태: 저장되지 않음 — 이 환경에서는 브라우저 저장을 쓸 수 없어요. 지금 화면에서는 계속 쓸 수 있지만, 닫으면 목록이 사라져요.";
+    el.style.color = "var(--danger)";
+  }
+}
+
+function formatDate(date) {
+  const p = date.split("-");
+  return Number(p[0]) + "년 " + Number(p[1]) + "월 " + Number(p[2]) + "일";
+}
+
+// 버튼 만들기 도우미
+function makeButton(text, cls, onClick, label) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = cls;
+  b.textContent = text;
+  if (label) b.setAttribute("aria-label", label);
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+// 수정 창: 기존 이름을 입력칸에 보여 주고, 저장/취소
+function makeEditBox(kind, id, oldName) {
+  const box = document.createElement("div");
+  box.className = "inline-box";
+  const inputId = "edit-" + id;
+  const lab = document.createElement("label");
+  lab.setAttribute("for", inputId);
+  lab.textContent = (kind === "subject" ? "과목" : "준비물") + " 이름 수정";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.id = inputId;
+  input.value = oldName;
+  const msg = document.createElement("div");
+  msg.className = "msg";
+  msg.setAttribute("role", "status");
+  const btns = document.createElement("div");
+  btns.className = "btns";
+  btns.style.marginTop = "8px";
+
+  function doSave() {
+    const err = kind === "subject" ? renameSubject(id, input.value) : renameItem(id, input.value);
+    if (err) {
+      msg.textContent = err;
+      msg.className = "msg error";
+      return;
+    }
+    pending = null;
+    commit("수정한 이름을 저장했어요.");
+  }
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); doSave(); }
+    if (e.key === "Escape") { pending = null; render(); }
+  });
+  btns.appendChild(makeButton("저장", "small", doSave));
+  btns.appendChild(makeButton("취소", "ghost small", function () { pending = null; render(); }));
+  box.append(lab, input, msg, btns);
+  setTimeout(function () { input.focus(); }, 0);
+  return box;
+}
+
+// 삭제 확인 창: 무엇이 지워지는지 글로 보여 주고 한 번 더 확인
+function makeConfirmBox(text, yesText, onYes) {
+  const box = document.createElement("div");
+  box.className = "inline-box confirm";
+  const p = document.createElement("p");
+  p.textContent = text;
+  const btns = document.createElement("div");
+  btns.className = "btns";
+  const yes = makeButton(yesText, "danger solid small", onYes);
+  btns.appendChild(yes);
+  btns.appendChild(makeButton("취소", "ghost small", function () { pending = null; render(); }));
+  box.append(p, btns);
+  setTimeout(function () { yes.focus(); }, 0);
+  return box;
+}
+
+function renderSubjectSelect() {
+  const sel = $("item-subject");
+  const before = sel.value;
+  sel.textContent = "";
+  const subjects = getSubjects(currentDate);
+  if (subjects.length === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "먼저 과목을 추가해 주세요";
+    sel.appendChild(opt);
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  subjects.forEach(function (s) {
+    const opt = document.createElement("option");
+    opt.value = s.id;
+    opt.textContent = s.name;
+    sel.appendChild(opt);
+  });
+  if (subjects.some(function (s) { return s.id === before; })) sel.value = before;
+}
+
+function renderLimits() {
+  const subjects = getSubjects(currentDate);
+  const total = countItems(currentDate).total;
+  const subjectFull = subjects.length >= MAX_SUBJECTS;
+  const itemFull = total >= MAX_ITEMS;
+  $("subject-add-btn").disabled = !currentDate || subjectFull;
+  $("item-add-btn").disabled = !currentDate || subjects.length === 0 || itemFull;
+  if (subjectFull) setMsg("subject-msg", "과목이 " + MAX_SUBJECTS + "개로 꽉 찼어요. 더 추가하려면 필요 없는 과목을 지워 주세요.", "info");
+  if (itemFull) setMsg("item-msg", "준비물이 " + MAX_ITEMS + "개로 꽉 찼어요. 더 추가하려면 필요 없는 준비물을 지워 주세요.", "info");
+}
+
+function renderSummary() {
+  const c = countItems(currentDate);
+  const el = $("summary");
+  if (!currentDate) { el.textContent = "날짜를 선택해 주세요."; return; }
+  if (c.total === 0) { el.textContent = "아직 준비물이 없어요."; return; }
+  const left = c.total - c.done;
+  el.textContent = "전체 " + c.total + "개 중 " + c.done + "개 챙김" +
+    (left === 0 ? " — 목록에 적은 건 모두 챙겼어요." : " — 아직 " + left + "개 남았어요.");
+}
+
+function renderList() {
+  const list = $("list");
+  list.textContent = "";
+  $("list-date-label").textContent = currentDate ? formatDate(currentDate) : "선택한 날짜";
+  const subjects = getSubjects(currentDate);
+
+  if (subjects.length === 0) {
+    const p = document.createElement("p");
+    p.className = "empty";
+    p.textContent = "이 날짜에는 아직 목록이 없어요. 위에서 과목을 추가한 다음, 그 과목의 준비물을 추가해 보세요.";
+    list.appendChild(p);
+    return;
+  }
+
+  subjects.forEach(function (s) {
+    const wrap = document.createElement("div");
+    wrap.className = "subject";
+
+    const head = document.createElement("div");
+    head.className = "subject-head";
+    const name = document.createElement("span");
+    name.className = "subject-name";
+    const doneCount = s.items.filter(function (it) { return it.done; }).length;
+    name.textContent = s.name + " (" + doneCount + "/" + s.items.length + ")";
+    const btns = document.createElement("div");
+    btns.className = "btns";
+    btns.appendChild(makeButton("과목 수정", "ghost small", function () {
+      pending = { type: "edit-subject", id: s.id }; render();
+    }, "과목 " + s.name + " 이름 수정"));
+    btns.appendChild(makeButton("과목 삭제", "danger small", function () {
+      pending = { type: "del-subject", id: s.id }; render();
+    }, "과목 " + s.name + " 삭제"));
+    head.append(name, btns);
+    wrap.appendChild(head);
+
+    // 과목 수정/삭제 확인 창
+    if (pending && pending.id === s.id && pending.type === "edit-subject") {
+      wrap.appendChild(makeEditBox("subject", s.id, s.name));
+    }
+    if (pending && pending.id === s.id && pending.type === "del-subject") {
+      wrap.appendChild(makeConfirmBox(
+        "'" + s.name + "' 과목을 삭제할까요? 이 과목에 속한 준비물 " + s.items.length + "개도 함께 삭제돼요.",
+        "과목과 준비물 삭제",
+        function () {
+          const removed = deleteSubject(s.id);
+          pending = null;
+          if (removed) commit("'" + s.name + "' 과목을 삭제했어요.");
+          else render();
+        }));
+    }
+
+    const ul = document.createElement("ul");
+    ul.className = "items";
+    if (s.items.length === 0) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "이 과목에 준비물이 아직 없어요.";
+      ul.appendChild(li);
+    }
+    s.items.forEach(function (it) {
+      const li = document.createElement("li");
+      li.className = it.done ? "done" : "";
+
+      const lab = document.createElement("label");
+      lab.className = "check";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = it.done;
+      cb.addEventListener("change", function () {
+        if (toggleItem(it.id, cb.checked)) commit(cb.checked ? "'" + it.name + "' 챙김으로 표시했어요." : "'" + it.name + "' 체크를 해제했어요.");
+      });
+      const nm = document.createElement("span");
+      nm.className = "item-name";
+      nm.textContent = it.name;
+      lab.append(cb, nm);
+
+      // 색만이 아니라 글자로도 상태 표시
+      const tag = document.createElement("span");
+      tag.className = "state-tag";
+      tag.textContent = it.done ? "✓ 챙김" : "아직";
+
+      const btns2 = document.createElement("div");
+      btns2.className = "btns";
+      btns2.appendChild(makeButton("수정", "ghost small", function () {
+        pending = { type: "edit-item", id: it.id }; render();
+      }, "준비물 " + it.name + " 수정"));
+      btns2.appendChild(makeButton("삭제", "danger small", function () {
+        pending = { type: "del-item", id: it.id }; render();
+      }, "준비물 " + it.name + " 삭제"));
+
+      li.append(lab, tag, btns2);
+
+      if (pending && pending.id === it.id && pending.type === "edit-item") {
+        li.appendChild(makeEditBox("item", it.id, it.name));
+      }
+      if (pending && pending.id === it.id && pending.type === "del-item") {
+        li.appendChild(makeConfirmBox(
+          "'" + s.name + "' 과목의 준비물 '" + it.name + "'을(를) 삭제할까요?",
+          "준비물 삭제",
+          function () {
+            const removed = deleteItem(it.id);
+            pending = null;
+            if (removed) commit("'" + it.name + "'을(를) 삭제했어요.");
+            else render(); // 이미 지워졌으면 화면만 새로 그림
+          }));
+      }
+      ul.appendChild(li);
+    });
+    wrap.appendChild(ul);
+    list.appendChild(wrap);
+  });
+}
+
+function render() {
+  renderSubjectSelect();
+  renderList();
+  renderSummary();
+  renderLimits();
+}
+
+/* ===== 이벤트 연결 ===== */
+function changeDate(value) {
+  pending = null;
+  $("reset-confirm").textContent = "";
+  clearMsgs();
+  currentDate = value;
+  if (!value) setMsg("date-msg", "오류: 날짜가 비어 있어요. 준비할 날짜를 골라 주세요.");
+  render();
+}
+
+$("date-input").addEventListener("change", function (e) { changeDate(e.target.value); });
+
+$("subject-form").addEventListener("submit", function (e) {
+  e.preventDefault();
+  setMsg("subject-msg", "");
+  const err = addSubject($("subject-input").value);
+  if (err) { setMsg("subject-msg", err, err.indexOf("오류") === 0 ? "error" : "info"); renderLimits(); return; }
+  const added = getSubjects(currentDate);
+  $("subject-input").value = "";
+  commit("과목을 추가했어요.");
+  $("item-subject").value = added[added.length - 1].id; // 방금 만든 과목을 바로 골라 둠
+  setMsg("subject-msg", "과목을 추가했어요. 이제 아래에서 준비물을 넣어 보세요.", "ok");
+});
+
+$("item-form").addEventListener("submit", function (e) {
+  e.preventDefault();
+  setMsg("item-msg", "");
+  const err = addItem($("item-subject").value, $("item-input").value);
+  if (err) { setMsg("item-msg", err, err.indexOf("오류") === 0 ? "error" : "info"); renderLimits(); return; }
+  $("item-input").value = "";
+  commit("준비물을 추가했어요.");
+  $("item-input").focus();
+});
+
+$("sample-btn").addEventListener("click", function () {
+  clearMsgs();
+  if (!loadSample()) {
+    setMsg("date-msg", "2026년 10월 14일에 이미 목록이 있어서 예시를 불러오지 않았어요. 기존 내용은 그대로예요.", "info");
+  } else {
+    setMsg("date-msg", "가상 예시를 불러왔어요(실제 학교 정보가 아니에요).", "ok");
+    saveData();
+    showSaveState(storageWorks, "예시를 저장했어요.");
+  }
+  $("date-input").value = SAMPLE_DATE;
+  pending = null;
+  currentDate = SAMPLE_DATE;
+  render();
+});
+
+// 초기화 확인 창(페이지 안에서 확인)
+function askReset(kind) {
+  setMsg("reset-msg", "");
+  const area = $("reset-confirm");
+  area.textContent = "";
+  let text, yesText, action;
+  if (kind === "day") {
+    if (!currentDate || getSubjects(currentDate).length === 0) {
+      setMsg("reset-msg", "지울 목록이 없어요. 이 날짜에는 저장된 준비물이 없어요.", "info");
+      return;
+    }
+    const c = countItems(currentDate);
+    text = formatDate(currentDate) + "의 과목 " + getSubjects(currentDate).length + "개와 준비물 " + c.total +
+      "개를 모두 지울까요? 다른 날짜의 목록은 그대로 남아요. 지우면 되돌릴 수 없어요.";
+    yesText = "이 날짜 목록 지우기";
+    action = function () {
+      delete allData[currentDate];
+      area.textContent = "";
+      commit("이 날짜의 목록을 지웠어요.");
+      setMsg("reset-msg", "이 날짜의 목록을 지웠어요.", "ok");
+    };
+  } else {
+    const days = Object.keys(allData).length;
+    text = "이 프로그램에 저장된 모든 날짜(" + days + "일치)의 목록과 체크 상태가 삭제돼요. 지우면 되돌릴 수 없어요. 다른 사이트의 데이터는 건드리지 않아요.";
+    yesText = "전체 데이터 삭제";
+    action = function () {
+      allData = {};
+      let ok = true;
+      try { localStorage.removeItem(STORAGE_KEY); } catch (e) { ok = false; }
+      area.textContent = "";
+      pending = null;
+      render();
+      if (ok) {
+        $("save-state").textContent = "저장 상태: 저장된 데이터를 모두 지웠어요.";
+        $("save-state").style.color = "var(--accent)";
+        setMsg("reset-msg", "전체 데이터를 삭제했어요.", "ok");
+      } else {
+        showSaveState(false);
+        setMsg("reset-msg", "화면의 목록은 비웠지만, 이 환경에서는 브라우저 저장소에 접근할 수 없어요.", "info");
+      }
+    };
+  }
+  area.appendChild(makeConfirmBox(text, yesText, action));
+}
+
+$("clear-day-btn").addEventListener("click", function () { askReset("day"); });
+$("clear-all-btn").addEventListener("click", function () { askReset("all"); });
+
+// 처음 시작: 저장된 목록 불러오고 오늘 날짜를 골라 둠
+function start() {
+  allData = loadData();
+  currentDate = todayString();
+  $("date-input").value = currentDate;
+  if (storageWorks) {
+    // 실제로 써 보면서 저장 가능한지 확인
+    try {
+      localStorage.setItem(STORAGE_KEY + ":test", "1");
+      localStorage.removeItem(STORAGE_KEY + ":test");
+    } catch (e) { storageWorks = false; }
+  }
+  if (storageWorks) {
+    $("save-state").textContent = "저장 상태: 바꿀 때마다 이 브라우저에 자동으로 저장돼요.";
+    $("save-state").style.color = "var(--muted)";
+  } else {
+    showSaveState(false);
+  }
+  render();
+}
+start();
+</script>
+</body>
+</html>

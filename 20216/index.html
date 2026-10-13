@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<!-- ========== 1. 메타 정보 ========== -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>하루 기록 다이어리</title>
+<meta name="description" content="하루 활동 시간을 계획하고 실제 사용 시간을 기록해 차이를 돌아보는 다이어리">
+<meta name="class" content="O반 (2-5)">
+<meta name="status" content="PRD">
+
+<!-- ========== 2. 스타일 ========== -->
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --paper: #ffffff;
+    --ink: #22252a;
+    --ink-soft: #5a5f68;
+    --line: #e3e0d8;
+    --line-strong: #cfcac0;
+    --accent: #2f5d8a;
+    --accent-soft: #e8eef5;
+    --warn: #9a4a12;
+    --warn-soft: #fbefe4;
+    --ok: #2f6b45;
+    --ok-soft: #e7f2ea;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  .wrap { max-width: 44rem; margin: 0 auto; padding: 20px 16px 48px; }
+  @media (max-width: 400px) { .panel { padding: 14px 12px; } }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.2rem; margin: 0 0 8px; }
+  h3 { font-size: 1.05rem; margin: 20px 0 8px; }
+  p { margin: 0 0 8px; }
+  .sub { color: var(--ink-soft); margin: 0 0 16px; }
+
+  /* 상단 날짜 영역 */
+  .date-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 12px;
+  }
+  .date-bar label { font-weight: 600; }
+  .date-bar .date-text { color: var(--ink-soft); }
+
+  /* 안내 상자 */
+  .notice {
+    border-left: 3px solid var(--line-strong); background: var(--paper);
+    padding: 10px 14px; margin: 0 0 12px; color: var(--ink-soft); font-size: 0.95rem;
+    border-radius: 0 8px 8px 0;
+  }
+  .notice.warn { border-left-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+
+  /* 메뉴 탭 */
+  .tabs { display: flex; gap: 6px; margin: 16px 0 12px; }
+  .tabs button {
+    flex: 1; min-height: 44px; font: inherit; font-weight: 600;
+    background: var(--paper); color: var(--ink-soft);
+    border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+  }
+  .tabs button[aria-selected="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  .panel {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+  }
+  .panel[hidden] { display: none; }
+
+  /* 활동 입력 줄 */
+  .act-row { border-bottom: 1px solid var(--line); padding: 12px 0; }
+  .act-row:last-child { border-bottom: 0; }
+  .act-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .act-name { font-weight: 600; }
+  .act-plan { color: var(--ink-soft); font-size: 0.95rem; }
+  .time-inputs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 6px; }
+  .time-inputs label { display: flex; align-items: center; gap: 4px; }
+  .time-inputs input {
+    width: 2.9em; min-height: 40px; font: inherit; text-align: right;
+    padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 8px; background: #fff; color: var(--ink);
+  }
+  .time-inputs input[aria-invalid="true"] { border-color: var(--warn); border-width: 2px; }
+  .row-msg { color: var(--warn); font-size: 0.95rem; margin-top: 4px; }
+  .row-msg:empty { display: none; }
+
+  button.btn {
+    font: inherit; min-height: 40px; padding: 4px 12px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: #fff; color: var(--ink); border-radius: 8px;
+  }
+  button.btn:hover { background: var(--accent-soft); }
+  button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.btn.danger { border-color: var(--warn); color: var(--warn); }
+  button.btn.danger.solid { background: var(--warn); color: #fff; }
+  button.btn.small { min-height: 36px; padding: 2px 7px; font-size: 0.95rem; }
+  button.btn:focus-visible, .tabs button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 3px solid #8fb0d3; outline-offset: 1px;
+  }
+
+  /* 합계 상자 */
+  .total-box {
+    margin: 12px 0; padding: 12px 14px; border-radius: 10px;
+    background: var(--accent-soft); border: 1px solid #cbd8e6;
+  }
+  .total-box.over { background: var(--warn-soft); border-color: #e7c4a5; }
+  .total-box.full { background: var(--ok-soft); border-color: #bcd9c5; }
+  .total-line { font-weight: 700; font-size: 1.05rem; }
+  .total-state { margin-top: 2px; }
+  .fill-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+  .fill-line[hidden] { display: none; }
+
+  select, input.text {
+    font: inherit; min-height: 40px; padding: 4px 8px; max-width: 100%;
+    border: 1px solid var(--line-strong); border-radius: 8px; background: #fff; color: var(--ink);
+  }
+  .add-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 12px; }
+  .add-line input.text { flex: 1 1 10rem; min-width: 0; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .msg { margin-top: 10px; padding: 8px 12px; border-radius: 8px; background: var(--accent-soft); }
+  .msg:empty { display: none; }
+  .msg.bad { background: var(--warn-soft); color: var(--warn); }
+  .change-line { color: var(--ink-soft); font-size: 0.95rem; margin-top: 6px; }
+  .change-line:empty { display: none; }
+
+  /* 실제 기록의 이유 입력 */
+  .reason-box {
+    margin-top: 8px; padding: 8px 10px; background: #f6f4ef; border-radius: 8px;
+    display: grid; gap: 6px;
+  }
+  .reason-box[hidden] { display: none; }
+  .reason-box label { display: grid; gap: 2px; font-size: 0.95rem; }
+  .reason-box input.text, .reason-box select { width: 100%; }
+
+  /* 기록 비교 */
+  .day-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 12px; }
+  .day-list button {
+    font: inherit; font-size: 0.95rem; min-height: 40px; padding: 4px 10px; cursor: pointer;
+    background: #fff; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--ink);
+    text-align: left; line-height: 1.35;
+  }
+  .day-list button small { display: block; color: var(--ink-soft); font-size: 0.8rem; }
+  .day-list button[aria-pressed="true"] { border: 2px solid var(--accent); background: var(--accent-soft); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  th, td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: right; vertical-align: top; }
+  th:first-child, td:first-child { text-align: left; }
+  th { background: #f6f4ef; font-weight: 600; }
+  tfoot td { font-weight: 700; border-top: 2px solid var(--line-strong); }
+  .none { color: var(--ink-soft); }
+  .reason-list { margin: 8px 0 0; padding-left: 1.2em; }
+  .confirm-box {
+    margin-top: 12px; padding: 12px 14px; border: 2px solid var(--warn); border-radius: 10px; background: var(--warn-soft);
+  }
+  .confirm-box[hidden] { display: none; }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<!-- ========== 3. 화면 구조 ========== -->
+<div class="wrap">
+  <h1>하루 기록 다이어리</h1>
+  <p class="sub">오늘 시간을 어떻게 쓸지 계획하고, 실제로 쓴 시간을 적어 둘 사이의 차이를 돌아봐요. 잘하고 못하고를 매기지 않아요.</p>
+
+  <div class="date-bar">
+    <label for="dateInput">선택한 날짜</label>
+    <input type="date" id="dateInput" class="text">
+    <span class="date-text" id="dateText"></span>
+    <button type="button" class="btn small" id="todayBtn">오늘로</button>
+  </div>
+
+  <p class="notice warn" id="storageWarn" hidden>이 환경에서는 브라우저 저장 공간을 쓸 수 없어 기록이 저장되지 않아요. 계획과 시간 계산은 그대로 쓸 수 있지만, 페이지를 닫으면 입력한 내용이 사라져요.</p>
+  <p class="notice">기록은 이 브라우저 안에만 저장돼요. 다른 기기·다른 브라우저와는 공유되지 않고, 브라우저 저장 공간을 지우면 기록도 사라져요. 저장된 날짜가 7개를 넘으면 가장 오래된 날짜의 기록부터 자동으로 지워져요. 이름·학교 같은 개인정보는 입력받지 않아요.</p>
+
+  <div class="tabs" role="tablist" aria-label="메뉴">
+    <button type="button" role="tab" id="tab-plan" aria-controls="panel-plan" aria-selected="true">하루 계획</button>
+    <button type="button" role="tab" id="tab-actual" aria-controls="panel-actual" aria-selected="false">실제 기록</button>
+    <button type="button" role="tab" id="tab-compare" aria-controls="panel-compare" aria-selected="false">기록 비교</button>
+  </div>
+
+  <!-- 하루 계획 -->
+  <section class="panel" id="panel-plan" role="tabpanel" aria-labelledby="tab-plan">
+    <h2>하루 계획</h2>
+    <p class="act-plan" id="planStatus"></p>
+    <div id="planRows"></div>
+
+    <div class="add-line">
+      <label for="planNewName" class="vh">추가할 기타 활동 이름</label>
+      <input type="text" id="planNewName" class="text" maxlength="20" placeholder="기타 활동 이름 (예: 동아리)">
+      <button type="button" class="btn" id="planAddBtn">활동 추가</button>
+    </div>
+
+    <div class="total-box" id="planTotalBox" aria-live="polite">
+      <div class="total-line" id="planTotal"></div>
+      <div class="total-state" id="planState"></div>
+      <div class="change-line" id="planChange"></div>
+      <div class="fill-line" id="planFill">
+        <label for="planFillSelect">남은 시간을</label>
+        <select id="planFillSelect"></select>
+        <button type="button" class="btn small" id="planFillBtn">에 모두 더하기</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn primary" id="planSaveBtn">계획 저장</button>
+      <button type="button" class="btn" id="planExampleBtn">예시 계획 불러오기</button>
+      <button type="button" class="btn" id="planRecentBtn">최근 계획 불러오기</button>
+      <button type="button" class="btn" id="planResetBtn">저장된 계획으로 되돌리기</button>
+    </div>
+    <p class="act-plan">예시 계획은 참고용 한 가지 예일 뿐, 모든 학생에게 맞는 시간표가 아니에요. 불러온 뒤 자기 상황에 맞게 고쳐 쓰세요.</p>
+    <div class="msg" id="planMsg" role="status"></div>
+  </section>
+
+  <!-- 실제 기록 -->
+  <section class="panel" id="panel-actual" role="tabpanel" aria-labelledby="tab-actual" hidden>
+    <h2>실제 기록</h2>
+    <p class="act-plan" id="actualStatus"></p>
+    <div id="actualRows"></div>
+
+    <div class="add-line">
+      <label for="actualNewName" class="vh">추가할 기타 활동 이름</label>
+      <input type="text" id="actualNewName" class="text" maxlength="20" placeholder="기타 활동 이름 (예: 운동)">
+      <button type="button" class="btn" id="actualAddBtn">활동 추가</button>
+    </div>
+
+    <div class="total-box" id="actualTotalBox" aria-live="polite">
+      <div class="total-line" id="actualTotal"></div>
+      <div class="total-state" id="actualState"></div>
+      <div class="fill-line" id="actualFill">
+        <label for="actualFillSelect">미기록 시간을</label>
+        <select id="actualFillSelect"></select>
+        <button type="button" class="btn small" id="actualFillBtn">에 모두 더하기</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn primary" id="actualSaveBtn">실제 기록 저장</button>
+      <button type="button" class="btn" id="actualResetBtn">저장된 기록으로 되돌리기</button>
+    </div>
+    <p class="act-plan">실제 기록을 저장해도 계획은 바뀌지 않아요. 계획과 다른 활동에는 이유와 메모를 남길 수 있어요.</p>
+    <div class="msg" id="actualMsg" role="status"></div>
+  </section>
+
+  <!-- 기록 비교 -->
+  <section class="panel" id="panel-compare" role="tabpanel" aria-labelledby="tab-compare" hidden>
+    <h2>기록 비교</h2>
+    <p class="act-plan">최근 7일 중 날짜를 고르면 그날의 계획과 실제 시간을 비교해 보여 줘요. 차이 = 실제 시간 − 계획 시간이에요.</p>
+    <div class="day-list" id="dayList" role="group" aria-label="최근 7일 날짜 선택"></div>
+    <div id="compareArea"></div>
+
+    <div class="actions">
+      <button type="button" class="btn danger" id="deleteBtn">이 날짜 기록 삭제</button>
+    </div>
+    <div class="confirm-box" id="confirmBox" hidden role="alertdialog" aria-labelledby="confirmText">
+      <p id="confirmText"></p>
+      <div class="actions">
+        <button type="button" class="btn danger solid" id="confirmYes">삭제하기</button>
+        <button type="button" class="btn" id="confirmNo">취소</button>
+      </div>
+    </div>
+    <div class="msg" id="compareMsg" role="status"></div>
+  </section>
+</div>
+
+<script>
+// ========== 4. 예시 데이터·설정 ==========
+const STORAGE_KEY = "sih26:20216:records";   // 이 작품 전용 저장 키
+const DAY_MINUTES = 24 * 60;                 // 하루 = 1,440분
+const KEEP_DAYS = 7;                         // 최근 7일만 보관
+const BASIC_ACTIVITIES = ["수면", "공부", "식사", "이동 및 통학", "휴식", "휴대폰 사용"];
+const REASONS = ["예상보다 시간이 오래 걸림", "피곤함", "갑작스러운 일정", "휴대폰 사용", "기타"];
+
+// 예시 계획(참고용, 분 단위) — 합계 24시간
+const EXAMPLE_PLAN = {
+  "수면": 450, "공부": 540, "식사": 90, "이동 및 통학": 60, "휴식": 180, "휴대폰 사용": 120
+};
+
+// ========== 5. 데이터·상태 ==========
+// records = { "2026-10-13": { plan: [{name, minutes}], actual: [{name, minutes, reason, memo}] } }
+let records = {};
+let canSave = true;          // 브라우저 저장 공간을 쓸 수 있는지
+let selectedDate = "";       // 화면 위쪽에서 고른 날짜 (YYYY-MM-DD)
+let planDraft = [];          // 하루 계획 화면에서 고치는 중인 값 [{name, h, m, custom}]
+let actualDraft = [];        // 실제 기록 화면에서 고치는 중인 값 [{name, h, m, custom, reason, memo}]
+let currentTab = "plan";
+
+// ========== 6. 처리 함수 ==========
+
+// 날짜 → "YYYY-MM-DD" 문자열
+function toDateKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return y + "-" + m + "-" + day;
+}
+function todayKey() { return toDateKey(new Date()); }
+
+// "YYYY-MM-DD" → "10월 13일 (월)"
+function prettyDate(key) {
+  const parts = key.split("-").map(Number);
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  const week = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+  return parts[1] + "월 " + parts[2] + "일 (" + week + ")";
+}
+
+// 분 → "8시간 30분" 같은 글자
+function formatMinutes(total) {
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return m + "분";
+  if (m === 0) return h + "시간";
+  return h + "시간 " + m + "분";
+}
+// 차이(분) → "+30분", "-1시간", "0분"
+function formatDiff(diff) {
+  if (diff === 0) return "0분";
+  return (diff > 0 ? "+" : "-") + formatMinutes(Math.abs(diff));
+}
+
+// 시간·분 입력칸 글자를 검사해서 총 분으로 바꾼다. 문제가 있으면 error에 안내 문구.
+function parseTime(hText, mText) {
+  const hs = String(hText).trim();
+  const ms = String(mText).trim();
+  if (hs === "" || ms === "") return { error: "시간과 분을 모두 입력해 주세요. (없으면 0)" };
+  if (/^-/.test(hs) || /^-/.test(ms)) return { error: "음수 시간은 입력할 수 없어요." };
+  if (!/^\d+$/.test(hs) || !/^\d+$/.test(ms)) return { error: "숫자(0 이상의 정수)만 입력해 주세요." };
+  const h = Number(hs), m = Number(ms);
+  if (h > 24) return { error: "시간은 0~24 사이로 입력해 주세요." };
+  if (m > 59) return { error: "분은 0~59 사이로 입력해 주세요." };
+  const total = h * 60 + m;
+  if (total > DAY_MINUTES) return { error: "한 활동이 24시간을 넘을 수 없어요." };
+  return { minutes: total };
+}
+
+// 여러 줄의 합계 계산. 잘못 입력된 줄 개수도 함께 돌려준다.
+function sumDraft(draft) {
+  let total = 0, badCount = 0;
+  draft.forEach(function (row) {
+    const r = parseTime(row.h, row.m);
+    if (r.error) badCount++; else total += r.minutes;
+  });
+  return { total: total, badCount: badCount };
+}
+
+// 저장 공간 읽기 (막힌 환경이면 빈 기록으로 시작)
+function loadRecords() {
+  try {
+    const text = localStorage.getItem(STORAGE_KEY);
+    const data = text ? JSON.parse(text) : {};
+    records = (data && typeof data === "object") ? data : {};
+    canSave = true;
+  } catch (e) {
+    records = {};
+    canSave = false;
+  }
+}
+
+// 최근 7개 날짜만 남기고 오래된 날짜부터 지운다. 지운 날짜 목록을 돌려준다.
+function pruneOldRecords() {
+  const keys = Object.keys(records).sort();     // 오래된 날짜가 앞
+  const removed = [];
+  while (keys.length > KEEP_DAYS) {
+    const oldest = keys.shift();
+    delete records[oldest];
+    removed.push(oldest);
+  }
+  return removed;
+}
+
+// 저장 공간에 쓰기. 성공하면 true
+function saveRecords() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    canSave = true;
+    return true;
+  } catch (e) {
+    canSave = false;
+    return false;
+  }
+}
+
+// 날짜의 기록 꺼내기 (없으면 null)
+function getDay(key) { return records[key] || null; }
+
+// 저장된 계획(또는 기본 활동)으로 계획 초안 만들기
+function makePlanDraft(key) {
+  const day = getDay(key);
+  if (day && day.plan) {
+    return day.plan.map(function (a) {
+      return { name: a.name, h: String(Math.floor(a.minutes / 60)), m: String(a.minutes % 60), custom: BASIC_ACTIVITIES.indexOf(a.name) < 0 };
+    });
+  }
+  return BASIC_ACTIVITIES.map(function (name) { return { name: name, h: "0", m: "0", custom: false }; });
+}
+
+// 실제 기록 초안: 저장된 실제 기록이 있으면 그것, 없으면 계획 시간을 기본값으로
+function makeActualDraft(key) {
+  const day = getDay(key);
+  const plan = (day && day.plan) ? day.plan : null;
+  const actual = (day && day.actual) ? day.actual : null;
+  const rows = [];
+  function addRow(name, minutes, reason, memo) {
+    rows.push({ name: name, h: String(Math.floor(minutes / 60)), m: String(minutes % 60),
+      custom: BASIC_ACTIVITIES.indexOf(name) < 0, reason: reason || "", memo: memo || "" });
+  }
+  if (actual) {
+    actual.forEach(function (a) { addRow(a.name, a.minutes, a.reason, a.memo); });
+    // 실제 기록 저장 뒤 계획에 새로 생긴 활동은 계획 값으로 보여 준다
+    if (plan) plan.forEach(function (p) {
+      if (!rows.some(function (r) { return r.name === p.name; })) addRow(p.name, p.minutes);
+    });
+  } else if (plan) {
+    plan.forEach(function (p) { addRow(p.name, p.minutes); });
+  } else {
+    BASIC_ACTIVITIES.forEach(function (name) { addRow(name, 0); });
+  }
+  return rows;
+}
+
+// 계획에서 특정 활동의 분 (계획이 없거나 활동이 없으면 null — 0으로 착각하지 않도록)
+function planMinutesOf(key, name) {
+  const day = getDay(key);
+  if (!day || !day.plan) return null;
+  const found = day.plan.find(function (a) { return a.name === name; });
+  return found ? found.minutes : null;
+}
+
+// 이름 검사: 비었거나 이미 있으면 안내 문구를 돌려준다
+function checkNewName(name, draft) {
+  if (name === "") return "활동 이름을 입력해 주세요. 비어 있으면 추가하지 않아요.";
+  if (draft.some(function (r) { return r.name === name; })) return "'" + name + "' 활동은 이미 있어요.";
+  return "";
+}
+
+// 한 줄에 +30분 / -30분
+function stepRow(row, delta) {
+  const r = parseTime(row.h, row.m);
+  if (r.error) return r.error;
+  const next = r.minutes + delta;
+  if (next < 0) return "0분보다 줄일 수 없어요.";
+  if (next > DAY_MINUTES) return "한 활동이 24시간을 넘을 수 없어요.";
+  row.h = String(Math.floor(next / 60));
+  row.m = String(next % 60);
+  return "";
+}
+
+// 남은 시간을 한 활동에 모두 더하기
+function fillRemaining(draft, index) {
+  const sum = sumDraft(draft);
+  if (sum.badCount > 0) return "잘못 입력된 칸을 먼저 고쳐 주세요.";
+  const left = DAY_MINUTES - sum.total;
+  if (left <= 0) return "더할 남은 시간이 없어요.";
+  return stepRow(draft[index], left);
+}
+
+// 저장된 계획과 지금 초안을 비교한 변화 문구 (재배분을 바로 확인하기 위함)
+function describePlanChange() {
+  const day = getDay(selectedDate);
+  if (!day || !day.plan) return "";
+  const parts = [];
+  let before = 0;
+  day.plan.forEach(function (a) { before += a.minutes; });
+  planDraft.forEach(function (row) {
+    const r = parseTime(row.h, row.m);
+    if (r.error) return;
+    const old = planMinutesOf(selectedDate, row.name);
+    const diff = r.minutes - (old === null ? 0 : old);
+    if (old === null) parts.push(row.name + " 새로 추가 " + formatMinutes(r.minutes));
+    else if (diff !== 0) parts.push(row.name + " " + formatDiff(diff));
+  });
+  day.plan.forEach(function (a) {
+    if (!planDraft.some(function (r) { return r.name === a.name; })) parts.push(a.name + " 삭제");
+  });
+  if (parts.length === 0) return "저장된 계획과 같아요.";
+  const after = sumDraft(planDraft).total;
+  return "저장된 계획에서 바뀐 점: " + parts.join(", ") + " · 하루 합계 " + formatMinutes(before) + " → " + formatMinutes(after);
+}
+
+// 화면에 보여 줄 날짜 목록: 오늘 기준 최근 7일 + 그 밖에 저장된 날짜
+function listCompareDates() {
+  const set = {};
+  const base = new Date();
+  for (let i = 0; i < KEEP_DAYS; i++) {
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() - i);
+    set[toDateKey(d)] = true;
+  }
+  Object.keys(records).forEach(function (k) { set[k] = true; });
+  return Object.keys(set).sort().reverse();
+}
+
+// ========== 7. 화면 갱신 ==========
+const $ = function (id) { return document.getElementById(id); };
+
+function setMessage(id, text, bad) {
+  const el = $(id);
+  el.textContent = text;
+  el.classList.toggle("bad", !!bad);
+}
+
+function renderDate() {
+  $("dateInput").value = selectedDate;
+  $("dateText").textContent = prettyDate(selectedDate) + (selectedDate === todayKey() ? " · 오늘" : "");
+  $("storageWarn").hidden = canSave;
+}
+
+// 활동 한 줄 만들기 (계획·실제 공용)
+function buildRow(draft, index, kind) {
+  const row = draft[index];
+  const wrap = document.createElement("div");
+  wrap.className = "act-row";
+
+  const head = document.createElement("div");
+  head.className = "act-head";
+  const name = document.createElement("span");
+  name.className = "act-name";
+  name.textContent = row.name;                     // 사용자 입력은 textContent로 안전하게
+  head.appendChild(name);
+
+  if (kind === "actual") {
+    const planInfo = document.createElement("span");
+    planInfo.className = "act-plan";
+    const pm = planMinutesOf(selectedDate, row.name);
+    planInfo.textContent = pm === null ? (getDay(selectedDate) && getDay(selectedDate).plan ? "계획에 없음" : "계획 없음") : "계획 " + formatMinutes(pm);
+    head.appendChild(planInfo);
+  }
+  wrap.appendChild(head);
+
+  const line = document.createElement("div");
+  line.className = "time-inputs";
+  const hInput = makeNumberInput(row.h, row.name + " 시간", "시간");
+  const mInput = makeNumberInput(row.m, row.name + " 분", "분");
+  line.appendChild(hInput.label);
+  line.appendChild(mInput.label);
+
+  const minus = makeButton("-30분", row.name + " 30분 줄이기");
+  const plus = makeButton("+30분", row.name + " 30분 늘리기");
+  line.appendChild(minus);
+  line.appendChild(plus);
+  let removeBtn = null;
+  if (row.custom) {
+    removeBtn = makeButton("빼기", row.name + " 활동 빼기");
+    line.appendChild(removeBtn);
+  }
+  wrap.appendChild(line);
+
+  const msg = document.createElement("div");
+  msg.className = "row-msg";
+  msg.setAttribute("role", "status");
+  wrap.appendChild(msg);
+
+  // 실제 기록: 계획과 다르면 이유·메모 칸 보이기
+  let reasonBox = null;
+  if (kind === "actual") {
+    reasonBox = document.createElement("div");
+    reasonBox.className = "reason-box";
+    const selLabel = document.createElement("label");
+    selLabel.textContent = "계획과 다른 이유 (선택)";
+    const sel = document.createElement("select");
+    const empty = document.createElement("option");
+    empty.value = ""; empty.textContent = "선택 안 함";
+    sel.appendChild(empty);
+    REASONS.forEach(function (r) {
+      const o = document.createElement("option");
+      o.value = r; o.textContent = r;
+      sel.appendChild(o);
+    });
+    sel.value = row.reason;
+    selLabel.appendChild(sel);
+    const memoLabel = document.createElement("label");
+    memoLabel.textContent = "메모 (선택)";
+    const memo = document.createElement("input");
+    memo.type = "text"; memo.className = "text"; memo.maxLength = 100;
+    memo.value = row.memo;
+    memoLabel.appendChild(memo);
+    reasonBox.appendChild(selLabel);
+    reasonBox.appendChild(memoLabel);
+    wrap.appendChild(reasonBox);
+    sel.addEventListener("change", function () { row.reason = sel.value; markDirty(kind); });
+    memo.addEventListener("input", function () { row.memo = memo.value; markDirty(kind); });
+  }
+
+  // 줄 상태(잘못된 입력 안내·이유 칸 표시) 갱신
+  function refreshRow() {
+    const r = parseTime(row.h, row.m);
+    msg.textContent = r.error ? r.error : "";
+    hInput.input.setAttribute("aria-invalid", r.error ? "true" : "false");
+    mInput.input.setAttribute("aria-invalid", r.error ? "true" : "false");
+    if (reasonBox) {
+      const pm = planMinutesOf(selectedDate, row.name);
+      reasonBox.hidden = !(r.minutes !== undefined && pm !== null && r.minutes !== pm);
+    }
+  }
+  refreshRow();
+
+  hInput.input.addEventListener("input", function () { row.h = hInput.input.value; refreshRow(); updateTotals(kind); markDirty(kind); });
+  mInput.input.addEventListener("input", function () { row.m = mInput.input.value; refreshRow(); updateTotals(kind); markDirty(kind); });
+  function step(delta) {
+    const err = stepRow(row, delta);
+    if (!err) { hInput.input.value = row.h; mInput.input.value = row.m; markDirty(kind); }
+    refreshRow();
+    if (err) msg.textContent = err;
+    updateTotals(kind);
+  }
+  minus.addEventListener("click", function () { step(-30); });
+  plus.addEventListener("click", function () { step(30); });
+  if (removeBtn) removeBtn.addEventListener("click", function () {
+    draft.splice(index, 1);
+    markDirty(kind);
+    renderRows(kind);
+  });
+  return wrap;
+}
+
+function makeNumberInput(value, labelText, unit) {
+  const label = document.createElement("label");
+  const input = document.createElement("input");
+  input.type = "text";
+  input.inputMode = "numeric";
+  input.value = value;
+  input.setAttribute("aria-label", labelText);
+  label.appendChild(input);
+  label.appendChild(document.createTextNode(unit));
+  return { label: label, input: input };
+}
+function makeButton(text, ariaLabel) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn small";
+  b.textContent = text;
+  b.setAttribute("aria-label", ariaLabel);
+  return b;
+}
+
+function renderRows(kind) {
+  const draft = kind === "plan" ? planDraft : actualDraft;
+  const box = $(kind === "plan" ? "planRows" : "actualRows");
+  box.textContent = "";
+  draft.forEach(function (_, i) { box.appendChild(buildRow(draft, i, kind)); });
+  // "남은 시간 더하기" 선택 목록도 다시 만든다
+  const sel = $(kind === "plan" ? "planFillSelect" : "actualFillSelect");
+  sel.textContent = "";
+  draft.forEach(function (row, i) {
+    const o = document.createElement("option");
+    o.value = String(i); o.textContent = row.name;
+    sel.appendChild(o);
+  });
+  updateTotals(kind);
+}
+
+// 합계·남은/초과 시간 표시
+function updateTotals(kind) {
+  const draft = kind === "plan" ? planDraft : actualDraft;
+  const sum = sumDraft(draft);
+  const box = $(kind + "TotalBox");
+  const totalEl = $(kind + "Total");
+  const stateEl = $(kind + "State");
+  const fill = $(kind + "Fill");
+  const leftWord = kind === "plan" ? "미배분 시간" : "미기록 시간";
+
+  totalEl.textContent = "합계 " + formatMinutes(sum.total) + " (" + sum.total.toLocaleString("ko-KR") + "분 / 1,440분)";
+  box.classList.remove("over", "full");
+  fill.hidden = true;
+  if (sum.badCount > 0) {
+    stateEl.textContent = "잘못 입력된 칸이 " + sum.badCount + "개 있어요. 그 칸은 합계에서 빠져 있어요. 안내에 따라 고쳐 주세요.";
+    box.classList.add("over");
+  } else if (sum.total === DAY_MINUTES) {
+    stateEl.textContent = "딱 24시간이에요. 초과·" + leftWord + " 없음.";
+    box.classList.add("full");
+  } else if (sum.total > DAY_MINUTES) {
+    stateEl.textContent = "24시간보다 " + formatMinutes(sum.total - DAY_MINUTES) + " 초과했어요. 다른 활동의 시간을 줄여 24시간 이하로 고쳐 주세요.";
+    box.classList.add("over");
+  } else {
+    stateEl.textContent = leftWord + " " + formatMinutes(DAY_MINUTES - sum.total) + "이 남아 있어요." +
+      (kind === "plan" ? " 이대로 저장할 수도 있고, 활동에 나눠 넣을 수도 있어요." : " 필요하면 활동에 더해 주세요.");
+    fill.hidden = draft.length === 0;
+  }
+  if (kind === "plan") $("planChange").textContent = describePlanChange();
+}
+
+// 저장 안 된 변경이 생겼음을 알림
+function markDirty(kind) {
+  setMessage(kind + "Msg", "저장하지 않은 변경이 있어요. '" + (kind === "plan" ? "계획 저장" : "실제 기록 저장") + "'을 눌러야 보관돼요.", false);
+}
+
+function renderStatusLines() {
+  const day = getDay(selectedDate);
+  $("planStatus").textContent = prettyDate(selectedDate) + " · " + (day && day.plan ? "저장된 계획이 있어요." : "아직 저장된 계획이 없어요.");
+  let a = prettyDate(selectedDate) + " · ";
+  if (day && day.actual) a += "저장된 실제 기록이 있어요.";
+  else if (day && day.plan) a += "계획 시간을 기본값으로 보여 줘요. 실제로 다른 활동만 고쳐 주세요.";
+  else a += "이 날짜에는 계획이 없어요. 계획 없이 실제 시간만 기록할 수도 있어요.";
+  $("actualStatus").textContent = a;
+}
+
+// 기록 비교 화면
+function renderCompare() {
+  const list = $("dayList");
+  list.textContent = "";
+  listCompareDates().forEach(function (key) {
+    const day = getDay(key);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("aria-pressed", key === selectedDate ? "true" : "false");
+    b.appendChild(document.createTextNode(prettyDate(key)));
+    const s = document.createElement("small");
+    s.textContent = !day ? "기록 없음" : (day.plan ? "계획" : "계획 없음") + " · " + (day.actual ? "실제" : "실제 없음");
+    b.appendChild(s);
+    b.addEventListener("click", function () { changeDate(key); });
+    list.appendChild(b);
+  });
+
+  const area = $("compareArea");
+  area.textContent = "";
+  const day = getDay(selectedDate);
+  const title = document.createElement("h3");
+  title.textContent = prettyDate(selectedDate) + " 비교";
+  area.appendChild(title);
+  if (!day || (!day.plan && !day.actual)) {
+    const p = document.createElement("p");
+    p.className = "none";
+    p.textContent = "이 날짜에는 저장된 기록이 없어요. (0시간으로 보지 않아요)";
+    area.appendChild(p);
+    $("deleteBtn").disabled = true;
+    return;
+  }
+  $("deleteBtn").disabled = false;
+
+  // 계획·실제에 나오는 활동 이름을 모두 모은다
+  const names = [];
+  (day.plan || []).concat(day.actual || []).forEach(function (a) { if (names.indexOf(a.name) < 0) names.push(a.name); });
+
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  thead.appendChild(makeTableRow(["활동", "계획 시간", "실제 시간", "차이"], "th"));
+  table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  const reasons = [];
+  names.forEach(function (name) {
+    const p = day.plan ? day.plan.find(function (a) { return a.name === name; }) : null;
+    const ac = day.actual ? day.actual.find(function (a) { return a.name === name; }) : null;
+    const planText = !day.plan ? "계획 없음" : (p ? formatMinutes(p.minutes) : "계획에 없음");
+    const actualText = !day.actual ? "기록 없음" : (ac ? formatMinutes(ac.minutes) : "기록에 없음");
+    const diffText = (p && ac) ? formatDiff(ac.minutes - p.minutes) : "-";
+    tbody.appendChild(makeTableRow([name, planText, actualText, diffText], "td"));
+    if (ac && (ac.reason || ac.memo)) reasons.push({ name: name, reason: ac.reason, memo: ac.memo });
+  });
+  table.appendChild(tbody);
+  const tfoot = document.createElement("tfoot");
+  const planSum = day.plan ? day.plan.reduce(function (s, a) { return s + a.minutes; }, 0) : null;
+  const actualSum = day.actual ? day.actual.reduce(function (s, a) { return s + a.minutes; }, 0) : null;
+  tfoot.appendChild(makeTableRow([
+    "합계",
+    planSum === null ? "-" : formatMinutes(planSum),
+    actualSum === null ? "-" : formatMinutes(actualSum),
+    (planSum !== null && actualSum !== null) ? formatDiff(actualSum - planSum) : "-"
+  ], "td"));
+  table.appendChild(tfoot);
+  area.appendChild(table);
+
+  // 미배분·미기록 안내
+  const notes = [];
+  if (planSum !== null && planSum < DAY_MINUTES) notes.push("계획 미배분 시간 " + formatMinutes(DAY_MINUTES - planSum));
+  if (actualSum !== null && actualSum < DAY_MINUTES) notes.push("미기록 시간 " + formatMinutes(DAY_MINUTES - actualSum));
+  if (notes.length) {
+    const p = document.createElement("p");
+    p.className = "act-plan";
+    p.style.marginTop = "8px";
+    p.textContent = notes.join(" · ");
+    area.appendChild(p);
+  }
+
+  // 사용자가 적은 이유와 메모 (프로그램이 추측해서 덧붙이지 않음)
+  const h = document.createElement("h3");
+  h.textContent = "차이 이유와 메모";
+  area.appendChild(h);
+  if (reasons.length === 0) {
+    const p = document.createElement("p");
+    p.className = "none";
+    p.textContent = "적어 둔 이유나 메모가 없어요.";
+    area.appendChild(p);
+  } else {
+    const ul = document.createElement("ul");
+    ul.className = "reason-list";
+    reasons.forEach(function (r) {
+      const li = document.createElement("li");
+      li.textContent = r.name + ": " + [r.reason, r.memo].filter(Boolean).join(" — ");
+      ul.appendChild(li);
+    });
+    area.appendChild(ul);
+  }
+  const tip = document.createElement("p");
+  tip.className = "act-plan";
+  tip.style.marginTop = "8px";
+  tip.textContent = "차이는 잘하고 못함이 아니라 돌아볼 거리예요. 다음 계획은 '하루 계획'에서 직접 조정해 보세요.";
+  area.appendChild(tip);
+}
+
+function makeTableRow(cells, tag) {
+  const tr = document.createElement("tr");
+  cells.forEach(function (c) {
+    const cell = document.createElement(tag);
+    cell.textContent = c;
+    if (c === "계획 없음" || c === "기록 없음" || c === "계획에 없음" || c === "기록에 없음") cell.className = "none";
+    tr.appendChild(cell);
+  });
+  return tr;
+}
+
+function showTab(name) {
+  currentTab = name;
+  ["plan", "actual", "compare"].forEach(function (t) {
+    $("tab-" + t).setAttribute("aria-selected", t === name ? "true" : "false");
+    $("panel-" + t).hidden = t !== name;
+  });
+  if (name === "compare") renderCompare();
+}
+
+// 날짜를 바꾸면 그 날짜의 계획·실제 기록을 다시 불러온다
+function changeDate(key) {
+  selectedDate = key;
+  planDraft = makePlanDraft(key);
+  actualDraft = makeActualDraft(key);
+  renderDate();
+  renderStatusLines();
+  renderRows("plan");
+  renderRows("actual");
+  setMessage("planMsg", "");
+  setMessage("actualMsg", "");
+  setMessage("compareMsg", "");
+  $("confirmBox").hidden = true;
+  if (currentTab === "compare") renderCompare();
+}
+
+// 저장 결과 문구 (저장 실패·오래된 기록 삭제 안내 포함)
+function finishSave(msgId, label, removed) {
+  const ok = saveRecords();
+  renderDate();
+  renderStatusLines();
+  if (!ok) {
+    setMessage(msgId, label + "은 저장되지 않았어요. 이 환경에서는 브라우저 저장을 쓸 수 없어, 페이지를 닫거나 새로고침하면 입력한 내용이 사라질 수 있어요. 주의해 주세요.", true);
+    return false;
+  }
+  let text = label + "을 이 브라우저에 저장했어요.";
+  if (removed.length) text += " 7일 보관 규칙에 따라 오래된 날짜(" + removed.map(prettyDate).join(", ") + ")의 기록을 지웠어요.";
+  setMessage(msgId, text, removed.indexOf(selectedDate) >= 0);
+  return true;
+}
+
+// ========== 8. 이벤트 연결 ==========
+function savePlan() {
+  const sum = sumDraft(planDraft);
+  if (sum.badCount > 0) { setMessage("planMsg", "잘못 입력된 칸이 있어 저장하지 않았어요. 빨간 안내가 있는 칸을 고쳐 주세요.", true); return; }
+  if (sum.total > DAY_MINUTES) { setMessage("planMsg", "합계가 24시간보다 " + formatMinutes(sum.total - DAY_MINUTES) + " 많아 저장하지 않았어요. 시간을 줄여 주세요.", true); return; }
+  if (!records[selectedDate]) records[selectedDate] = {};
+  // 계획만 덮어쓴다 (실제 기록은 그대로) — 여러 번 눌러도 같은 결과
+  records[selectedDate].plan = planDraft.map(function (row) { return { name: row.name, minutes: parseTime(row.h, row.m).minutes }; });
+  const removed = pruneOldRecords();
+  const planSaved = finishSave("planMsg", "계획", removed);
+  if (planSaved && sum.total < DAY_MINUTES) $("planMsg").textContent += " 미배분 시간 " + formatMinutes(DAY_MINUTES - sum.total) + "이 있어요.";
+  actualDraft = makeActualDraft(selectedDate);  // 실제 기록 화면의 '계획' 표시 갱신 (저장된 실제 기록은 그대로)
+  renderRows("actual");
+  updateTotals("plan");
+}
+
+function saveActual() {
+  const sum = sumDraft(actualDraft);
+  if (sum.badCount > 0) { setMessage("actualMsg", "잘못 입력된 칸이 있어 저장하지 않았어요. 빨간 안내가 있는 칸을 고쳐 주세요.", true); return; }
+  if (sum.total > DAY_MINUTES) { setMessage("actualMsg", "합계가 24시간보다 " + formatMinutes(sum.total - DAY_MINUTES) + " 많아 저장하지 않았어요. 시간을 줄여 주세요.", true); return; }
+  if (!records[selectedDate]) records[selectedDate] = {};
+  records[selectedDate].actual = actualDraft.map(function (row) {
+    const minutes = parseTime(row.h, row.m).minutes;
+    const pm = planMinutesOf(selectedDate, row.name);
+    const differs = pm !== null && pm !== minutes;
+    // 계획과 다른 활동만 이유·메모를 저장 (사용자가 적은 그대로)
+    return { name: row.name, minutes: minutes, reason: differs ? row.reason : "", memo: differs ? row.memo.trim() : "" };
+  });
+  const removed = pruneOldRecords();
+  const actualSaved = finishSave("actualMsg", "실제 기록", removed);
+  if (actualSaved && sum.total < DAY_MINUTES) $("actualMsg").textContent += " 미기록 시간 " + formatMinutes(DAY_MINUTES - sum.total) + "이 있어요.";
+}
+
+function addActivity(kind) {
+  const input = $(kind === "plan" ? "planNewName" : "actualNewName");
+  const draft = kind === "plan" ? planDraft : actualDraft;
+  const name = input.value.trim();
+  const err = checkNewName(name, draft);
+  if (err) { setMessage(kind + "Msg", err, true); return; }
+  draft.push({ name: name, h: "0", m: "0", custom: true, reason: "", memo: "" });
+  input.value = "";
+  renderRows(kind);
+  setMessage(kind + "Msg", "'" + name + "' 활동을 추가했어요. 시간을 입력한 뒤 저장해 주세요.", false);
+}
+
+function fillFor(kind) {
+  const draft = kind === "plan" ? planDraft : actualDraft;
+  const idx = Number($(kind + "FillSelect").value);
+  if (!draft[idx]) return;
+  const err = fillRemaining(draft, idx);
+  if (err) { setMessage(kind + "Msg", err, true); return; }
+  renderRows(kind);
+  markDirty(kind);
+}
+
+$("tab-plan").addEventListener("click", function () { showTab("plan"); });
+$("tab-actual").addEventListener("click", function () { showTab("actual"); });
+$("tab-compare").addEventListener("click", function () { showTab("compare"); });
+
+$("dateInput").addEventListener("change", function () {
+  if (/^\d{4}-\d{2}-\d{2}$/.test($("dateInput").value)) changeDate($("dateInput").value);
+  else renderDate();
+});
+$("todayBtn").addEventListener("click", function () { changeDate(todayKey()); });
+
+$("planSaveBtn").addEventListener("click", savePlan);
+$("actualSaveBtn").addEventListener("click", saveActual);
+$("planAddBtn").addEventListener("click", function () { addActivity("plan"); });
+$("actualAddBtn").addEventListener("click", function () { addActivity("actual"); });
+$("planNewName").addEventListener("keydown", function (e) { if (e.key === "Enter") addActivity("plan"); });
+$("actualNewName").addEventListener("keydown", function (e) { if (e.key === "Enter") addActivity("actual"); });
+$("planFillBtn").addEventListener("click", function () { fillFor("plan"); });
+$("actualFillBtn").addEventListener("click", function () { fillFor("actual"); });
+
+$("planExampleBtn").addEventListener("click", function () {
+  // 기본 활동 시간만 예시 값으로 바꾸고, 직접 추가한 활동은 0으로 둔다
+  planDraft = BASIC_ACTIVITIES.map(function (name) {
+    const min = EXAMPLE_PLAN[name];
+    return { name: name, h: String(Math.floor(min / 60)), m: String(min % 60), custom: false };
+  });
+  renderRows("plan");
+  setMessage("planMsg", "예시 계획을 불러왔어요(참고용). 자기 하루에 맞게 고친 뒤 '계획 저장'을 눌러 주세요.", false);
+});
+$("planRecentBtn").addEventListener("click", function () {
+  // 선택한 날짜보다 앞선 날짜 중 가장 최근 계획을 복사해 다음 계획 조정의 출발점으로 쓴다
+  const keys = Object.keys(records).filter(function (k) { return k < selectedDate && records[k].plan; }).sort();
+  if (keys.length === 0) { setMessage("planMsg", "이 날짜보다 앞선 저장된 계획이 없어요.", true); return; }
+  const from = keys[keys.length - 1];
+  planDraft = records[from].plan.map(function (a) {
+    return { name: a.name, h: String(Math.floor(a.minutes / 60)), m: String(a.minutes % 60), custom: BASIC_ACTIVITIES.indexOf(a.name) < 0 };
+  });
+  renderRows("plan");
+  setMessage("planMsg", prettyDate(from) + " 계획을 불러왔어요. 고친 뒤 '계획 저장'을 눌러 주세요.", false);
+});
+$("planResetBtn").addEventListener("click", function () {
+  planDraft = makePlanDraft(selectedDate);
+  renderRows("plan");
+  setMessage("planMsg", "저장된 계획(없으면 빈 계획)으로 되돌렸어요.", false);
+});
+$("actualResetBtn").addEventListener("click", function () {
+  actualDraft = makeActualDraft(selectedDate);
+  renderRows("actual");
+  setMessage("actualMsg", "저장된 기록(없으면 계획 값)으로 되돌렸어요.", false);
+});
+
+// 삭제: 페이지 안 확인 상자에서 한 번 더 확인
+$("deleteBtn").addEventListener("click", function () {
+  $("confirmText").textContent = prettyDate(selectedDate) + "의 계획과 실제 기록을 함께 삭제할까요? 다른 날짜의 기록은 그대로 남아요. 삭제하면 되돌릴 수 없어요.";
+  $("confirmBox").hidden = false;
+  $("confirmNo").focus();
+});
+$("confirmNo").addEventListener("click", function () {
+  $("confirmBox").hidden = true;
+  setMessage("compareMsg", "삭제를 취소했어요.", false);
+});
+$("confirmYes").addEventListener("click", function () {
+  const key = selectedDate;
+  delete records[key];
+  const ok = saveRecords();
+  $("confirmBox").hidden = true;
+  changeDate(key);
+  setMessage("compareMsg", ok ? prettyDate(key) + "의 기록을 삭제했어요." : prettyDate(key) + "의 기록을 화면에서 지웠지만, 저장 공간을 쓸 수 없어 반영되지 않았을 수 있어요.", !ok);
+});
+
+// 시작
+loadRecords();
+changeDate(todayKey());
+</script>
+</body>
+</html>

@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>수행평가 관리 플래너</title>
+<meta name="description" content="여러 과목의 수행평가를 마감일·우선순위와 함께 적어 두고, 완료한 과제는 취소선과 함께 아래로 정리해 주는 플래너">
+<meta name="class" content="O반 (2-5)">
+<meta name="status" content="PRD">
+<style>
+  /* ===== 색과 기본 글꼴 ===== */
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --line: #dde1e6;
+    --text: #1f2328;
+    --muted: #5b636d;
+    --accent: #1f5fa8;      /* 강조색은 하나만 */
+    --accent-soft: #e8f0fa;
+    --warn: #a3361f;
+    --warn-soft: #fbeeea;
+    --done: #8a9098;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  .wrap { max-width: 44rem; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .lead { margin: 0 0 16px; color: var(--muted); }
+  h2 { font-size: 1.15rem; margin: 0 0 12px; }
+
+  /* 항상 보이는 주의 안내 */
+  .notice {
+    border-left: 4px solid var(--warn);
+    background: var(--warn-soft);
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-weight: 600;
+  }
+
+  /* ===== 입력 폼 ===== */
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 16px;
+    margin-bottom: 20px;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .full { grid-column: 1 / -1; }
+  label { display: block; font-weight: 600; font-size: 0.95rem; margin-bottom: 4px; }
+  input, select {
+    width: 100%;
+    font: inherit;
+    padding: 9px 10px;
+    border: 1px solid #b9c0c8;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+    min-height: 44px;
+  }
+  input:focus, select:focus, button:focus-visible { outline: 3px solid #9cc0ea; outline-offset: 1px; }
+  input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--warn); border-width: 2px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+  button {
+    font: inherit;
+    font-weight: 600;
+    min-height: 44px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger { color: var(--warn); border-color: #e2b7ac; }
+  button.danger-fill { background: var(--warn); border-color: var(--warn); color: #fff; }
+  .msg { margin: 10px 0 0; min-height: 1.7em; font-weight: 600; }
+  .msg.error { color: var(--warn); }
+  .msg.ok { color: var(--accent); }
+
+  /* 페이지 안 확인 상자 (전체 초기화용) */
+  .confirm {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border: 1px solid #e2b7ac;
+    background: var(--warn-soft);
+    border-radius: 8px;
+  }
+  .confirm p { margin: 0 0 8px; }
+
+  /* ===== 목록 ===== */
+  .list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .count { color: var(--muted); font-size: 0.95rem; }
+  ul.cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .card.p-high { border-left-color: var(--warn); }
+  .card.p-mid { border-left-color: var(--accent); }
+  .card.p-low { border-left-color: #9aa3ad; }
+  .card .body { min-width: 0; flex: 1; }
+  .subject { font-weight: 700; }
+  .task { margin: 2px 0 4px; }
+  .meta { color: var(--muted); font-size: 0.93rem; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .badge {
+    display: inline-block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+  }
+  .badge.p-high { color: var(--warn); }
+  .badge.p-mid { color: var(--accent); }
+  .badge.p-low { color: var(--muted); }
+  .late { color: var(--warn); font-weight: 700; }
+  .card button { flex-shrink: 0; }
+  /* 완료된 카드: 흐리게 + 취소선 */
+  .card.done { background: #f1f2f4; border-left-color: var(--done); }
+  .card.done .subject, .card.done .task { text-decoration: line-through; color: var(--done); }
+  .card.done .done-label { color: var(--muted); font-weight: 700; }
+  .empty {
+    border: 1px dashed #b9c0c8;
+    border-radius: 10px;
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--muted);
+    background: var(--card);
+  }
+  .storage { margin-top: 18px; color: var(--muted); font-size: 0.93rem; }
+
+  @media (max-width: 480px) {
+    .grid { grid-template-columns: 1fr; }
+    .card { flex-direction: column; }
+    .card button { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<!-- ===== 화면 구조 ===== -->
+<main class="wrap">
+  <h1>수행평가 관리 플래너</h1>
+  <p class="lead">과제를 적어 두면 해야 할 일은 위로, 끝낸 일은 아래로 정리해 줍니다.</p>
+
+  <p class="notice" role="note">우선순위와 마감일은 실시간으로 다시 한번 확인하세요!</p>
+
+  <!-- 입력 폼 -->
+  <section class="panel" aria-labelledby="form-title">
+    <h2 id="form-title">수행평가 추가</h2>
+    <form id="task-form" novalidate>
+      <div class="grid">
+        <div>
+          <label for="in-subject">과목명</label>
+          <input id="in-subject" type="text" maxlength="20" placeholder="예: 국어" autocomplete="off">
+        </div>
+        <div>
+          <label for="in-due">마감 날짜</label>
+          <input id="in-due" type="date">
+        </div>
+        <div class="full">
+          <label for="in-task">과제 내용</label>
+          <input id="in-task" type="text" maxlength="60" placeholder="예: 독서 감상문 제출" autocomplete="off">
+        </div>
+        <div>
+          <label for="in-minutes">예상 소요 시간(분)</label>
+          <input id="in-minutes" type="number" min="1" max="1440" step="1" inputmode="numeric" placeholder="예: 45">
+        </div>
+        <div>
+          <label for="in-priority">우선순위</label>
+          <select id="in-priority">
+            <option value="">선택하세요</option>
+            <option value="high">높음</option>
+            <option value="mid">보통</option>
+            <option value="low">낮음</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <button type="submit" class="primary" id="btn-add">추가</button>
+      </div>
+      <p class="msg" id="form-msg" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <!-- 목록 -->
+  <section aria-labelledby="list-title">
+    <div class="list-head">
+      <h2 id="list-title">수행평가 목록</h2>
+      <span class="count" id="count-text"></span>
+    </div>
+    <ul class="cards" id="task-list"></ul>
+    <p class="empty" id="empty-box">등록된 수행평가가 없습니다. 새로운 과제를 추가해 보세요!</p>
+
+    <div class="row">
+      <button type="button" id="btn-sample">예시 데이터 불러오기</button>
+      <button type="button" class="danger" id="btn-reset">전체 초기화</button>
+    </div>
+    <div class="confirm" id="confirm-box" hidden>
+      <p>정말 모든 수행평가를 지울까요? 지운 내용은 되돌릴 수 없습니다.</p>
+      <div class="row" style="margin-top:0">
+        <button type="button" class="danger-fill" id="btn-reset-yes">네, 모두 지우기</button>
+        <button type="button" id="btn-reset-no">취소</button>
+      </div>
+    </div>
+    <p class="msg" id="list-msg" role="status" aria-live="polite"></p>
+    <p class="storage" id="storage-msg"></p>
+  </section>
+</main>
+
+<script>
+// ===== 예시 데이터·설정 =====
+const STORAGE_KEY = "sih26:20419:tasks";   // 이 프로그램 전용 저장 이름
+const MAX_TASKS = 20;                       // 최대 20개까지 저장
+const PRIORITY_NAME = { high: "높음", mid: "보통", low: "낮음" };
+const PRIORITY_RANK = { high: 0, mid: 1, low: 2 }; // 숫자가 작을수록 위에 표시
+
+// 예시 데이터: 마감일은 "오늘로부터 며칠 뒤"로 적어 둔다 (내일=1, 글피=3)
+const SAMPLE_TASKS = [
+  { subject: "국어", task: "독서 감상문 제출", daysLater: 1, minutes: 45, priority: "high" },
+  { subject: "수학", task: "학습지 3페이지 풀기", daysLater: 3, minutes: 30, priority: "mid" }
+];
+
+// ===== 데이터·상태 =====
+let tasks = [];          // 수행평가 객체 배열
+let canSave = true;      // localStorage를 쓸 수 있는지
+
+// ===== 처리 함수 =====
+
+// 날짜 객체를 "2026-10-14" 같은 문자열로 바꾼다
+function toDateString(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return y + "-" + m + "-" + d;
+}
+
+// 오늘로부터 n일 뒤의 날짜 문자열
+function dateAfter(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return toDateString(d);
+}
+
+// 마감일까지 남은 날 수 (오늘=0, 지났으면 음수)
+function daysLeft(dueString) {
+  const today = new Date(toDateString(new Date()) + "T00:00:00");
+  const due = new Date(dueString + "T00:00:00");
+  return Math.round((due - today) / 86400000);
+}
+
+// 저장된 데이터 불러오기 (막혀 있으면 빈 목록으로 시작)
+function loadTasks() {
+  try {
+    const text = localStorage.getItem(STORAGE_KEY);
+    const data = text ? JSON.parse(text) : [];
+    tasks = Array.isArray(data) ? data.slice(0, MAX_TASKS) : [];
+  } catch (e) {
+    canSave = false;
+    tasks = [];
+  }
+}
+
+// 현재 목록을 JSON으로 저장
+function saveTasks() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    canSave = true;
+  } catch (e) {
+    canSave = false;
+  }
+}
+
+// 이 프로그램의 저장 데이터만 지운다 (다른 사이트 데이터는 건드리지 않음)
+function removeSaved() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { canSave = false; }
+}
+
+// 새 수행평가 객체 만들기
+function makeTask(subject, task, due, minutes, priority) {
+  return {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    subject: subject,
+    task: task,
+    due: due,
+    minutes: minutes,
+    priority: priority,
+    done: false
+  };
+}
+
+// 정렬 규칙: 미완료가 위, 완료가 아래.
+// 같은 그룹 안에서는 우선순위(높음→낮음), 그다음 마감일이 빠른 순.
+function sortedTasks() {
+  return tasks.slice().sort(function (a, b) {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    if (PRIORITY_RANK[a.priority] !== PRIORITY_RANK[b.priority]) {
+      return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+    }
+    return a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
+  });
+}
+
+// 폼 입력 검사: 빠진 항목 이름 목록과 오류 문장을 돌려준다
+function checkForm(values) {
+  const missing = [];
+  if (!values.subject) missing.push({ id: "in-subject", name: "과목명" });
+  if (!values.task) missing.push({ id: "in-task", name: "과제 내용" });
+  if (!values.due) missing.push({ id: "in-due", name: "마감 날짜" });
+  if (values.minutesText === "") missing.push({ id: "in-minutes", name: "예상 소요 시간" });
+  if (!values.priority) missing.push({ id: "in-priority", name: "우선순위" });
+
+  if (missing.length > 0) {
+    return {
+      bad: missing.map(function (m) { return m.id; }),
+      text: "모든 항목을 입력해 주세요. 비어 있는 항목: " + missing.map(function (m) { return m.name; }).join(", ")
+    };
+  }
+  const n = Number(values.minutesText);
+  if (!Number.isInteger(n) || n < 1 || n > 1440) {
+    return { bad: ["in-minutes"], text: "예상 소요 시간은 1~1440 사이의 정수(분)로 입력해 주세요." };
+  }
+  return null;
+}
+
+// ===== 화면 갱신 =====
+const listEl = document.getElementById("task-list");
+const emptyEl = document.getElementById("empty-box");
+const countEl = document.getElementById("count-text");
+const formMsg = document.getElementById("form-msg");
+const listMsg = document.getElementById("list-msg");
+const storageMsg = document.getElementById("storage-msg");
+const confirmBox = document.getElementById("confirm-box");
+
+function showMessage(el, text, kind) {
+  el.textContent = text;
+  el.className = "msg " + (kind || "");
+}
+
+// 카드 하나 만들기 (사용자 입력은 textContent로만 넣어 안전하게)
+function buildCard(t) {
+  const li = document.createElement("li");
+  li.className = "card p-" + t.priority + (t.done ? " done" : "");
+
+  const body = document.createElement("div");
+  body.className = "body";
+
+  const subject = document.createElement("div");
+  subject.className = "subject";
+  subject.textContent = t.subject;
+
+  const task = document.createElement("div");
+  task.className = "task";
+  task.textContent = t.task;
+
+  const meta = document.createElement("div");
+  meta.className = "meta";
+
+  const badge = document.createElement("span");
+  badge.className = "badge p-" + t.priority;
+  badge.textContent = "우선순위 " + PRIORITY_NAME[t.priority];
+
+  const due = document.createElement("span");
+  const left = daysLeft(t.due);
+  let leftText = left === 0 ? "오늘 마감" : left > 0 ? "D-" + left : "마감 " + (-left) + "일 지남";
+  due.textContent = "마감 " + t.due + " (" + leftText + ")";
+  if (left < 0 && !t.done) due.className = "late";
+
+  const time = document.createElement("span");
+  time.textContent = "예상 " + t.minutes + "분";
+
+  meta.append(badge, due, time);
+  if (t.done) {
+    const doneLabel = document.createElement("span");
+    doneLabel.className = "done-label";
+    doneLabel.textContent = "완료됨";
+    meta.append(doneLabel);
+  }
+  body.append(subject, task, meta);
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.dataset.id = t.id;
+  btn.className = t.done ? "" : "primary";
+  btn.textContent = t.done ? "완료 취소" : "완료";
+  btn.setAttribute("aria-label", t.subject + " " + t.task + (t.done ? " 완료 취소" : " 완료"));
+
+  li.append(body, btn);
+  return li;
+}
+
+function render() {
+  listEl.replaceChildren();
+  const list = sortedTasks();
+  list.forEach(function (t) { listEl.append(buildCard(t)); });
+
+  // 데이터가 없으면 안내 문구, 있으면 목록
+  emptyEl.hidden = list.length > 0;
+  listEl.hidden = list.length === 0;
+
+  const doneCount = tasks.filter(function (t) { return t.done; }).length;
+  countEl.textContent = tasks.length === 0 ? "" :
+    "전체 " + tasks.length + "개 / 남은 과제 " + (tasks.length - doneCount) + "개 (최대 " + MAX_TASKS + "개)";
+
+  storageMsg.textContent = canSave
+    ? "이 브라우저에 자동 저장됩니다."
+    : "이 환경에서는 저장되지 않습니다. 새로고침하면 목록이 사라져요.";
+}
+
+// ===== 이벤트 연결 =====
+
+// '추가' 버튼
+document.getElementById("task-form").addEventListener("submit", function (e) {
+  e.preventDefault();
+  const values = {
+    subject: document.getElementById("in-subject").value.trim(),
+    task: document.getElementById("in-task").value.trim(),
+    due: document.getElementById("in-due").value,
+    minutesText: document.getElementById("in-minutes").value.trim(),
+    priority: document.getElementById("in-priority").value
+  };
+
+  // 이전 오류 표시 지우기
+  ["in-subject", "in-task", "in-due", "in-minutes", "in-priority"].forEach(function (id) {
+    document.getElementById(id).removeAttribute("aria-invalid");
+  });
+
+  if (tasks.length >= MAX_TASKS) {
+    showMessage(formMsg, "최대 " + MAX_TASKS + "개까지만 등록할 수 있어요. 전체 초기화 후 다시 추가해 주세요.", "error");
+    return;
+  }
+
+  const problem = checkForm(values);
+  if (problem) {
+    problem.bad.forEach(function (id) { document.getElementById(id).setAttribute("aria-invalid", "true"); });
+    showMessage(formMsg, problem.text, "error");
+    document.getElementById(problem.bad[0]).focus();
+    return;
+  }
+
+  tasks.push(makeTask(values.subject, values.task, values.due, Number(values.minutesText), values.priority));
+  saveTasks();
+  this.reset();
+  showMessage(formMsg, "'" + values.subject + "' 과제를 추가했어요.", "ok");
+  showMessage(listMsg, "");
+  render();
+});
+
+// 카드의 '완료' / '완료 취소' 버튼 (목록 전체에 한 번만 연결)
+listEl.addEventListener("click", function (e) {
+  const btn = e.target.closest("button[data-id]");
+  if (!btn) return;
+  const t = tasks.find(function (x) { return x.id === btn.dataset.id; });
+  if (!t) return;
+  t.done = !t.done;   // 다시 누르면 원래대로 (토글)
+  saveTasks();
+  render();
+});
+
+// '예시 데이터 불러오기'
+document.getElementById("btn-sample").addEventListener("click", function () {
+  let added = 0;
+  SAMPLE_TASKS.forEach(function (s) {
+    if (tasks.length < MAX_TASKS) {
+      tasks.push(makeTask(s.subject, s.task, dateAfter(s.daysLater), s.minutes, s.priority));
+      added++;
+    }
+  });
+  saveTasks();
+  showMessage(listMsg, added > 0 ? "예시 과제 " + added + "개를 불러왔어요." : "목록이 가득 차서 예시를 더 넣을 수 없어요.", added > 0 ? "ok" : "error");
+  render();
+});
+
+// '전체 초기화' → 페이지 안 확인 상자 열기
+document.getElementById("btn-reset").addEventListener("click", function () {
+  confirmBox.hidden = false;
+  document.getElementById("btn-reset-no").focus();
+});
+document.getElementById("btn-reset-no").addEventListener("click", function () {
+  confirmBox.hidden = true;
+  document.getElementById("btn-reset").focus();
+});
+document.getElementById("btn-reset-yes").addEventListener("click", function () {
+  tasks = [];
+  removeSaved();
+  confirmBox.hidden = true;
+  showMessage(listMsg, "모든 수행평가를 지웠어요.", "ok");
+  showMessage(formMsg, "");
+  render();
+});
+
+// 처음 시작
+loadTasks();
+render();
+</script>
+</body>
+</html>

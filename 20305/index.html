@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<!-- ===== 메타 ===== -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>당장 할 일 알리미</title>
+<meta name="description" content="가장 최근에 추가한 할 일을 맨 위에 보여 주는 스택(후입선출) 방식 할 일 목록">
+<meta name="class" content="O반 (2-5)">
+<meta name="status" content="PRD">
+
+<!-- ===== 스타일 ===== -->
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --line: #dde1e6;
+    --accent: #1f5fbf;
+    --warn-bg: #fff6e0;
+    --warn-line: #e3b341;
+    --danger: #b42318;
+    --done-bg: #e8f5ec;
+    --done-line: #2f855a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  main { max-width: 40rem; margin: 0 auto; padding: 16px 16px 48px; }
+
+  /* 공용 컴퓨터 경고: 항상 맨 위에 고정 표시 */
+  .privacy-warning {
+    margin: 0 0 20px;
+    padding: 12px 14px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; line-height: 1.3; }
+  .sub { margin: 0 0 20px; color: var(--muted); font-size: 1rem; }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  label { display: block; font-weight: 600; margin-bottom: 6px; }
+  .add-row { display: flex; gap: 8px; }
+  input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button {
+    font: inherit;
+    font-size: 1rem;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn-danger { color: var(--danger); border-color: var(--danger); }
+  .btn-danger-fill { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
+
+  /* 입력 오류 안내 (alert 대신 화면 안에 표시) */
+  .error-msg { margin: 8px 0 0; color: var(--danger); font-weight: 600; }
+  .error-msg[hidden] { display: none; }
+
+  .tools { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .count { color: var(--muted); font-size: 1rem; }
+
+  /* 모두 지우기 확인 상자 */
+  .confirm-box {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid var(--danger);
+    border-radius: 10px;
+    background: #fdf1f0;
+  }
+  .confirm-box p { margin: 0 0 10px; }
+  .confirm-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* 다 끝났을 때 메시지 */
+  .all-done {
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    background: var(--done-bg);
+    border: 1px solid var(--done-line);
+    border-radius: 10px;
+    font-weight: 700;
+  }
+  .all-done[hidden] { display: none; }
+
+  .storage-note { color: var(--muted); font-size: 0.95rem; margin: 0 0 12px; }
+  .storage-note[hidden] { display: none; }
+
+  /* 할 일 목록 */
+  .todo-list { list-style: none; margin: 0; padding: 0; }
+  .todo-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+  }
+  .todo-item:first-child { border-top: none; }
+  .todo-text { flex: 1; min-width: 0; }
+  /* 맨 위(가장 최근) 항목은 진하게 강조 */
+  .todo-item.newest .todo-text { font-weight: 700; }
+  .newest-tag {
+    display: inline-block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    padding: 0 6px;
+    margin-right: 6px;
+    vertical-align: 1px;
+  }
+  /* 완료된 항목: 회색 + 가운데 취소선 */
+  .todo-item.done .todo-text { color: #9aa0a6; text-decoration: line-through; }
+  .todo-item.done .newest-tag { color: #9aa0a6; border-color: #c4c8cc; }
+  .done-label { color: var(--muted); font-size: 0.95rem; white-space: nowrap; }
+  .empty { color: var(--muted); margin: 0; }
+</style>
+</head>
+<body>
+
+<!-- ===== 화면 구조 ===== -->
+<main>
+  <p class="privacy-warning" role="note">공용 컴퓨터에서는 사용 후 꼭 지워주세요!</p>
+
+  <h1>당장 할 일 알리미</h1>
+  <p class="sub">가장 나중에 넣은 일이 맨 위에 올라와요. 위에서부터 하나씩 끝내 보세요.</p>
+
+  <section class="panel" aria-label="할 일 추가">
+    <form id="addForm" novalidate>
+      <label for="todoInput">할 일 입력</label>
+      <div class="add-row">
+        <input type="text" id="todoInput" maxlength="100" placeholder="예: 과학 보고서 1쪽 쓰기" autocomplete="off" aria-describedby="inputError">
+        <button type="submit" class="btn-primary" id="addBtn">추가</button>
+      </div>
+      <p class="error-msg" id="inputError" role="alert" hidden></p>
+    </form>
+
+    <div class="tools">
+      <span class="count" id="countText"></span>
+      <button type="button" class="btn-danger" id="clearAllBtn">모두 지우기</button>
+    </div>
+
+    <div class="confirm-box" id="confirmBox" hidden>
+      <p>저장된 할 일을 모두 지울까요? 지우면 되돌릴 수 없어요.</p>
+      <div class="confirm-actions">
+        <button type="button" class="btn-danger-fill" id="confirmYesBtn">네, 모두 지우기</button>
+        <button type="button" id="confirmNoBtn">취소</button>
+      </div>
+    </div>
+  </section>
+
+  <p class="all-done" id="allDoneMsg" role="status" hidden>수고했어! 다 끝났네!</p>
+
+  <section class="panel" aria-label="할 일 목록">
+    <p class="storage-note" id="storageNote" hidden>이 화면에서는 저장 기능을 쓸 수 없어요. 새로고침하면 목록이 처음 상태로 돌아가요(저장되지 않음).</p>
+    <ul class="todo-list" id="todoList"></ul>
+    <p class="empty" id="emptyText" hidden>할 일이 없어요. 위에서 새로 추가해 보세요.</p>
+  </section>
+</main>
+
+<script>
+// ===== 예시 데이터·설정 =====
+const STORAGE_KEY = "sih26:20305:todos";
+// 처음 실행할 때 보여 줄 가상 할 일 (먼저 넣은 것 → 나중에 넣은 것 순서)
+const SAMPLE_TODOS = [
+  { text: "수학 프린트 3쪽 풀기", done: false },
+  { text: "영어 단어 30개 외우기", done: false }
+];
+
+// ===== 데이터·상태 =====
+// stack 배열: 맨 끝(마지막 칸)이 스택의 "꼭대기" = 가장 최근에 넣은 할 일
+let stack = [];
+let canSave = true; // localStorage를 쓸 수 있는지
+
+// ===== 처리 함수 =====
+
+// 저장된 목록 불러오기 (없으면 예시 데이터, 저장소가 막혀 있으면 예시 데이터로 시작)
+function loadTodos() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === null) {
+      stack = SAMPLE_TODOS.map(item => ({ ...item }));
+      saveTodos();
+      return;
+    }
+    const parsed = JSON.parse(saved);
+    stack = Array.isArray(parsed)
+      ? parsed.filter(item => item && typeof item.text === "string").map(item => ({ text: item.text, done: !!item.done }))
+      : [];
+  } catch (e) {
+    canSave = false;
+    stack = SAMPLE_TODOS.map(item => ({ ...item }));
+  }
+}
+
+// 현재 목록을 localStorage에 배열(JSON)로 저장
+function saveTodos() {
+  if (!canSave) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stack));
+  } catch (e) {
+    canSave = false;
+  }
+}
+
+// 스택에 넣기(push): 새 할 일은 배열 맨 끝 = 꼭대기에 쌓인다
+function pushTodo(text) {
+  stack.push({ text: text, done: false });
+  saveTodos();
+}
+
+// 완료 표시: 지우지 않고 done 값만 true로 바꾼다
+function completeTodo(index) {
+  if (stack[index]) {
+    stack[index].done = true;
+    saveTodos();
+  }
+}
+
+// 모두 지우기: 목록을 비우고 저장된 데이터도 삭제
+function clearAllTodos() {
+  stack = [];
+  if (canSave) {
+    try {
+      localStorage.setItem(STORAGE_KEY, "[]"); // 빈 목록으로 저장(새로고침해도 예시가 다시 생기지 않게)
+    } catch (e) {
+      canSave = false;
+    }
+  }
+}
+
+// ===== 화면 갱신 =====
+const todoInput = document.getElementById("todoInput");
+const inputError = document.getElementById("inputError");
+const todoList = document.getElementById("todoList");
+const emptyText = document.getElementById("emptyText");
+const allDoneMsg = document.getElementById("allDoneMsg");
+const countText = document.getElementById("countText");
+const confirmBox = document.getElementById("confirmBox");
+const storageNote = document.getElementById("storageNote");
+
+function showError(message) {
+  inputError.textContent = message;
+  inputError.hidden = false;
+  todoInput.setAttribute("aria-invalid", "true");
+}
+
+function hideError() {
+  inputError.textContent = "";
+  inputError.hidden = true;
+  todoInput.removeAttribute("aria-invalid");
+}
+
+// 목록 그리기: 스택의 꼭대기(배열 끝)부터 거꾸로 보여 준다 → 최신이 맨 위
+function render() {
+  todoList.textContent = "";
+
+  for (let i = stack.length - 1; i >= 0; i--) {
+    const item = stack[i];
+    const li = document.createElement("li");
+    li.className = "todo-item";
+    if (i === stack.length - 1) li.classList.add("newest"); // 맨 위 = 가장 최근
+    if (item.done) li.classList.add("done");
+
+    const textSpan = document.createElement("span");
+    textSpan.className = "todo-text";
+    if (i === stack.length - 1) {
+      const tag = document.createElement("span");
+      tag.className = "newest-tag";
+      tag.textContent = "최신";
+      textSpan.appendChild(tag);
+    }
+    // 사용자가 쓴 글은 textContent로 넣어서 HTML로 해석되지 않게 한다
+    textSpan.appendChild(document.createTextNode(item.text));
+    li.appendChild(textSpan);
+
+    if (item.done) {
+      const doneLabel = document.createElement("span");
+      doneLabel.className = "done-label";
+      doneLabel.textContent = "완료됨";
+      li.appendChild(doneLabel);
+    } else {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "complete-btn";
+      btn.textContent = "완료";
+      btn.dataset.index = String(i);
+      btn.setAttribute("aria-label", item.text + " 완료하기");
+      li.appendChild(btn);
+    }
+    todoList.appendChild(li);
+  }
+
+  const total = stack.length;
+  const doneCount = stack.filter(item => item.done).length;
+  emptyText.hidden = total !== 0;
+  countText.textContent = total === 0 ? "할 일 0개" : "할 일 " + total + "개 중 " + doneCount + "개 완료";
+  // 할 일이 1개 이상이고 전부 완료면 축하 메시지
+  allDoneMsg.hidden = !(total > 0 && doneCount === total);
+  storageNote.hidden = canSave;
+}
+
+// ===== 이벤트 연결 =====
+
+// 추가 버튼(또는 Enter)
+document.getElementById("addForm").addEventListener("submit", function (event) {
+  event.preventDefault();
+  const text = todoInput.value.trim();
+  if (text === "") {
+    showError("할 일을 입력해주세요!");
+    todoInput.focus();
+    return;
+  }
+  hideError();
+  pushTodo(text);
+  todoInput.value = "";
+  render();
+  todoInput.focus();
+});
+
+// 입력을 시작하면 오류 안내 지우기
+todoInput.addEventListener("input", function () {
+  if (todoInput.value.trim() !== "") hideError();
+});
+
+// 완료 버튼 (목록 전체에 한 번만 연결)
+todoList.addEventListener("click", function (event) {
+  const btn = event.target.closest(".complete-btn");
+  if (!btn) return;
+  completeTodo(Number(btn.dataset.index));
+  render();
+});
+
+// 모두 지우기 → 화면 안 확인 상자 열기
+document.getElementById("clearAllBtn").addEventListener("click", function () {
+  confirmBox.hidden = false;
+  document.getElementById("confirmNoBtn").focus();
+});
+document.getElementById("confirmNoBtn").addEventListener("click", function () {
+  confirmBox.hidden = true;
+  document.getElementById("clearAllBtn").focus();
+});
+document.getElementById("confirmYesBtn").addEventListener("click", function () {
+  clearAllTodos();
+  confirmBox.hidden = true;
+  hideError();
+  render();
+  todoInput.focus();
+});
+
+// 시작
+loadTodos();
+render();
+</script>
+</body>
+</html>
