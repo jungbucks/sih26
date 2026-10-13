@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스마트 수행평가 및 과제 순서 관리기</title>
+<meta name="description" content="중요도와 마감일로 과제를 자동 정렬하고, 마감 2일 이내 과제에 임박 배지를 붙여 주는 과제 순서 관리기">
+<meta name="class" content="O반 (2-5)">
+<meta name="status" content="PRD">
+<style>
+  /* ===== 기본 색과 글꼴 ===== */
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --line: #dde1e6;
+    --text: #1f2328;
+    --muted: #5b6470;
+    --accent: #2457c5;
+    --danger: #b42318;
+    --danger-bg: #fdecea;
+    --ok: #1a7f37;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  main { max-width: 42rem; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  .lead { color: var(--muted); margin: 0 0 20px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+
+  /* ===== 입력 폼 ===== */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid .full { grid-column: 1 / -1; }
+  label { display: block; font-weight: 600; margin-bottom: 4px; }
+  .hint { font-weight: 400; color: var(--muted); font-size: 0.9rem; }
+  input, select {
+    width: 100%; font: inherit; padding: 8px 10px;
+    border: 1px solid #b9c0c8; border-radius: 8px; background: #fff; color: var(--text);
+  }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 8px; padding: 8px 14px;
+    border: 1px solid var(--line); background: #fff; color: var(--text);
+  }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn-danger { border-color: var(--danger); color: var(--danger); }
+  .btn-danger-fill { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .msg { margin: 12px 0 0; padding: 8px 12px; border-radius: 8px; display: none; }
+  .msg.error { display: block; background: var(--danger-bg); color: var(--danger); border: 1px solid #f3b8b2; }
+  .msg.info { display: block; background: #eef3fc; color: #1d4296; border: 1px solid #c5d5f3; }
+
+  /* ===== 과제 카드 ===== */
+  ol.tasks, ul.tasks { list-style: none; margin: 0; padding: 0; }
+  .task { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .task.urgent { border-color: var(--danger); border-left-width: 4px; }
+  .task-top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .rank { color: var(--muted); font-weight: 600; }
+  .task-title { font-weight: 600; font-size: 1.05rem; }
+  .done .task-title { text-decoration: line-through; color: var(--muted); }
+  .meta { color: var(--muted); font-size: 0.95rem; margin: 4px 0 8px; }
+  .tag { display: inline-block; font-size: 0.85rem; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); }
+  .tag.p3 { border-color: #2457c5; color: #2457c5; }
+  .tag.p2 { border-color: #7a5b00; color: #7a5b00; }
+  .tag.p1 { border-color: #5b6470; color: #5b6470; }
+  .badge-urgent { display: inline-block; font-size: 0.85rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--danger); color: #fff; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .empty { color: var(--muted); margin: 0; }
+  .count { color: var(--muted); font-weight: 400; font-size: 0.95rem; }
+
+  /* ===== 초기화 확인 상자(페이지 안) ===== */
+  .confirm-box { display: none; margin-top: 12px; padding: 12px; border: 1px solid var(--danger); border-radius: 10px; background: var(--danger-bg); }
+  .confirm-box.show { display: block; }
+  .confirm-box p { margin: 0 0 10px; }
+  .storage-note { color: var(--muted); font-size: 0.9rem; margin: 8px 0 0; }
+
+  @media (max-width: 480px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>스마트 수행평가 및 과제 순서 관리기</h1>
+  <p class="lead">중요도가 높은 과제가 위로, 중요도가 같으면 마감이 가까운 과제가 위로 올라와요. 맨 위 과제부터 시작하세요.</p>
+
+  <!-- 상단: 과제 입력 폼 -->
+  <section aria-labelledby="form-heading">
+    <h2 id="form-heading">과제 등록</h2>
+    <form id="taskForm" novalidate>
+      <div class="form-grid">
+        <div class="full">
+          <label for="titleInput">과제 이름 <span class="hint">(필수)</span></label>
+          <input id="titleInput" type="text" maxlength="50" placeholder="예: 정보 수행평가 발표 자료 제작">
+        </div>
+        <div>
+          <label for="dueInput">마감일 <span class="hint">(필수)</span></label>
+          <input id="dueInput" type="date">
+        </div>
+        <div>
+          <label for="timeInput">예상 소요 시간 <span class="hint">(시간)</span></label>
+          <input id="timeInput" type="number" min="0" max="999" step="0.5" placeholder="예: 2">
+        </div>
+        <div class="full">
+          <label for="priorityInput">중요도</label>
+          <select id="priorityInput">
+            <option value="3">상</option>
+            <option value="2" selected>중</option>
+            <option value="1">하</option>
+          </select>
+        </div>
+        <div class="full">
+          <button type="submit" class="btn-primary" id="addBtn">과제 추가</button>
+        </div>
+      </div>
+      <p id="formMsg" class="msg" role="alert" aria-live="assertive"></p>
+    </form>
+  </section>
+
+  <!-- 중앙: 우선순위 과제 목록 -->
+  <section aria-labelledby="list-heading">
+    <h2 id="list-heading">우선순위 과제 목록 <span class="count" id="activeCount"></span></h2>
+    <ol class="tasks" id="activeList"></ol>
+    <p class="empty" id="activeEmpty">등록된 과제가 없습니다.</p>
+  </section>
+
+  <!-- 하단: 완료된 과제 목록 + 전체 초기화 -->
+  <section aria-labelledby="done-heading">
+    <h2 id="done-heading">완료된 과제 목록 <span class="count" id="doneCount"></span></h2>
+    <ul class="tasks" id="doneList"></ul>
+    <p class="empty" id="doneEmpty">아직 완료한 과제가 없습니다.</p>
+  </section>
+
+  <section aria-labelledby="reset-heading">
+    <h2 id="reset-heading">전체 데이터 초기화</h2>
+    <button type="button" class="btn-danger" id="resetBtn">전체 초기화</button>
+    <div class="confirm-box" id="confirmBox" role="group" aria-label="초기화 확인">
+      <p>모든 과제(완료한 과제 포함)를 지우고 예시 데이터로 되돌릴까요? 이 작업은 되돌릴 수 없어요.</p>
+      <div class="actions">
+        <button type="button" class="btn-danger-fill" id="confirmYes">네, 초기화합니다</button>
+        <button type="button" id="confirmNo">취소</button>
+      </div>
+    </div>
+    <p class="storage-note" id="storageNote"></p>
+  </section>
+</main>
+
+<script>
+// ===== 예시 데이터·설정 =====
+const STORAGE_KEY = "sih26:20512:tasks";  // localStorage 저장 이름
+const MAX_TASKS = 20;                      // 등록 가능한 과제 수(진행 중 + 완료)
+const URGENT_DAYS = 2;                     // 마감 며칠 이내를 '임박'으로 볼지
+const PRIORITY_NAME = { 3: "상", 2: "중", 1: "하" };
+
+// 예시 과제: 마감일은 오늘 기준 며칠 뒤로 계산한다
+function makeExampleTasks() {
+  return [
+    { id: makeId(), title: "정보 수행평가 발표 자료 제작", dueDate: dateAfter(2), estimatedTime: 2, priority: 3, done: false },
+    { id: makeId(), title: "영어 단어 암기", dueDate: dateAfter(1), estimatedTime: 1, priority: 2, done: false }
+  ];
+}
+
+// ===== 데이터·상태 =====
+let tasks = [];
+let canSave = true;   // localStorage를 쓸 수 있는지
+
+// ===== 처리 함수 =====
+function makeId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// 날짜를 "YYYY-MM-DD" 글자로 바꾼다(내 컴퓨터 시간 기준)
+function toDateString(d) {
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return d.getFullYear() + "-" + m + "-" + day;
+}
+function dateAfter(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return toDateString(d);
+}
+
+// 오늘부터 마감일까지 남은 날 수 (오늘=0, 내일=1, 지났으면 음수)
+function daysLeft(dueDate) {
+  const [y, m, d] = dueDate.split("-").map(Number);
+  const due = new Date(y, m - 1, d);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((due - today) / 86400000);
+}
+
+// 정렬 규칙: ① 중요도 높은 순(상3 > 중2 > 하1) ② 중요도가 같으면 마감일이 가까운 순
+function compareTasks(a, b) {
+  if (a.priority !== b.priority) return b.priority - a.priority;  // 큰 숫자(상)가 앞으로
+  if (a.dueDate !== b.dueDate) return a.dueDate < b.dueDate ? -1 : 1; // "YYYY-MM-DD"는 글자 비교로 날짜 순서가 맞다
+  return 0;
+}
+
+// 입력값 검사: 문제가 있으면 안내 문장을, 없으면 null을 돌려준다
+function validateInput(title, dueDate, timeText) {
+  if (title === "") return "과제 이름을 입력해 주세요.";
+  if (dueDate === "" || !/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return "마감일을 입력해 주세요.";
+  if (timeText !== "") {
+    const t = Number(timeText);
+    if (!isFinite(t) || t < 0 || t > 999) return "예상 소요 시간은 0~999 사이의 숫자(시간)로 입력해 주세요.";
+  }
+  if (tasks.length >= MAX_TASKS) return "과제는 최대 " + MAX_TASKS + "개까지 등록할 수 있어요. 완료했거나 필요 없는 과제를 삭제해 주세요.";
+  return null;
+}
+
+function addTask(title, dueDate, timeText, priority) {
+  tasks.push({
+    id: makeId(),
+    title: title,
+    dueDate: dueDate,
+    estimatedTime: timeText === "" ? null : Number(timeText),
+    priority: priority,
+    done: false
+  });
+  saveTasks();
+}
+
+// 완료 처리: 과제의 done 표시를 true로 바꾸면 진행 중 목록에서 빠지고 완료 목록으로 옮겨진다
+function completeTask(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  task.done = true;
+  saveTasks();
+}
+
+function deleteTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  saveTasks();
+}
+
+function resetAll() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* 저장소를 못 쓰면 무시 */ }
+  tasks = makeExampleTasks();
+  saveTasks();
+}
+
+// ----- 저장·불러오기 (localStorage를 못 써도 프로그램은 작동) -----
+function saveTasks() {
+  if (!canSave) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  } catch (e) {
+    canSave = false;
+  }
+}
+
+function loadTasks() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw === null) return makeExampleTasks();   // 처음 열었을 때는 예시 데이터
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data)) return makeExampleTasks();
+    return data.filter(t => t && typeof t.title === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.dueDate))
+               .slice(0, MAX_TASKS);
+  } catch (e) {
+    canSave = false;
+    return makeExampleTasks();
+  }
+}
+
+// ===== 화면 갱신 =====
+function dueText(dueDate) {
+  const left = daysLeft(dueDate);
+  if (left < 0) return dueDate + " (" + (-left) + "일 지남)";
+  if (left === 0) return dueDate + " (오늘 마감)";
+  return dueDate + " (" + left + "일 남음)";
+}
+
+// 과제 카드 하나 만들기 (사용자 입력은 textContent로 넣어 안전하게)
+function createTaskCard(task, rank) {
+  const li = document.createElement("li");
+  li.className = "task" + (task.done ? " done" : "");
+
+  const top = document.createElement("div");
+  top.className = "task-top";
+  if (rank) {
+    const r = document.createElement("span");
+    r.className = "rank";
+    r.textContent = rank + "순위";
+    top.appendChild(r);
+  }
+  const title = document.createElement("span");
+  title.className = "task-title";
+  title.textContent = task.title;
+  top.appendChild(title);
+
+  const tag = document.createElement("span");
+  tag.className = "tag p" + task.priority;
+  tag.textContent = "중요도 " + PRIORITY_NAME[task.priority];
+  top.appendChild(tag);
+
+  // 마감 임박 배지: 정렬 위치와 상관없이 마감 2일 이내(지난 것 포함)면 붙인다
+  if (!task.done && daysLeft(task.dueDate) <= URGENT_DAYS) {
+    li.classList.add("urgent");
+    const badge = document.createElement("span");
+    badge.className = "badge-urgent";
+    badge.textContent = daysLeft(task.dueDate) < 0 ? "🚨 마감 지남" : "🚨 마감 임박";
+    top.appendChild(badge);
+  }
+  li.appendChild(top);
+
+  const meta = document.createElement("p");
+  meta.className = "meta";
+  const timePart = task.estimatedTime === null || task.estimatedTime === undefined ? "소요 시간 미입력" : "예상 " + task.estimatedTime + "시간";
+  meta.textContent = "마감 " + (task.done ? task.dueDate : dueText(task.dueDate)) + " · " + timePart;
+  li.appendChild(meta);
+
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  if (!task.done) {
+    const doneBtn = document.createElement("button");
+    doneBtn.type = "button";
+    doneBtn.textContent = "완료";
+    doneBtn.dataset.action = "complete";
+    doneBtn.dataset.id = task.id;
+    doneBtn.setAttribute("aria-label", task.title + " 완료");
+    actions.appendChild(doneBtn);
+  }
+  const delBtn = document.createElement("button");
+  delBtn.type = "button";
+  delBtn.className = "btn-danger";
+  delBtn.textContent = "삭제";
+  delBtn.dataset.action = "delete";
+  delBtn.dataset.id = task.id;
+  delBtn.setAttribute("aria-label", task.title + " 삭제");
+  actions.appendChild(delBtn);
+  li.appendChild(actions);
+  return li;
+}
+
+function render() {
+  const active = tasks.filter(t => !t.done).sort(compareTasks);
+  const done = tasks.filter(t => t.done);
+
+  const activeList = document.getElementById("activeList");
+  activeList.replaceChildren();
+  active.forEach((t, i) => activeList.appendChild(createTaskCard(t, i + 1)));
+  document.getElementById("activeEmpty").style.display = active.length ? "none" : "block";
+  document.getElementById("activeCount").textContent = "(" + active.length + "개)";
+
+  const doneList = document.getElementById("doneList");
+  doneList.replaceChildren();
+  done.forEach(t => doneList.appendChild(createTaskCard(t, 0)));
+  document.getElementById("doneEmpty").style.display = done.length ? "none" : "block";
+  document.getElementById("doneCount").textContent = "(" + done.length + "개)";
+
+  document.getElementById("storageNote").textContent = canSave
+    ? "과제는 이 브라우저에 자동 저장돼요. (전체 " + tasks.length + " / " + MAX_TASKS + "개)"
+    : "저장되지 않음: 이 환경에서는 브라우저 저장을 쓸 수 없어 새로고침하면 내용이 사라져요. (전체 " + tasks.length + " / " + MAX_TASKS + "개)";
+}
+
+function showMessage(text, kind) {
+  const msg = document.getElementById("formMsg");
+  msg.textContent = text;
+  msg.className = "msg " + kind;
+}
+
+// ===== 이벤트 연결 =====
+document.getElementById("taskForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+  const titleEl = document.getElementById("titleInput");
+  const dueEl = document.getElementById("dueInput");
+  const timeEl = document.getElementById("timeInput");
+  const title = titleEl.value.trim();
+  const dueDate = dueEl.value;
+  const timeText = timeEl.value.trim();
+  const priority = Number(document.getElementById("priorityInput").value);
+
+  // 숫자 칸에 숫자가 아닌 글자를 넣으면 value가 빈 값이 되므로 따로 확인
+  if (timeText === "" && timeEl.validity && timeEl.validity.badInput) {
+    showMessage("예상 소요 시간은 숫자로 입력해 주세요.", "error");
+    timeEl.focus();
+    return;
+  }
+  const error = validateInput(title, dueDate, timeText);
+  if (error) {
+    showMessage(error, "error");
+    if (title === "") titleEl.focus(); else if (dueDate === "") dueEl.focus();
+    return;
+  }
+  addTask(title, dueDate, timeText, priority);
+  showMessage("‘" + title + "’ 과제를 추가했어요.", "info");
+  titleEl.value = "";
+  timeEl.value = "";
+  render();
+  titleEl.focus();
+});
+
+// 목록의 [완료]/[삭제] 버튼 (목록 전체에 한 번만 연결)
+function handleListClick(e) {
+  const btn = e.target.closest("button[data-action]");
+  if (!btn) return;
+  if (btn.dataset.action === "complete") completeTask(btn.dataset.id);
+  if (btn.dataset.action === "delete") deleteTask(btn.dataset.id);
+  render();
+}
+document.getElementById("activeList").addEventListener("click", handleListClick);
+document.getElementById("doneList").addEventListener("click", handleListClick);
+
+// 전체 초기화: 페이지 안 확인 상자를 거친다
+document.getElementById("resetBtn").addEventListener("click", function () {
+  document.getElementById("confirmBox").classList.add("show");
+  document.getElementById("confirmYes").focus();
+});
+document.getElementById("confirmNo").addEventListener("click", function () {
+  document.getElementById("confirmBox").classList.remove("show");
+  document.getElementById("resetBtn").focus();
+});
+document.getElementById("confirmYes").addEventListener("click", function () {
+  resetAll();
+  document.getElementById("confirmBox").classList.remove("show");
+  showMessage("전체 데이터를 초기화하고 예시 과제를 다시 불러왔어요.", "info");
+  render();
+});
+
+// 처음 열 때
+document.getElementById("dueInput").value = dateAfter(1);
+tasks = loadTasks();
+saveTasks();
+render();
+</script>
+</body>
+</html>

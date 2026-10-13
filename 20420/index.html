@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>응급실 환자 위급도별 대기 순서 관리기</title>
+<meta name="description" content="위급도와 도착 순서로 응급실 대기 환자를 자동 정렬하는 우선순위 큐 관리기">
+<meta name="class" content="O반 (2-5)">
+<meta name="status" content="PRD">
+
+<!-- ===== 스타일 ===== -->
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --line: #dde1e6;
+    --text: #1f2933;
+    --muted: #5b6672;
+    --accent: #1f5fa8;
+    --danger: #b42318;
+    --danger-bg: #fdecea;
+    --done: #8a949e;
+    --p1: #b42318;
+    --p2: #b5560b;
+    --p3: #8a6d00;
+    --p4: #2f6f3e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    word-break: keep-all;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 1.45rem; margin: 0 0 8px; }
+  h2 { font-size: 1.15rem; margin: 0 0 12px; }
+  .notice {
+    border-left: 4px solid var(--danger);
+    background: var(--card);
+    padding: 10px 14px;
+    margin: 0 0 6px;
+    font-weight: 600;
+  }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; }
+  .layout { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 860px) {
+    .layout { grid-template-columns: 320px 1fr; align-items: start; }
+  }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+    min-width: 0;
+  }
+  label, legend { display: block; font-weight: 600; margin-bottom: 4px; }
+  .field { margin-bottom: 14px; }
+  input[type="text"], select {
+    width: 100%;
+    font: inherit;
+    padding: 9px 10px;
+    border: 1px solid #b8c0c8;
+    border-radius: 8px;
+    background: #fff;
+  }
+  input[type="text"]:focus, select:focus, button:focus-visible {
+    outline: 3px solid #9cc0ea;
+    outline-offset: 1px;
+  }
+  fieldset { border: 0; padding: 0; margin: 0 0 14px; }
+  .radios { display: grid; gap: 6px; }
+  .radios label { font-weight: 400; display: flex; gap: 8px; align-items: center; margin: 0; }
+  button {
+    font: inherit;
+    border-radius: 8px;
+    padding: 8px 14px;
+    border: 1px solid #b8c0c8;
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; width: 100%; font-weight: 600; }
+  .btn-danger { border-color: var(--danger); color: var(--danger); }
+  .btn-danger-solid { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .msg { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; font-size: 0.95rem; }
+  .msg:empty { display: none; }
+  .msg.error { background: var(--danger-bg); color: var(--danger); border: 1px solid #f3b8b1; }
+  .msg.info { background: #eaf2fb; color: #174a83; border: 1px solid #bcd3ee; }
+  .list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .count { color: var(--muted); font-size: 0.95rem; }
+  .empty { color: var(--muted); padding: 20px 0; text-align: left; }
+  /* 환자 카드 목록 */
+  .patients { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .patient {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 4px 12px;
+  }
+  .rank { font-size: 1.2rem; font-weight: 700; color: var(--accent); grid-row: span 3; }
+  .p-main { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline; min-width: 0; }
+  .p-name { font-weight: 700; font-size: 1.05rem; overflow-wrap: anywhere; }
+  .p-symptom { color: var(--text); overflow-wrap: anywhere; }
+  .p-meta { color: var(--muted); font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .badge { display: inline-block; font-size: 0.85rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1.5px solid currentColor; }
+  .lv1 { color: var(--p1); } .lv2 { color: var(--p2); } .lv3 { color: var(--p3); } .lv4 { color: var(--p4); }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .actions button { padding: 6px 10px; font-size: 0.95rem; }
+  .edit-box { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+  .edit-box select { width: auto; flex: 1 1 140px; }
+  .confirm-inline { margin-top: 6px; padding: 8px 10px; border: 1px solid #f3b8b1; background: var(--danger-bg); border-radius: 8px; }
+  .confirm-inline p { margin: 0 0 6px; color: var(--danger); }
+  /* 진료 완료 표시: 취소선 + 회색 + "진료 완료" 글자 */
+  .patient.done { background: #f2f3f5; }
+  .patient.done .p-name, .patient.done .p-symptom { text-decoration: line-through; color: var(--done); }
+  .patient.done .rank { color: var(--done); }
+  .status { font-weight: 600; }
+  .status.waiting { color: var(--accent); }
+  .status.finished { color: var(--done); }
+  .bottom { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .confirm-box { margin-top: 12px; padding: 12px 14px; border: 1px solid #f3b8b1; background: var(--danger-bg); border-radius: 10px; }
+  .confirm-box p { margin: 0 0 8px; color: var(--danger); font-weight: 600; }
+  .confirm-box .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .limit-note { color: var(--muted); font-size: 0.9rem; margin: 14px 0 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ===== 화면 구조 ===== -->
+<div class="wrap">
+  <header>
+    <h1>응급실 환자 위급도별 대기 순서 관리기</h1>
+    <p class="notice" role="note">※ 환자 상태 재평가 필요: 환자 상태 악화 시 언제든 위급도를 수정해 순서를 재조정하세요.</p>
+    <p class="sub">이 프로그램은 환자의 상태를 스스로 감지하지 못합니다. 대기 중인 환자를 계속 직접 관찰해 주세요.</p>
+  </header>
+
+  <div class="layout">
+    <!-- 환자 정보 입력 폼 -->
+    <section class="panel" aria-labelledby="form-title">
+      <h2 id="form-title">환자 등록</h2>
+      <form id="patient-form" novalidate>
+        <div class="field">
+          <label for="name-input">환자 이름</label>
+          <input type="text" id="name-input" maxlength="20" autocomplete="off" placeholder="예: 홍길동">
+        </div>
+        <div class="field">
+          <label for="symptom-input">주요 증상</label>
+          <input type="text" id="symptom-input" maxlength="40" autocomplete="off" placeholder="예: 복통">
+        </div>
+        <fieldset>
+          <legend>위급도 단계</legend>
+          <div class="radios" id="priority-radios"></div>
+        </fieldset>
+        <button type="submit" class="btn-primary" id="register-btn">환자 등록</button>
+        <p class="msg" id="form-msg" role="alert" aria-live="assertive"></p>
+      </form>
+      <p class="limit-note">최대 20명까지 등록할 수 있습니다.</p>
+    </section>
+
+    <!-- 대기 환자 목록 -->
+    <section class="panel" aria-labelledby="list-title">
+      <div class="list-head">
+        <h2 id="list-title">진료 대기 목록</h2>
+        <span class="count" id="count-text"></span>
+      </div>
+      <p class="sub" style="margin-bottom:12px">정렬 규칙: 위급도 1단계가 위, 같은 단계면 먼저 등록한 환자가 위</p>
+      <ol class="patients" id="patient-list" aria-label="정렬된 환자 목록"></ol>
+      <p class="empty" id="empty-text">대기 중인 환자가 없습니다. 왼쪽(위쪽) 폼에서 환자를 등록하세요.</p>
+
+      <div class="bottom">
+        <button type="button" id="sample-btn">예시 데이터 불러오기</button>
+        <button type="button" class="btn-danger" id="reset-btn">목록 초기화</button>
+      </div>
+      <!-- 페이지 안 확인창 (confirm 대신 사용) -->
+      <div class="confirm-box" id="confirm-box" hidden role="alertdialog" aria-labelledby="confirm-text">
+        <p id="confirm-text"></p>
+        <div class="row">
+          <button type="button" class="btn-danger-solid" id="confirm-yes">예, 진행합니다</button>
+          <button type="button" id="confirm-no">취소</button>
+        </div>
+      </div>
+      <p class="msg" id="list-msg" aria-live="polite"></p>
+      <p class="msg info" id="storage-msg" hidden></p>
+    </section>
+  </div>
+</div>
+
+<script>
+// ===== 예시 데이터·설정 =====
+const STORAGE_KEY = "sih26:20420:patients";   // 이 프로그램 전용 저장 키
+const MAX_PATIENTS = 20;                       // 최대 등록 인원
+const PRIORITY_LABELS = {
+  1: "1단계 (매우 위급)",
+  2: "2단계 (위급)",
+  3: "3단계 (보통)",
+  4: "4단계 (경증)"
+};
+// 가상 예시 데이터 (실제 환자 아님)
+const SAMPLE_PATIENTS = [
+  { name: "김철수", symptom: "두통", priority: 3 },
+  { name: "이영희", symptom: "호흡곤란", priority: 1 },
+  { name: "박민수", symptom: "손가락 찰과상", priority: 4 }
+];
+
+// ===== 데이터·상태 =====
+let patients = [];          // [{id, name, symptom, priority, time, status}]
+let nextId = 1;             // 등록할 때마다 1씩 커지는 번호 (같은 시각 등록 시 순서 보장용)
+let storageOk = true;       // localStorage 사용 가능 여부
+let editingId = null;       // 위급도 수정 중인 환자 id
+let deletingId = null;      // 삭제 확인 중인 환자 id
+let pendingAction = null;   // 하단 확인창에서 "예"를 누르면 실행할 함수
+
+// ===== 처리 함수 =====
+
+// 저장된 목록 불러오기 (저장소가 막혀 있어도 오류 없이 빈 목록으로 시작)
+function loadPatients() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (Array.isArray(data)) {
+      patients = data.filter(p => p && typeof p.name === "string" && [1, 2, 3, 4].includes(p.priority));
+      nextId = patients.reduce((m, p) => Math.max(m, p.id), 0) + 1;
+    }
+  } catch (e) {
+    storageOk = false;
+  }
+}
+
+// 현재 목록 저장하기
+function savePatients() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(patients));
+    storageOk = true;
+  } catch (e) {
+    storageOk = false;
+  }
+}
+
+// 저장된 목록 지우기 (이 프로그램의 키 하나만 삭제, 다른 저장 데이터는 그대로)
+function removeStoredPatients() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    storageOk = false;
+  }
+}
+
+/*
+  우선순위 큐(Priority Queue) 정렬 규칙
+  - 일반 큐는 "먼저 온 사람이 먼저"(선착순)지만,
+    응급실은 "더 위급한 사람이 먼저"여야 하므로 우선순위 큐 개념을 정렬로 표현한다.
+  - sort(비교함수)는 비교함수가 음수를 돌려주면 a를 앞에, 양수면 b를 앞에 둔다.
+  1) 먼저 위급도(priority)를 비교한다. 숫자가 작을수록 위급하므로
+     a.priority - b.priority 가 음수면 a가 더 위급 → a가 앞으로 (오름차순 1→2→3→4)
+  2) 위급도가 같으면(차이가 0) 등록 시간(time)을 비교한다.
+     먼저 등록된 환자(time이 작은 쪽)가 앞으로 → 같은 단계 안에서는 선착순
+  3) 등록 시간까지 같으면(같은 순간에 등록) 등록 번호(id)가 작은 쪽을 앞으로
+*/
+function sortPatients(list) {
+  return list.sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority - b.priority; // 1) 위급도 비교
+    if (a.time !== b.time) return a.time - b.time;                 // 2) 등록 시간 비교
+    return a.id - b.id;                                            // 3) 등록 번호 비교
+  });
+}
+
+// 입력값을 검사하고 환자를 등록한다. 성공하면 null, 실패하면 안내 문장을 돌려준다.
+function addPatient(name, symptom, priority) {
+  if (name.trim() === "") return "환자 이름을 입력해 주세요.";
+  if (![1, 2, 3, 4].includes(priority)) return "위급도 단계를 선택해 주세요.";
+  if (patients.length >= MAX_PATIENTS) {
+    return "최대 " + MAX_PATIENTS + "명까지만 등록할 수 있습니다. 진료가 끝난 환자를 삭제한 뒤 등록해 주세요.";
+  }
+  patients.push({
+    id: nextId++,
+    name: name.trim(),
+    symptom: symptom.trim() === "" ? "(증상 미입력)" : symptom.trim(),
+    priority: priority,
+    time: Date.now(),
+    status: "대기"
+  });
+  sortPatients(patients);
+  savePatients();
+  return null;
+}
+
+function findPatient(id) {
+  return patients.find(p => p.id === id);
+}
+
+// 진료 완료 처리
+function completePatient(id) {
+  const p = findPatient(id);
+  if (!p) return;
+  p.status = "진료 완료";
+  savePatients();
+}
+
+// 위급도 수정 후 다시 정렬
+function changePriority(id, newPriority) {
+  const p = findPatient(id);
+  if (!p || ![1, 2, 3, 4].includes(newPriority)) return;
+  p.priority = newPriority;
+  sortPatients(patients);
+  savePatients();
+}
+
+// 환자 한 명 삭제 (잘못 등록한 경우)
+function deletePatient(id) {
+  patients = patients.filter(p => p.id !== id);
+  savePatients();
+}
+
+// 예시 데이터로 목록을 바꾼다 (등록 시간을 1초씩 차이 나게 해서 순서가 분명하도록)
+function loadSampleData() {
+  const base = Date.now();
+  patients = SAMPLE_PATIENTS.map((s, i) => ({
+    id: nextId++,
+    name: s.name,
+    symptom: s.symptom,
+    priority: s.priority,
+    time: base + i * 1000,
+    status: "대기"
+  }));
+  sortPatients(patients);
+  savePatients();
+}
+
+// 전체 초기화
+function resetAll() {
+  patients = [];
+  removeStoredPatients();
+}
+
+// 시각을 "오후 2:05:09" 같은 형태로
+function formatTime(t) {
+  const d = new Date(t);
+  const h = d.getHours(), m = d.getMinutes(), s = d.getSeconds();
+  const ampm = h < 12 ? "오전" : "오후";
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  return ampm + " " + hh + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+}
+
+// ===== 화면 갱신 =====
+const els = {
+  form: document.getElementById("patient-form"),
+  name: document.getElementById("name-input"),
+  symptom: document.getElementById("symptom-input"),
+  radios: document.getElementById("priority-radios"),
+  formMsg: document.getElementById("form-msg"),
+  list: document.getElementById("patient-list"),
+  empty: document.getElementById("empty-text"),
+  count: document.getElementById("count-text"),
+  sampleBtn: document.getElementById("sample-btn"),
+  resetBtn: document.getElementById("reset-btn"),
+  confirmBox: document.getElementById("confirm-box"),
+  confirmText: document.getElementById("confirm-text"),
+  confirmYes: document.getElementById("confirm-yes"),
+  confirmNo: document.getElementById("confirm-no"),
+  listMsg: document.getElementById("list-msg"),
+  storageMsg: document.getElementById("storage-msg"),
+  registerBtn: document.getElementById("register-btn")
+};
+
+// 위급도 라디오 버튼 만들기
+function buildRadios() {
+  for (let lv = 1; lv <= 4; lv++) {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "priority";
+    input.value = String(lv);
+    const span = document.createElement("span");
+    span.className = "lv" + lv;
+    span.textContent = PRIORITY_LABELS[lv];
+    label.append(input, span);
+    els.radios.appendChild(label);
+  }
+}
+
+function showFormMsg(text) {
+  els.formMsg.textContent = text;
+  els.formMsg.className = text ? "msg error" : "msg";
+}
+
+function showListMsg(text, type) {
+  els.listMsg.textContent = text;
+  els.listMsg.className = text ? "msg " + (type || "info") : "msg";
+}
+
+function makeButton(text, cls, handler) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = text;
+  if (cls) b.className = cls;
+  b.addEventListener("click", handler);
+  return b;
+}
+
+// 환자 카드 하나 만들기 (사용자 입력은 textContent로 넣어 안전하게)
+function renderPatient(p, rank) {
+  const li = document.createElement("li");
+  li.className = "patient" + (p.status === "진료 완료" ? " done" : "");
+  li.dataset.id = p.id;
+
+  const rankEl = document.createElement("div");
+  rankEl.className = "rank";
+  rankEl.textContent = rank + "";
+  rankEl.setAttribute("aria-label", "순위 " + rank);
+
+  const main = document.createElement("div");
+  main.className = "p-main";
+  const nameEl = document.createElement("span");
+  nameEl.className = "p-name";
+  nameEl.textContent = p.name;
+  const badge = document.createElement("span");
+  badge.className = "badge lv" + p.priority;
+  badge.textContent = PRIORITY_LABELS[p.priority];
+  main.append(nameEl, badge);
+
+  const symptomEl = document.createElement("div");
+  symptomEl.className = "p-symptom";
+  symptomEl.textContent = "증상: " + p.symptom;
+
+  const meta = document.createElement("div");
+  meta.className = "p-meta";
+  const timeEl = document.createElement("span");
+  timeEl.textContent = "등록 " + formatTime(p.time);
+  const statusEl = document.createElement("span");
+  statusEl.className = "status " + (p.status === "진료 완료" ? "finished" : "waiting");
+  statusEl.textContent = "상태: " + p.status;
+  meta.append(timeEl, statusEl);
+
+  const body = document.createElement("div");
+  body.style.minWidth = "0";
+  body.append(main, symptomEl, meta);
+
+  // 조작 영역
+  if (editingId === p.id) {
+    // 위급도 수정 상자
+    const box = document.createElement("div");
+    box.className = "edit-box";
+    const sel = document.createElement("select");
+    sel.id = "edit-select-" + p.id;
+    sel.setAttribute("aria-label", p.name + " 환자의 새 위급도");
+    for (let lv = 1; lv <= 4; lv++) {
+      const opt = document.createElement("option");
+      opt.value = String(lv);
+      opt.textContent = PRIORITY_LABELS[lv];
+      if (lv === p.priority) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    box.append(
+      sel,
+      makeButton("변경 적용", "", () => {
+        const before = p.priority;
+        const after = Number(sel.value);
+        changePriority(p.id, after);
+        editingId = null;
+        render();
+        showListMsg(before === after
+          ? p.name + " 환자의 위급도는 그대로입니다."
+          : p.name + " 환자의 위급도를 " + before + "단계에서 " + after + "단계로 바꾸고 순서를 다시 정렬했습니다.", "info");
+      }),
+      makeButton("취소", "", () => { editingId = null; render(); })
+    );
+    body.appendChild(box);
+  } else if (deletingId === p.id) {
+    // 삭제 확인 상자 (confirm 대신 페이지 안에서 확인)
+    const box = document.createElement("div");
+    box.className = "confirm-inline";
+    const q = document.createElement("p");
+    q.textContent = p.name + " 환자를 목록에서 삭제할까요?";
+    const row = document.createElement("div");
+    row.className = "actions";
+    row.append(
+      makeButton("예, 삭제", "btn-danger-solid", () => {
+        deletePatient(p.id);
+        deletingId = null;
+        render();
+        showListMsg(p.name + " 환자를 삭제했습니다.", "info");
+      }),
+      makeButton("취소", "", () => { deletingId = null; render(); })
+    );
+    box.append(q, row);
+    body.appendChild(box);
+  } else {
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    const doneBtn = makeButton(p.status === "진료 완료" ? "진료 완료됨" : "진료 완료", "", () => {
+      completePatient(p.id);
+      render();
+      showListMsg(p.name + " 환자를 진료 완료로 표시했습니다.", "info");
+    });
+    doneBtn.disabled = p.status === "진료 완료";
+    const editBtn = makeButton("위급도 수정", "", () => { editingId = p.id; deletingId = null; render(); focusEdit(p.id); });
+    editBtn.disabled = p.status === "진료 완료";
+    const delBtn = makeButton("삭제", "btn-danger", () => { deletingId = p.id; editingId = null; render(); });
+    actions.append(doneBtn, editBtn, delBtn);
+    body.appendChild(actions);
+  }
+
+  li.append(rankEl, body);
+  return li;
+}
+
+function focusEdit(id) {
+  const sel = document.getElementById("edit-select-" + id);
+  if (sel) sel.focus();
+}
+
+// 전체 화면 다시 그리기
+function render() {
+  els.list.textContent = "";
+  patients.forEach((p, i) => els.list.appendChild(renderPatient(p, i + 1)));
+  const waiting = patients.filter(p => p.status !== "진료 완료").length;
+  els.count.textContent = "전체 " + patients.length + "명 / 대기 " + waiting + "명 (최대 " + MAX_PATIENTS + "명)";
+  els.empty.hidden = patients.length > 0;
+  if (!storageOk) {
+    els.storageMsg.hidden = false;
+    els.storageMsg.textContent = "이 환경에서는 브라우저 저장이 막혀 있어 목록이 저장되지 않습니다. 새로고침하면 목록이 사라집니다.";
+  } else {
+    els.storageMsg.hidden = true;
+  }
+}
+
+// 하단 확인창 열기/닫기
+function openConfirm(text, action) {
+  els.confirmText.textContent = text;
+  pendingAction = action;
+  els.confirmBox.hidden = false;
+  els.confirmNo.focus();
+}
+
+function closeConfirm() {
+  els.confirmBox.hidden = true;
+  pendingAction = null;
+}
+
+// ===== 이벤트 연결 =====
+els.form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const checked = els.form.querySelector('input[name="priority"]:checked');
+  const priority = checked ? Number(checked.value) : 0;
+  const name = els.name.value;
+  const error = addPatient(name, els.symptom.value, priority);
+  if (error) {
+    showFormMsg(error);
+    if (name.trim() === "") els.name.focus();
+    return;
+  }
+  showFormMsg("");
+  render();
+  showListMsg(name.trim() + " 환자를 등록했습니다.", "info");
+  els.name.value = "";
+  els.symptom.value = "";
+  checked.checked = false;
+  els.name.focus();
+});
+
+els.name.addEventListener("input", () => {
+  if (els.name.value.trim() !== "") showFormMsg("");
+});
+
+els.sampleBtn.addEventListener("click", () => {
+  if (patients.length > 0) {
+    openConfirm("지금 목록을 지우고 예시 데이터 3명으로 바꿀까요?", () => {
+      loadSampleData();
+      render();
+      showListMsg("예시 데이터 3명을 불러왔습니다.", "info");
+    });
+  } else {
+    loadSampleData();
+    render();
+    showListMsg("예시 데이터 3명을 불러왔습니다.", "info");
+  }
+});
+
+els.resetBtn.addEventListener("click", () => {
+  if (patients.length === 0) {
+    showListMsg("이미 비어 있는 목록입니다.", "info");
+    return;
+  }
+  openConfirm("환자 목록 " + patients.length + "명을 모두 삭제할까요? 되돌릴 수 없습니다.", () => {
+    resetAll();
+    editingId = null;
+    deletingId = null;
+    render();
+    showListMsg("목록을 초기화했습니다.", "info");
+  });
+});
+
+els.confirmYes.addEventListener("click", () => {
+  const action = pendingAction;
+  closeConfirm();
+  if (action) action();
+});
+
+els.confirmNo.addEventListener("click", () => {
+  closeConfirm();
+  showListMsg("취소했습니다.", "info");
+});
+
+// 시작
+buildRadios();
+loadPatients();
+sortPatients(patients);
+render();
+</script>
+</body>
+</html>

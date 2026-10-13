@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>무작위 도전 과제 뽑기</title>
+<meta name="description" content="게임·취미를 새롭게 즐기도록 무작위 도전 과제를 뽑고, 성공 기록을 스택에 쌓아 최근 성공부터 되돌릴 수 있는 프로그램">
+<meta name="class" content="O반 (2-5)">
+<meta name="status" content="PRD">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --line: #dde1e6;
+    --text: #1d2125;
+    --muted: #5a636d;
+    --accent: #1f6f5c;
+    --accent-weak: #e6f2ee;
+    --warn: #9a3b1b;
+    --warn-weak: #fbeee8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  main { max-width: 42rem; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; line-height: 1.35; }
+  .lead { color: var(--muted); margin: 0 0 24px; }
+  section {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 16px;
+    margin-bottom: 16px;
+  }
+  h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  button {
+    font: inherit;
+    font-size: 16px;
+    padding: 10px 16px;
+    min-height: 44px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: #f0f2f4; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { background: #185a4a; }
+  button.danger { border-color: var(--warn); color: var(--warn); }
+  button:focus-visible, input:focus-visible { outline: 3px solid #7fb7a8; outline-offset: 2px; }
+  .challenge-box {
+    margin-top: 12px;
+    padding: 14px;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    min-height: 56px;
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+  .challenge-box.empty { color: var(--muted); font-weight: 400; font-size: 1rem; }
+  .count { font-size: 1rem; margin: 12px 0 0; }
+  .count strong { font-size: 1.25rem; color: var(--accent); }
+  .msg { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; min-height: 0; }
+  .msg:empty { display: none; }
+  .msg.ok { background: var(--accent-weak); color: #164d40; }
+  .msg.err { background: var(--warn-weak); color: var(--warn); }
+  ol.stack { margin: 12px 0 0; padding: 0; list-style: none; }
+  ol.stack li {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin-bottom: 6px;
+    display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px;
+  }
+  ol.stack li:first-child { border-color: var(--accent); background: var(--accent-weak); }
+  .time { color: var(--muted); font-size: 0.95rem; }
+  .tag { font-size: 0.85rem; color: var(--accent); font-weight: 600; }
+  .empty-note { color: var(--muted); margin: 12px 0 0; }
+  label { display: block; margin-bottom: 6px; font-weight: 600; }
+  input[type="text"] {
+    font: inherit; font-size: 16px;
+    flex: 1 1 200px; min-width: 0;
+    padding: 10px 12px; min-height: 44px;
+    border: 1px solid var(--line); border-radius: 8px;
+  }
+  ul.tasks { margin: 12px 0 0; padding-left: 1.2em; color: var(--muted); }
+  .hint { color: var(--muted); font-size: 0.95rem; margin: 6px 0 0; }
+  .confirm { margin-top: 12px; padding: 12px; border: 1px solid var(--warn); border-radius: 8px; background: var(--warn-weak); }
+  .confirm p { margin: 0 0 8px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <!-- ===== 화면 구조 ===== -->
+  <h1>무작위 도전 과제 뽑기</h1>
+  <p class="lead">늘 같은 방식이 지루할 때, 새로운 도전 과제를 뽑아 보세요. 성공 기록은 스택에 쌓이고, 잘못 누른 성공은 가장 최근 것부터 취소할 수 있어요.</p>
+
+  <!-- (1) 뽑기 영역 -->
+  <section aria-labelledby="h-draw">
+    <h2 id="h-draw">1. 도전 과제 뽑기</h2>
+    <div class="row">
+      <button type="button" id="btn-draw" class="primary">도전 과제 뽑기</button>
+    </div>
+    <div id="challenge" class="challenge-box empty" aria-live="polite">아직 뽑은 도전 과제가 없어요. [도전 과제 뽑기]를 눌러 보세요.</div>
+    <p id="msg-draw" class="msg" role="status"></p>
+  </section>
+
+  <!-- (2) 성공/실패 -->
+  <section aria-labelledby="h-result">
+    <h2 id="h-result">2. 결과 기록</h2>
+    <div class="row">
+      <button type="button" id="btn-success" class="primary" disabled>성공</button>
+      <button type="button" id="btn-fail" disabled>실패</button>
+    </div>
+    <p class="hint">과제 하나당 성공·실패는 한 번만 기록돼요. 다음 과제는 다시 뽑아 주세요.</p>
+    <p class="count">누적 성공 횟수: <strong id="success-count">0</strong>회</p>
+    <p id="msg-result" class="msg" role="status"></p>
+  </section>
+
+  <!-- (3) 성공 스택 -->
+  <section aria-labelledby="h-stack">
+    <h2 id="h-stack">3. 최근 성공 기록 (스택)</h2>
+    <div class="row">
+      <button type="button" id="btn-undo">최근 성공 취소</button>
+    </div>
+    <p id="msg-undo" class="msg" role="status"></p>
+    <p id="stack-empty" class="empty-note">성공 기록이 아직 없어요.</p>
+    <ol id="stack-list" class="stack" aria-label="성공 기록, 위쪽이 가장 최근"></ol>
+  </section>
+
+  <!-- (4) 새 과제 추가 -->
+  <section aria-labelledby="h-add">
+    <h2 id="h-add">4. 새 도전 과제 추가</h2>
+    <form id="form-add" novalidate>
+      <label for="input-task">도전 과제 내용</label>
+      <div class="row">
+        <input type="text" id="input-task" maxlength="50" placeholder="예: 기본 장비만으로 보스 잡기" autocomplete="off">
+        <button type="submit" id="btn-add">추가</button>
+      </div>
+    </form>
+    <p id="msg-add" class="msg" role="status"></p>
+    <p class="count">전체 도전 과제: <strong id="task-count">0</strong>개 <span class="time">(직접 추가 <span id="custom-count">0</span>/<span id="custom-max">20</span>)</span></p>
+    <ul id="task-list" class="tasks" aria-label="등록된 도전 과제 목록"></ul>
+  </section>
+
+  <!-- 전체 초기화 (페이지 안 확인창) -->
+  <section aria-labelledby="h-reset">
+    <h2 id="h-reset">전체 초기화</h2>
+    <p class="hint">성공 횟수·성공 기록과 직접 추가한 도전 과제를 모두 지우고 처음 상태로 되돌려요.</p>
+    <div class="row" style="margin-top:8px">
+      <button type="button" id="btn-reset" class="danger">전체 초기화</button>
+    </div>
+    <div id="confirm-reset" class="confirm" hidden>
+      <p>정말 모두 지울까요? 되돌릴 수 없어요.</p>
+      <div class="row">
+        <button type="button" id="btn-reset-yes" class="danger">예, 모두 지우기</button>
+        <button type="button" id="btn-reset-no">아니요</button>
+      </div>
+    </div>
+    <p id="msg-reset" class="msg" role="status"></p>
+  </section>
+</main>
+
+<script>
+// ===== 예시 데이터·설정 =====
+const DEFAULT_TASKS = [
+  "주 무기 없이 클리어하기",
+  "3가지 색으로만 그리기",
+  "10분 안에 목표 달성하기",
+  "한 번도 죽지 않고 진행하기",
+  "오른손만 사용하여 플레이하기"
+];
+const MAX_CUSTOM = 20; // 사용자가 추가할 수 있는 도전 과제 최대 개수
+
+// ===== 데이터·상태 (브라우저 메모리 변수에만 저장) =====
+let tasks = [];          // 등록된 도전 과제 배열
+let customCount = 0;     // 사용자가 직접 추가한 개수
+let successStack = [];   // 성공 스택: { task, time } 객체를 push/pop
+let currentTask = null;  // 지금 뽑힌 도전 과제
+let resolved = true;     // 현재 과제의 성공/실패가 이미 기록됐는지 (중복 클릭 방지)
+
+// ===== 처리 함수 =====
+
+// 처음 상태로 되돌리기
+function resetAll() {
+  tasks = DEFAULT_TASKS.slice();
+  customCount = 0;
+  successStack = [];
+  currentTask = null;
+  resolved = true;
+}
+
+// 무작위로 과제 하나 고르기 (Math.random 으로 인덱스 뽑기)
+function pickRandomTask() {
+  if (tasks.length === 0) return null;
+  let index = Math.floor(Math.random() * tasks.length);
+  // 과제가 2개 이상이면 방금 나온 과제가 연달아 나오지 않게 한 번 더 뽑기
+  if (tasks.length > 1 && tasks[index] === currentTask) {
+    index = (index + 1 + Math.floor(Math.random() * (tasks.length - 1))) % tasks.length;
+  }
+  return tasks[index];
+}
+
+// 성공 기록을 스택 맨 위에 넣기 (push)
+function pushSuccess(task) {
+  successStack.push({ task: task, time: new Date() });
+}
+
+// 가장 최근 성공 기록 꺼내기 (pop) — 비어 있으면 null
+function popSuccess() {
+  if (successStack.length === 0) return null;
+  return successStack.pop();
+}
+
+// 새 과제 추가 — 결과를 { ok, message } 로 돌려줌
+function addTask(text) {
+  const value = text.trim();
+  if (value === "") return { ok: false, message: "도전 과제 내용을 입력해 주세요." };
+  if (customCount >= MAX_CUSTOM) return { ok: false, message: "직접 추가할 수 있는 도전 과제는 최대 " + MAX_CUSTOM + "개예요." };
+  if (tasks.indexOf(value) !== -1) return { ok: false, message: "이미 등록된 도전 과제예요." };
+  tasks.push(value);
+  customCount++;
+  return { ok: true, message: "‘" + value + "’ 도전 과제를 추가했어요." };
+}
+
+function formatTime(date) {
+  const p = function (n) { return String(n).padStart(2, "0"); };
+  return p(date.getHours()) + ":" + p(date.getMinutes()) + ":" + p(date.getSeconds());
+}
+
+// ===== 화면 갱신 =====
+const $ = function (id) { return document.getElementById(id); };
+
+function showMsg(id, text, isError) {
+  const el = $(id);
+  el.textContent = text ? (isError ? "안내: " : "") + text : "";
+  el.className = "msg " + (isError ? "err" : "ok");
+}
+
+function clearMsgs() {
+  ["msg-draw", "msg-result", "msg-undo", "msg-add", "msg-reset"].forEach(function (id) { showMsg(id, ""); });
+}
+
+function render() {
+  // 현재 과제
+  const box = $("challenge");
+  if (currentTask) {
+    box.textContent = currentTask;
+    box.classList.remove("empty");
+  } else {
+    box.textContent = "아직 뽑은 도전 과제가 없어요. [도전 과제 뽑기]를 눌러 보세요.";
+    box.classList.add("empty");
+  }
+  $("btn-success").disabled = !currentTask || resolved;
+  $("btn-fail").disabled = !currentTask || resolved;
+
+  // 성공 카운트 = 스택에 쌓인 기록 수 (둘이 어긋나지 않도록 한 곳에서 계산)
+  $("success-count").textContent = successStack.length;
+
+  // 스택 목록: 맨 위(가장 최근)부터 보여 주기
+  const list = $("stack-list");
+  list.textContent = "";
+  for (let i = successStack.length - 1; i >= 0; i--) {
+    const rec = successStack[i];
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.textContent = rec.task;
+    const meta = document.createElement("span");
+    meta.className = "time";
+    meta.textContent = formatTime(rec.time) + " 성공";
+    if (i === successStack.length - 1) {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = "맨 위(다음 취소 대상) ";
+      meta.prepend(tag);
+    }
+    li.appendChild(name);
+    li.appendChild(meta);
+    list.appendChild(li);
+  }
+  $("stack-empty").hidden = successStack.length > 0;
+
+  // 과제 목록
+  $("task-count").textContent = tasks.length;
+  $("custom-count").textContent = customCount;
+  $("custom-max").textContent = MAX_CUSTOM;
+  const tl = $("task-list");
+  tl.textContent = "";
+  tasks.forEach(function (t) {
+    const li = document.createElement("li");
+    li.textContent = t;
+    tl.appendChild(li);
+  });
+}
+
+// ===== 이벤트 연결 =====
+$("btn-draw").addEventListener("click", function () {
+  clearMsgs();
+  const picked = pickRandomTask();
+  if (picked === null) {
+    currentTask = null;
+    showMsg("msg-draw", "등록된 도전 과제가 없습니다.", true);
+  } else {
+    currentTask = picked;
+    resolved = false;
+  }
+  render();
+});
+
+$("btn-success").addEventListener("click", function () {
+  // 이미 기록한 과제면 무시 (연속 클릭으로 점수가 부풀지 않게)
+  if (!currentTask || resolved) return;
+  resolved = true;
+  pushSuccess(currentTask);
+  clearMsgs();
+  showMsg("msg-result", "성공으로 기록했어요. 다음 과제를 뽑아 보세요.");
+  render();
+});
+
+$("btn-fail").addEventListener("click", function () {
+  if (!currentTask || resolved) return;
+  resolved = true;
+  clearMsgs();
+  showMsg("msg-result", "실패로 처리했어요. 성공 기록에는 넣지 않았어요.");
+  render();
+});
+
+$("btn-undo").addEventListener("click", function () {
+  clearMsgs();
+  const removed = popSuccess();
+  if (removed === null) {
+    showMsg("msg-undo", "취소할 성공 기록이 없습니다.", true);
+  } else {
+    showMsg("msg-undo", "‘" + removed.task + "’ 성공 기록을 취소했어요.");
+  }
+  render();
+});
+
+$("form-add").addEventListener("submit", function (e) {
+  e.preventDefault();
+  clearMsgs();
+  const input = $("input-task");
+  const result = addTask(input.value);
+  showMsg("msg-add", result.message, !result.ok);
+  if (result.ok) input.value = "";
+  input.focus();
+  render();
+});
+
+$("btn-reset").addEventListener("click", function () {
+  clearMsgs();
+  $("confirm-reset").hidden = false;
+  $("btn-reset-yes").focus();
+});
+$("btn-reset-no").addEventListener("click", function () {
+  $("confirm-reset").hidden = true;
+  $("btn-reset").focus();
+});
+$("btn-reset-yes").addEventListener("click", function () {
+  resetAll();
+  $("confirm-reset").hidden = true;
+  clearMsgs();
+  showMsg("msg-reset", "전체 초기화했어요. 기본 도전 과제 5개로 돌아갔어요.");
+  render();
+});
+
+// 시작
+resetAll();
+render();
+</script>
+</body>
+</html>

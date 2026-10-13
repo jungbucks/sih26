@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>수행평가 D-Day 챙기미</title>
+<meta name="description" content="수행평가 마감일을 D-Day순으로 정렬해 급한 것부터 보여 주고, 완료한 항목을 따로 관리하는 개인 정리 도구">
+<meta name="class" content="O반 (2-5)">
+<meta name="status" content="PRD">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --line: #dde1e7;
+    --text: #1f2933;
+    --muted: #5b6673;
+    --accent: #1f5fae;      /* 강조색은 하나만 */
+    --accent-soft: #e8f0fa;
+    --warn: #a3361f;
+    --warn-soft: #fbeeea;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  main { max-width: 42rem; margin: 0 auto; padding: 24px 16px 56px; }
+  h1 { font-size: 1.6rem; margin: 0 0 8px; line-height: 1.3; }
+  h2 { font-size: 1.15rem; margin: 0 0 12px; }
+  .notice {
+    border-left: 4px solid var(--warn);
+    background: var(--warn-soft);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-weight: 600;
+    margin: 0 0 24px;
+  }
+  section { margin-top: 32px; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-weight: 600; margin-bottom: 4px; }
+  .req { color: var(--warn); font-weight: 600; font-size: 0.9em; }
+  .opt { color: var(--muted); font-weight: 400; font-size: 0.9em; }
+  input[type="text"], input[type="date"] {
+    width: 100%;
+    font: inherit;
+    padding: 9px 11px;
+    border: 1px solid #b9c0ca;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+  }
+  input:focus-visible, button:focus-visible { outline: 3px solid #8fb3e3; outline-offset: 1px; }
+  button {
+    font: inherit;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    padding: 7px 14px;
+    cursor: pointer;
+    min-height: 40px;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.danger { color: var(--warn); border-color: #e2b4a8; }
+  button:disabled { background: #e4e7eb; border-color: #e4e7eb; color: #7b8590; cursor: not-allowed; }
+  .hint { color: var(--muted); font-size: 0.95rem; margin: 8px 0 0; }
+  .hint.warn { color: var(--warn); font-weight: 600; }
+  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 14px;
+  }
+  .dday {
+    grid-row: span 2;
+    align-self: start;
+    min-width: 76px;
+    text-align: center;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .dday.urgent { background: var(--warn-soft); color: var(--warn); }
+  .dday.done { background: #eceef1; color: var(--muted); }
+  .subject { color: var(--muted); font-size: 0.95rem; }
+  .title { font-weight: 700; font-size: 1.05rem; }
+  .card.is-done .title { text-decoration: line-through; color: var(--muted); }
+  .meta { grid-column: 2; color: var(--muted); font-size: 0.95rem; }
+  .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+  .empty { color: var(--muted); background: var(--card); border: 1px dashed var(--line); border-radius: 12px; padding: 16px; margin: 0; }
+  .confirm-box {
+    border: 1px solid #e2b4a8;
+    background: var(--warn-soft);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 12px;
+  }
+  .confirm-box p { margin: 0 0 10px; font-weight: 600; }
+  .confirm-box .actions { margin-top: 0; }
+  .inline-confirm { font-weight: 600; color: var(--warn); }
+  .save-state { font-size: 0.9rem; color: var(--muted); margin: 0 0 4px; }
+  .save-state.warn { color: var(--warn); font-weight: 600; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <!-- ===== 상단: 제목과 주의 안내 ===== -->
+  <header>
+    <h1>수행평가 D-Day 챙기미</h1>
+    <p class="save-state" id="saveState">입력한 내용은 이 브라우저에 자동 저장됩니다.</p>
+    <p class="notice" role="note">※ 이 앱은 개인 정리용입니다. 정확한 제출일은 반드시 학교 공식 알림을 확인하세요!</p>
+  </header>
+
+  <!-- ===== 입력 영역 ===== -->
+  <section aria-labelledby="formHeading">
+    <h2 id="formHeading">수행평가 등록</h2>
+    <form class="panel" id="addForm" novalidate>
+      <div class="field">
+        <label for="subjectInput">과목명 <span class="req">(필수)</span></label>
+        <input type="text" id="subjectInput" maxlength="20" placeholder="예: 영어" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="titleInput">수행평가 제목 <span class="req">(필수)</span></label>
+        <input type="text" id="titleInput" maxlength="40" placeholder="예: 단어 암기" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="dueInput">제출 마감일 <span class="req">(필수)</span></label>
+        <input type="date" id="dueInput">
+      </div>
+      <div class="field">
+        <label for="memoInput">메모 / 준비물 <span class="opt">(선택)</span></label>
+        <input type="text" id="memoInput" maxlength="60" placeholder="예: 원고지 3매 작성" autocomplete="off">
+      </div>
+      <button type="submit" class="primary" id="addButton" disabled>등록</button>
+      <p class="hint" id="formHint" aria-live="polite">과목명, 제목, 마감일을 모두 입력하면 '등록' 버튼이 켜집니다.</p>
+    </form>
+  </section>
+
+  <!-- ===== 메인 영역 1: 진행 중 ===== -->
+  <section aria-labelledby="activeHeading">
+    <h2 id="activeHeading">진행 중인 수행평가 (D-Day순) <span id="activeCount" class="opt"></span></h2>
+    <ul class="list" id="activeList"></ul>
+    <p class="empty" id="activeEmpty" hidden>등록된 수행평가가 없습니다. 새로운 수행평가를 등록해 보세요!</p>
+  </section>
+
+  <!-- ===== 메인 영역 2: 완료 ===== -->
+  <section aria-labelledby="doneHeading">
+    <h2 id="doneHeading">완료된 수행평가 <span id="doneCount" class="opt"></span></h2>
+    <ul class="list" id="doneList"></ul>
+    <p class="empty" id="doneEmpty" hidden>완료된 수행평가가 없습니다.</p>
+
+    <div style="margin-top:24px">
+      <button type="button" class="danger" id="resetButton">전체 데이터 초기화</button>
+      <!-- 샌드박스에서는 confirm() 창이 막히므로 화면 안에서 확인을 받는다 -->
+      <div class="confirm-box" id="resetConfirm" hidden role="alertdialog" aria-labelledby="resetMsg">
+        <p id="resetMsg">저장된 모든 수행평가 데이터가 삭제됩니다. 계속하시겠습니까?</p>
+        <div class="actions">
+          <button type="button" class="danger" id="resetYes">예, 초기화합니다</button>
+          <button type="button" id="resetNo">취소</button>
+        </div>
+      </div>
+      <p class="hint" id="resetHint" aria-live="polite"></p>
+    </div>
+  </section>
+</main>
+
+<script>
+// ===== 예시 데이터·설정 =====
+const STORAGE_KEY = "sih26:20619:assignments"; // 저장 이름(전시판 규칙에 맞춘 접두사 사용)
+const MAX_ITEMS = 30;                           // 최대 30개까지만 저장
+const DAY_MS = 1000 * 60 * 60 * 24;             // 하루를 밀리초로 나타낸 값
+
+// 처음 실행할 때 보여 줄 예시 (마감일은 오늘 기준 며칠 뒤로 계산)
+function makeExampleData() {
+  return [
+    { subject: "국어", title: "독서 감상문 제출", due: dateAfter(2), memo: "원고지 3매 작성" },
+    { subject: "수학", title: "단원평가 오답노트", due: dateAfter(5), memo: "풀이과정 적기" }
+  ].map(function (item, i) {
+    return { id: Date.now() + i, createdAt: Date.now() + i, done: false, ...item };
+  });
+}
+
+// ===== 데이터·상태 =====
+let assignments = [];      // 모든 수행평가 (진행 중 + 완료)
+let canSave = true;        // 브라우저 저장이 가능한지
+let pendingDeleteId = null; // 삭제 확인 중인 항목의 id
+
+// ===== 처리 함수 =====
+
+// 오늘로부터 n일 뒤 날짜를 "YYYY-MM-DD" 글자로 만든다
+function dateAfter(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return toDateText(d);
+}
+function toDateText(d) {
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return d.getFullYear() + "-" + m + "-" + day;
+}
+
+// "YYYY-MM-DD" 글자를 그 날 0시 Date로 바꾼다 (시간 차이로 하루가 어긋나지 않도록)
+function parseDate(text) {
+  const parts = text.split("-").map(Number);
+  return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+
+// D-Day 계산: (마감일 - 오늘) ÷ 하루 길이, 그리고 올림(Math.ceil)
+// 두 날짜 모두 0시로 맞추고, 서머타임 같은 오차는 반올림으로 정리한다
+function calcDday(dueText) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = (parseDate(dueText) - today) / DAY_MS;
+  return Math.ceil(Math.round(diff * 1000) / 1000);
+}
+
+// 숫자를 화면용 글자로: 0 → D-Day, 3 → D-3, -2 → D+2
+function ddayLabel(n) {
+  if (n === 0) return "D-Day";
+  if (n > 0) return "D-" + n;
+  return "D+" + (-n);
+}
+
+// 정렬: D-Day가 작은(급한) 순서, 같으면 먼저 등록한 것이 위로
+function sortByDday(list) {
+  return list.slice().sort(function (a, b) {
+    const diff = calcDday(a.due) - calcDday(b.due);
+    if (diff !== 0) return diff;          // 남은 일수가 다르면 적은 쪽이 앞
+    return a.createdAt - b.createdAt;     // 같으면 등록 순서대로
+  });
+}
+
+// 저장하기: 배열을 JSON 글자로 바꿔 localStorage에 넣는다
+function saveData() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(assignments));
+    canSave = true;
+  } catch (e) {
+    canSave = false; // 저장이 막힌 환경 (사생활 보호 모드, 전시판 등)
+  }
+  showSaveState();
+}
+
+// 불러오기: 저장된 것이 없으면 예시 데이터로 시작한다
+function loadData() {
+  let text = null;
+  try {
+    text = localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    canSave = false;
+  }
+  if (text) {
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        assignments = parsed.filter(isValidItem).slice(0, MAX_ITEMS);
+        return;
+      }
+    } catch (e) { /* 저장된 내용이 깨졌으면 아래에서 예시로 시작 */ }
+  }
+  assignments = makeExampleData();
+  saveData();
+}
+
+function isValidItem(x) {
+  return x && typeof x.subject === "string" && typeof x.title === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(x.due || "");
+}
+
+// 입력창 값 읽기 (앞뒤 공백 제거)
+function readForm() {
+  return {
+    subject: document.getElementById("subjectInput").value.trim(),
+    title: document.getElementById("titleInput").value.trim(),
+    due: document.getElementById("dueInput").value,
+    memo: document.getElementById("memoInput").value.trim()
+  };
+}
+
+function isFormComplete(f) {
+  return f.subject !== "" && f.title !== "" && /^\d{4}-\d{2}-\d{2}$/.test(f.due);
+}
+
+// 새 수행평가 추가
+function addAssignment() {
+  const f = readForm();
+  if (!isFormComplete(f) || assignments.length >= MAX_ITEMS) return false;
+  const now = Date.now();
+  assignments.push({ id: now + Math.random(), createdAt: now, done: false,
+    subject: f.subject, title: f.title, due: f.due, memo: f.memo });
+  saveData();
+  return true;
+}
+
+function setDone(id, done) {
+  const item = assignments.find(function (a) { return a.id === id; });
+  if (!item) return;
+  item.done = done;
+  saveData();
+}
+
+function deleteAssignment(id) {
+  assignments = assignments.filter(function (a) { return a.id !== id; });
+  saveData();
+}
+
+// 전체 초기화: 저장을 지우고 예시 데이터로 되돌린다
+function resetAll() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* 저장이 막혀 있어도 화면은 초기화 */ }
+  assignments = makeExampleData();
+  saveData();
+}
+
+// ===== 화면 갱신 =====
+
+function showSaveState() {
+  const el = document.getElementById("saveState");
+  if (canSave) {
+    el.textContent = "입력한 내용은 이 브라우저에 자동 저장됩니다.";
+    el.className = "save-state";
+  } else {
+    el.textContent = "주의: 이 환경에서는 저장되지 않습니다. 새로고침하면 내용이 사라져요.";
+    el.className = "save-state warn";
+  }
+}
+
+// 등록 버튼 켜기/끄기와 안내 문구
+function updateFormState() {
+  const f = readForm();
+  const button = document.getElementById("addButton");
+  const hint = document.getElementById("formHint");
+  const missing = [];
+  if (f.subject === "") missing.push("과목명");
+  if (f.title === "") missing.push("제목");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(f.due)) missing.push("마감일");
+
+  if (assignments.length >= MAX_ITEMS) {
+    button.disabled = true;
+    hint.textContent = "최대 " + MAX_ITEMS + "개까지 저장할 수 있어요. 끝난 항목을 삭제하면 다시 등록할 수 있습니다.";
+    hint.className = "hint warn";
+  } else if (missing.length > 0) {
+    button.disabled = true;
+    hint.textContent = "아직 입력하지 않은 필수 항목: " + missing.join(", ");
+    hint.className = "hint";
+  } else {
+    button.disabled = false;
+    hint.textContent = "모두 입력했어요. '등록' 버튼을 누르세요.";
+    hint.className = "hint";
+  }
+}
+
+// 카드 하나 만들기 (사용자 입력은 textContent로만 넣어 안전하게)
+function makeCard(item) {
+  const li = document.createElement("li");
+  li.className = "card" + (item.done ? " is-done" : "");
+
+  const n = calcDday(item.due);
+  const badge = document.createElement("div");
+  badge.className = "dday" + (item.done ? " done" : (n <= 1 ? " urgent" : ""));
+  badge.textContent = item.done ? "완료" : ddayLabel(n);
+
+  const head = document.createElement("div");
+  const subject = document.createElement("div");
+  subject.className = "subject";
+  subject.textContent = item.subject;
+  const title = document.createElement("div");
+  title.className = "title";
+  title.textContent = item.title;
+  head.append(subject, title);
+
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  let metaText = "마감일 " + item.due;
+  if (!item.done && n < 0) metaText += " (마감 지남)";
+  if (item.done) metaText += " · " + ddayLabel(n);
+  meta.textContent = metaText;
+  if (item.memo) {
+    const memo = document.createElement("div");
+    memo.textContent = "메모: " + item.memo;
+    meta.appendChild(memo);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  if (pendingDeleteId === item.id) {
+    // 삭제 확인 (화면 안에서 한 번 더 묻기)
+    const q = document.createElement("span");
+    q.className = "inline-confirm";
+    q.textContent = "이 항목을 삭제할까요?";
+    actions.append(q,
+      makeButton("삭제 확인", "confirm-delete", item.id, "danger"),
+      makeButton("취소", "cancel-delete", item.id, ""));
+  } else if (item.done) {
+    actions.append(makeButton("복원", "restore", item.id, ""),
+                   makeButton("삭제", "delete", item.id, "danger"));
+  } else {
+    actions.append(makeButton("완료", "done", item.id, "primary"),
+                   makeButton("삭제", "delete", item.id, "danger"));
+  }
+
+  li.append(badge, head, meta, actions);
+  return li;
+}
+
+function makeButton(text, action, id, cls) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = text;
+  b.dataset.action = action;
+  b.dataset.id = String(id);
+  if (cls) b.className = cls;
+  return b;
+}
+
+function render() {
+  const active = sortByDday(assignments.filter(function (a) { return !a.done; }));
+  const done = sortByDday(assignments.filter(function (a) { return a.done; }));
+
+  const activeList = document.getElementById("activeList");
+  const doneList = document.getElementById("doneList");
+  activeList.replaceChildren(...active.map(makeCard));
+  doneList.replaceChildren(...done.map(makeCard));
+
+  document.getElementById("activeEmpty").hidden = active.length > 0;
+  document.getElementById("doneEmpty").hidden = done.length > 0;
+  document.getElementById("activeCount").textContent = "(" + active.length + "개)";
+  document.getElementById("doneCount").textContent = "(" + done.length + "개)";
+  updateFormState();
+}
+
+// ===== 이벤트 연결 =====
+
+document.getElementById("addForm").addEventListener("input", updateFormState);
+document.getElementById("addForm").addEventListener("change", updateFormState);
+
+document.getElementById("addForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+  if (document.getElementById("addButton").disabled) return;
+  if (!addAssignment()) return;
+  // 입력창 비우기 → 필수 항목이 비므로 버튼이 바로 꺼져 중복 등록이 막힌다
+  document.getElementById("addForm").reset();
+  render();
+  document.getElementById("formHint").textContent = "등록했어요. 다음 수행평가를 입력하세요.";
+  document.getElementById("subjectInput").focus();
+});
+
+// 목록 버튼들 (완료·복원·삭제)은 목록 전체에서 한 번에 처리
+function handleListClick(e) {
+  const b = e.target.closest("button[data-action]");
+  if (!b) return;
+  const id = Number(b.dataset.id);
+  const action = b.dataset.action;
+  pendingDeleteId = null; // 다른 버튼을 누르면 삭제 확인은 닫는다
+  if (action === "done") setDone(id, true);
+  else if (action === "restore") setDone(id, false);
+  else if (action === "delete") pendingDeleteId = id;
+  else if (action === "confirm-delete") deleteAssignment(id);
+  render();
+}
+document.getElementById("activeList").addEventListener("click", handleListClick);
+document.getElementById("doneList").addEventListener("click", handleListClick);
+
+// 전체 초기화 (화면 안 확인 상자)
+document.getElementById("resetButton").addEventListener("click", function () {
+  document.getElementById("resetConfirm").hidden = false;
+  document.getElementById("resetHint").textContent = "";
+  document.getElementById("resetYes").focus();
+});
+document.getElementById("resetNo").addEventListener("click", function () {
+  document.getElementById("resetConfirm").hidden = true;
+  document.getElementById("resetButton").focus();
+});
+document.getElementById("resetYes").addEventListener("click", function () {
+  resetAll();
+  pendingDeleteId = null;
+  document.getElementById("resetConfirm").hidden = true;
+  render();
+  document.getElementById("resetHint").textContent = "초기화했어요. 예시 데이터 2개로 다시 시작합니다.";
+});
+
+// 시작
+loadData();
+showSaveState();
+render();
+</script>
+</body>
+</html>
