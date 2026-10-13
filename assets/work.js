@@ -35,6 +35,28 @@ function renderFeedback(f) {
     }),
   );
 }
+// 제작 기록: V1·V2… 버전마다 단계와 날짜를 한 줄씩 (마지막 줄이 지금 보이는 버전)
+function renderHistory(p) {
+  const list = p.history || [];
+  $("history").hidden = !list.length;
+  $("meta").hidden = list.length > 0;
+  $("history-list").replaceChildren(
+    ...list.map((v, i) => {
+      const li = el("li", undefined, "history-item");
+      const when =
+        date(v.createdAt) === date(v.updatedAt)
+          ? date(v.updatedAt)
+          : `${date(v.createdAt)} ~ ${date(v.updatedAt)}`;
+      li.append(
+        el("span", v.version, "history-version"),
+        el("span", v.stage || "기록", "history-stage"),
+        el("span", when, "history-date"),
+      );
+      if (i === list.length - 1) li.append(el("span", "현재", "history-now"));
+      return li;
+    }),
+  );
+}
 function renderNav(list) {
   const view = loadView();
   let order = filterProjects(list, view.q, view.group);
@@ -61,6 +83,7 @@ async function init() {
       .join(" · ");
     $("changes").textContent = p.changes || "";
     renderFeedback(p.feedback);
+    renderHistory(p);
     $("run").href = p.path;
     $("download").href = `${p.path}index.html`;
     $("download").download = `${id}.html`;

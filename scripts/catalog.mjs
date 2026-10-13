@@ -104,6 +104,51 @@ export async function feedback(root) {
   }
   return out;
 }
+// 제작 기록: 학생 index.html의 Git 커밋을 오래된 순으로 읽어, 같은 진행 단계(status)가
+// 이어지는 커밋을 한 버전(V1, V2…)으로 묶는다. 단계가 없는 커밋은 다음 버전에 합친다.
+function git(root, args) {
+  return execFileSync(
+    "git",
+    ["-c", `safe.directory=${path.resolve(root)}`, "-C", root, ...args],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 8 * MAX_BYTES },
+  );
+}
+export function history(root, id) {
+  const file = `${id}/index.html`;
+  let commits;
+  try {
+    commits = git(root, ["log", "--format=%H %cI", "--", file])
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => line.split(" "))
+      .reverse();
+  } catch {
+    return [];
+  }
+  const versions = [];
+  let pending = [];
+  for (const [hash, at] of commits) {
+    let stage = "";
+    try {
+      const s = normalize(extract(git(root, ["show", `${hash}:${file}`])).status || "");
+      if (STATUSES.includes(s)) stage = s;
+    } catch {}
+    pending.push(at);
+    if (!stage) continue;
+    const last = versions.at(-1);
+    if (last && last.stage === stage) last.updatedAt = at;
+    else versions.push({ stage, createdAt: pending[0], updatedAt: at });
+    pending = [];
+  }
+  // 마지막 커밋들에 단계가 없으면 직전 버전의 수정으로 본다
+  if (pending.length) {
+    const last = versions.at(-1);
+    if (last) last.updatedAt = pending.at(-1);
+    else versions.push({ stage: "", createdAt: pending[0], updatedAt: pending.at(-1) });
+  }
+  return versions.map((v, i) => ({ version: `V${i + 1}`, ...v }));
+}
 function extract(html) {
   const out = {};
   const text = (n) => (n.value || "") + (n.childNodes || []).map(text).join("");
@@ -196,6 +241,7 @@ export async function catalog(root) {
       updatedAt,
       prd,
       feedback: reviews[id] || null,
+      history: history(root, id),
     });
   }
   if (projects.length > 200)

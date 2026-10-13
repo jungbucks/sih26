@@ -146,6 +146,36 @@ test("AI 검토 의견: 학번별 연결, 공백 정리, 잘못된 형식은 전
     await assert.rejects(catalog(r));
   }
 });
+test("제작 기록: 같은 단계 커밋은 한 버전, 단계 없는 커밋은 다음 버전에 합침", async (t) => {
+  const r = await fixture(t);
+  execFileSync("git", ["init", r], { stdio: "ignore" });
+  const commit = async (status, when) => {
+    await student(
+      r,
+      "20100",
+      `<title>t</title>${status ? `<meta name="status" content="${status}">` : ""}<p>${when}</p>`,
+    );
+    execFileSync("git", ["-C", r, "add", "."]);
+    execFileSync(
+      "git",
+      ["-C", r, "-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-m", when],
+      { stdio: "ignore", env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when } },
+    );
+  };
+  await commit("", "2026-01-01T00:00:00Z");
+  await commit("PRD", "2026-01-02T00:00:00Z");
+  await commit("PRD", "2026-01-03T00:00:00Z");
+  await commit("1회 개선", "2026-01-10T00:00:00Z");
+  await commit("", "2026-01-11T00:00:00Z");
+  const h = (await catalog(r)).projects[0].history;
+  assert.deepEqual(
+    h.map((v) => [v.version, v.stage, v.createdAt.slice(0, 10), v.updatedAt.slice(0, 10)]),
+    [
+      ["V1", "PRD", "2026-01-01", "2026-01-03"],
+      ["V2", "1회 개선", "2026-01-10", "2026-01-11"],
+    ],
+  );
+});
 test("201작품은 누락 없이 전체 실패", async (t) => {
   const r = await fixture(t);
   for (let i = 0; i < 201; i++) await student(r, String(20000 + i));

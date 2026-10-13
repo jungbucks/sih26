@@ -747,6 +747,46 @@ footer {
 .work-details .hint {
   margin: 4px 0;
 }
+/* 제작 기록: 버전마다 한 줄, 왼쪽 세로선으로 이어진 타임라인 */
+.history {
+  margin-top: 16px;
+}
+.history h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.history-list {
+  margin: 0;
+  padding: 0 0 0 12px;
+  border-left: 2px solid var(--line);
+  list-style: none;
+}
+.history-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 6px 0;
+  font-size: 14px;
+}
+.history-version {
+  font-family: ui-monospace, "D2Coding", Consolas, monospace;
+  font-weight: 700;
+}
+.history-stage {
+  font-weight: 600;
+}
+.history-date {
+  color: var(--muted);
+}
+.history-now {
+  padding: 2px 7px;
+  border-radius: var(--r-sm);
+  background: var(--line);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
 
 /* ── 움직임 줄이기 설정 존중 ── */
 @media (prefers-reduced-motion: reduce) {
