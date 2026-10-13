@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>피곤함까지 고려하는 할 일 순서 정하기</title>
+<meta name="description" content="오늘 컨디션(보통/피곤함)과 마감일, 소요 시간을 보고 수행평가·숙제의 순서를 정해 주는 할 일 우선순위 큐">
+<meta name="class" content="O반 (2-5)">
+<meta name="status" content="PRD">
+<style>
+  /* ===== 스타일 ===== */
+  :root {
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --text: #1f2933;
+    --muted: #5b6673;
+    --line: #dde2e8;
+    --accent: #1f5fae;
+    --accent-soft: #e8f0fa;
+    --warn: #a33a1f;
+    --warn-soft: #fbece7;
+    --ok: #2f6b3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  main { max-width: 42rem; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.45rem; line-height: 1.4; margin: 0 0 8px; }
+  h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  section { margin-top: 28px; }
+  .notice {
+    background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin: 12px 0 0;
+  }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  /* 컨디션 토글 */
+  .mode-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mode-btn {
+    flex: 1 1 140px;
+    padding: 12px;
+    font: inherit;
+    border: 2px solid var(--line);
+    background: var(--card);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .mode-btn[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    font-weight: 700;
+  }
+  .mode-btn[aria-pressed="true"]::before { content: "✓ "; }
+  .rule { color: var(--muted); font-size: 0.95rem; margin: 10px 0 0; }
+  /* 입력 구역 */
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-weight: 600; margin-bottom: 4px; }
+  .field input {
+    width: 100%;
+    font: inherit;
+    padding: 10px 12px;
+    border: 1px solid #b9c2cc;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+  }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row .field { flex: 1 1 200px; }
+  button { font: inherit; }
+  .btn {
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  .btn.ghost { background: #fff; color: var(--accent); }
+  .btn.danger { background: var(--warn); border-color: var(--warn); }
+  .btn.small { padding: 6px 12px; font-size: 0.95rem; }
+  .msg { margin: 10px 0 0; font-weight: 600; min-height: 1.7em; }
+  .msg.error { color: var(--warn); }
+  .msg.info { color: var(--ok); }
+  /* 지금 당장 할 일 */
+  .top-task {
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    padding: 16px;
+    background: var(--card);
+  }
+  .top-task .name { font-size: 1.25rem; font-weight: 700; }
+  .empty {
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--muted);
+    background: var(--card);
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+  }
+  /* 목록 */
+  ol, ul { list-style: none; margin: 0; padding: 0; }
+  .item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .item .info { flex: 1 1 200px; min-width: 0; }
+  .rank { color: var(--accent); font-weight: 700; margin-right: 6px; }
+  .meta { color: var(--muted); font-size: 0.95rem; }
+  .late { color: var(--warn); font-weight: 600; }
+  .actions { display: flex; gap: 6px; }
+  .done-list .name { text-decoration: line-through; color: var(--muted); }
+  .confirm-box {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--warn);
+    background: var(--warn-soft);
+    border-radius: 10px;
+  }
+  .confirm-box[hidden] { display: none; }
+  .save-state { color: var(--muted); font-size: 0.9rem; margin-top: 8px; }
+</style>
+</head>
+<body>
+<!-- ===== 화면 구조 ===== -->
+<main>
+  <header>
+    <h1>피곤함까지 고려하는 할 일 순서 정하기</h1>
+    <p class="notice" role="note">💡 프로그램의 추천 순서는 참고용입니다. 준비 기간이 길거나 점수 비중이 큰 과제는 스스로 미리 준비해 주세요!</p>
+  </header>
+
+  <!-- 상단: 컨디션 선택 -->
+  <section aria-labelledby="mode-title">
+    <h2 id="mode-title">지금 내 컨디션은?</h2>
+    <div class="mode-group" role="group" aria-label="컨디션 선택">
+      <button type="button" class="mode-btn" id="mode-normal" aria-pressed="true">보통</button>
+      <button type="button" class="mode-btn" id="mode-tired" aria-pressed="false">피곤함·하기 싫음</button>
+    </div>
+    <p class="rule" id="rule-text"></p>
+  </section>
+
+  <!-- 입력 구역 -->
+  <section aria-labelledby="add-title">
+    <h2 id="add-title">할 일 추가</h2>
+    <form class="panel" id="add-form" novalidate>
+      <div class="field">
+        <label for="task-name">할 일 이름</label>
+        <input id="task-name" type="text" maxlength="40" placeholder="예: 국어 독서 감상문 쓰기" autocomplete="off">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="task-due">마감일(날짜·시간)</label>
+          <input id="task-due" type="datetime-local">
+        </div>
+        <div class="field">
+          <label for="task-min">예상 소요 시간(분)</label>
+          <input id="task-min" type="number" min="1" max="600" step="5" value="30" inputmode="numeric">
+        </div>
+      </div>
+      <button type="submit" class="btn" id="add-btn">추가</button>
+      <p class="msg" id="form-msg" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <!-- 중앙 구역 -->
+  <section aria-labelledby="top-title">
+    <h2 id="top-title">지금 당장 해야 할 일</h2>
+    <div id="top-area"></div>
+  </section>
+
+  <section aria-labelledby="list-title">
+    <h2 id="list-title">전체 할 일 목록 <span class="meta" id="count-text"></span></h2>
+    <ol id="todo-list"></ol>
+  </section>
+
+  <!-- 하단 구역 -->
+  <section aria-labelledby="done-title">
+    <h2 id="done-title">완료한 일</h2>
+    <ul id="done-list" class="done-list"></ul>
+    <p class="meta" id="done-empty">아직 완료한 일이 없어요.</p>
+  </section>
+
+  <section aria-labelledby="reset-title">
+    <h2 id="reset-title">초기화</h2>
+    <button type="button" class="btn ghost" id="reset-btn">전체 데이터 초기화</button>
+    <div class="confirm-box" id="reset-confirm" hidden>
+      <p style="margin:0 0 10px">정말 초기화할까요? 등록한 할 일과 완료 기록이 모두 지워지고 예시 데이터로 돌아갑니다.</p>
+      <div class="actions">
+        <button type="button" class="btn danger small" id="reset-yes">네, 초기화</button>
+        <button type="button" class="btn ghost small" id="reset-no">취소</button>
+      </div>
+    </div>
+    <p class="save-state" id="save-state"></p>
+  </section>
+</main>
+
+<script>
+// ===== 예시 데이터·설정 =====
+const STORAGE_KEY = "sih26:20812:data";
+const MAX_TASKS = 15;          // 화면 과부하를 막기 위한 최대 개수
+const TIRED_HOUR_WEIGHT = 2;   // 피곤 모드: 남은 1시간 = 소요 2분 만큼의 무게
+
+// 오늘/내일 기준으로 예시 데이터를 만든다
+function makeSampleTasks() {
+  const today22 = new Date();
+  today22.setHours(22, 0, 0, 0);
+  const tomorrow18 = new Date();
+  tomorrow18.setDate(tomorrow18.getDate() + 1);
+  tomorrow18.setHours(18, 0, 0, 0);
+  return [
+    { id: newId(), name: "정보 수행평가 제출", due: tomorrow18.getTime(), minutes: 30 },
+    { id: newId(), name: "영어 단어 암기", due: today22.getTime(), minutes: 10 }
+  ];
+}
+
+// ===== 데이터·상태 =====
+let idCounter = 0;
+function newId() { idCounter += 1; return Date.now() + "-" + idCounter; }
+
+const state = {
+  mode: "normal",   // "normal"(보통) 또는 "tired"(피곤함)
+  queue: [],        // 진행 중인 할 일 (우선순위 큐)
+  done: []          // 완료한 일
+};
+let canSave = true;
+
+// ===== 처리 함수 =====
+
+// 저장소 읽기 (막혀 있으면 예외 → 메모리만 사용)
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      state.mode = data.mode === "tired" ? "tired" : "normal";
+      state.queue = Array.isArray(data.queue) ? data.queue : [];
+      state.done = Array.isArray(data.done) ? data.done : [];
+      return;
+    }
+  } catch (e) {
+    canSave = false;
+  }
+  state.queue = makeSampleTasks();
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    canSave = true;
+  } catch (e) {
+    canSave = false;
+  }
+}
+
+// 마감까지 남은 시간(시간 단위). 이미 지났으면 0
+function hoursLeft(task, now) {
+  return Math.max(0, (task.due - now) / 3600000);
+}
+
+// 우선순위 점수: 작을수록 먼저 해야 할 일
+function priorityScore(task, now) {
+  if (state.mode === "normal") {
+    return task.due; // 보통: 마감이 빠른 순
+  }
+  // 피곤함: 소요 시간이 짧을수록, 마감이 가까울수록 점수가 작아짐
+  return task.minutes + hoursLeft(task, now) * TIRED_HOUR_WEIGHT;
+}
+
+// 우선순위 큐 재정렬 (추가·컨디션 변경·완료·삭제 때마다 호출)
+function sortQueue() {
+  const now = Date.now();
+  state.queue.sort(function (a, b) {
+    const diff = priorityScore(a, now) - priorityScore(b, now);
+    return diff !== 0 ? diff : a.due - b.due;
+  });
+}
+
+// 입력값 검사 → 문제가 있으면 안내 문장, 없으면 null
+function validateInput(name, dueText, minutesText) {
+  if (name === "" || dueText === "") return "할 일과 마감일을 입력해 주세요.";
+  const due = new Date(dueText).getTime();
+  if (isNaN(due)) return "마감일 형식이 올바르지 않아요. 날짜와 시간을 다시 골라 주세요.";
+  const minutes = Number(minutesText);
+  if (minutesText === "" || !Number.isInteger(minutes) || minutes < 1 || minutes > 600) {
+    return "예상 소요 시간은 1~600 사이의 정수(분)로 입력해 주세요.";
+  }
+  if (state.queue.length >= MAX_TASKS) {
+    return "할 일은 최대 " + MAX_TASKS + "개까지 등록할 수 있어요. 완료하거나 삭제한 뒤 추가해 주세요.";
+  }
+  return null;
+}
+
+function addTask(name, dueText, minutesText) {
+  const error = validateInput(name, dueText, minutesText);
+  if (error) return error;
+  state.queue.push({ id: newId(), name: name, due: new Date(dueText).getTime(), minutes: Number(minutesText) });
+  sortQueue();
+  saveState();
+  return null;
+}
+
+function completeTask(id) {
+  const index = state.queue.findIndex(function (t) { return t.id === id; });
+  if (index < 0) return;
+  const task = state.queue.splice(index, 1)[0];
+  task.doneAt = Date.now();
+  state.done.unshift(task);
+  saveState();
+}
+
+function deleteTask(id) {
+  state.queue = state.queue.filter(function (t) { return t.id !== id; });
+  saveState();
+}
+
+function setMode(mode) {
+  state.mode = mode;
+  sortQueue();
+  saveState();
+}
+
+function resetAll() {
+  state.mode = "normal";
+  state.queue = makeSampleTasks();
+  state.done = [];
+  sortQueue();
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* 저장 불가 환경 */ }
+  saveState();
+}
+
+// ===== 화면 갱신 =====
+const $ = function (id) { return document.getElementById(id); };
+
+function formatDue(ms) {
+  const d = new Date(ms);
+  const week = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return (d.getMonth() + 1) + "월 " + d.getDate() + "일(" + week + ") " + hh + ":" + mm;
+}
+
+function remainText(ms) {
+  const diff = ms - Date.now();
+  if (diff <= 0) return "마감 지남";
+  const h = Math.floor(diff / 3600000);
+  if (h < 1) return Math.max(1, Math.round(diff / 60000)) + "분 남음";
+  if (h < 48) return h + "시간 남음";
+  return Math.floor(h / 24) + "일 남음";
+}
+
+// 할 일 정보 줄(마감·남은 시간·소요 시간)
+function makeMeta(task) {
+  const meta = document.createElement("div");
+  meta.className = "meta";
+  const remain = remainText(task.due);
+  meta.append("마감 " + formatDue(task.due) + " · ");
+  const r = document.createElement("span");
+  r.textContent = remain;
+  if (remain === "마감 지남") r.className = "late";
+  meta.append(r, " · 소요 " + task.minutes + "분");
+  return meta;
+}
+
+function makeButton(text, cls, label, handler) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "btn small " + cls;
+  b.textContent = text;
+  b.setAttribute("aria-label", label);
+  b.addEventListener("click", handler);
+  return b;
+}
+
+function renderMode() {
+  $("mode-normal").setAttribute("aria-pressed", state.mode === "normal");
+  $("mode-tired").setAttribute("aria-pressed", state.mode === "tired");
+  $("rule-text").textContent = state.mode === "normal"
+    ? "지금 규칙: 마감이 가장 가까운 일부터 보여 줘요."
+    : "지금 규칙: 마감이 조금 남았더라도 소요 시간이 짧은 쉬운 일을 위로 올려요. (소요 분 + 남은 시간×2 가 작은 순)";
+}
+
+function renderTop() {
+  const area = $("top-area");
+  area.textContent = "";
+  if (state.queue.length === 0) {
+    const p = document.createElement("p");
+    p.className = "empty";
+    p.id = "empty-msg";
+    p.textContent = "오늘 할 일을 등록하고, 가장 급한 일부터 하나씩 부숴봅시다! 🔥";
+    area.append(p);
+    return;
+  }
+  const task = state.queue[0];
+  const box = document.createElement("div");
+  box.className = "top-task";
+  box.id = "top-task";
+  const name = document.createElement("div");
+  name.className = "name";
+  name.textContent = task.name;
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  actions.style.marginTop = "10px";
+  actions.append(makeButton("완료", "", task.name + " 완료", function () { completeTask(task.id); render(); }));
+  box.append(name, makeMeta(task), actions);
+  area.append(box);
+}
+
+function renderList() {
+  const list = $("todo-list");
+  list.textContent = "";
+  state.queue.forEach(function (task, i) {
+    const li = document.createElement("li");
+    li.className = "item";
+    const info = document.createElement("div");
+    info.className = "info";
+    const title = document.createElement("div");
+    const rank = document.createElement("span");
+    rank.className = "rank";
+    rank.textContent = (i + 1) + "순위";
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = task.name;
+    title.append(rank, name);
+    info.append(title, makeMeta(task));
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    actions.append(
+      makeButton("완료", "", task.name + " 완료", function () { completeTask(task.id); render(); }),
+      makeButton("삭제", "ghost", task.name + " 삭제", function () { deleteTask(task.id); render(); })
+    );
+    li.append(info, actions);
+    list.append(li);
+  });
+  $("count-text").textContent = "(" + state.queue.length + " / " + MAX_TASKS + "개)";
+}
+
+function renderDone() {
+  const list = $("done-list");
+  list.textContent = "";
+  state.done.forEach(function (task) {
+    const li = document.createElement("li");
+    li.className = "item";
+    const info = document.createElement("div");
+    info.className = "info";
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = task.name;
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = "완료함 · 소요 " + task.minutes + "분";
+    info.append(name, meta);
+    li.append(info);
+    list.append(li);
+  });
+  $("done-empty").hidden = state.done.length > 0;
+}
+
+function renderSaveState() {
+  $("save-state").textContent = canSave
+    ? "할 일은 이 브라우저에 자동 저장돼요."
+    : "이 환경에서는 저장되지 않아요. 페이지를 닫으면 내용이 사라집니다.";
+}
+
+function render() {
+  renderMode();
+  renderTop();
+  renderList();
+  renderDone();
+  renderSaveState();
+}
+
+function showFormMsg(text, type) {
+  const msg = $("form-msg");
+  msg.textContent = text;
+  msg.className = "msg " + type;
+}
+
+// ===== 이벤트 연결 =====
+$("add-form").addEventListener("submit", function (e) {
+  e.preventDefault();
+  const name = $("task-name").value.trim();
+  const error = addTask(name, $("task-due").value, $("task-min").value.trim());
+  if (error) {
+    showFormMsg("⚠ " + error, "error");
+    return;
+  }
+  showFormMsg("'" + name + "'을(를) 추가했어요.", "info");
+  $("task-name").value = "";
+  $("task-name").focus();
+  render();
+});
+
+$("mode-normal").addEventListener("click", function () { setMode("normal"); render(); });
+$("mode-tired").addEventListener("click", function () { setMode("tired"); render(); });
+
+$("reset-btn").addEventListener("click", function () { $("reset-confirm").hidden = false; $("reset-yes").focus(); });
+$("reset-no").addEventListener("click", function () { $("reset-confirm").hidden = true; });
+$("reset-yes").addEventListener("click", function () {
+  resetAll();
+  $("reset-confirm").hidden = true;
+  showFormMsg("모든 데이터를 지우고 예시 데이터로 되돌렸어요.", "info");
+  render();
+});
+
+// 시작
+loadState();
+sortQueue();
+render();
+</script>
+</body>
+</html>
