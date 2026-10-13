@@ -76,7 +76,12 @@ async function init() {
     const p = list.find((x) => x.id === id);
     if (!p) throw new ShownError("등록되지 않은 작품입니다.");
     document.title = `${p.title} · 레이트 바이브 코딩 프로젝트`;
-    $("identity").textContent = `${id} · ${p.class}`;
+    // 학번·반·진행 단계를 목록 카드와 같은 칩으로 제목 위에 보여 준다
+    $("identity").replaceChildren(
+      el("strong", id, "student-id"),
+      el("span", p.class, "student-class"),
+      ...(p.status ? [el("span", p.status, "student-status")] : []),
+    );
     $("title").textContent = p.title;
     $("description").textContent = p.description;
     $("meta").textContent = [p.status, date(p.updatedAt)]
