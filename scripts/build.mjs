@@ -180,7 +180,7 @@ export async function build({
     for (const file of ["index.html", "work.html"])
       await fs.copyFile(path.join(root, file), path.join(staging, file));
     await fs.mkdir(path.join(staging, "assets"));
-    for (const file of ["style.css", "common.js", "gallery.js", "work.js"])
+    for (const file of ["style.css", "common.js", "gallery.js", "work.js", "about.js"])
       await fs.copyFile(
         path.join(root, "assets", file),
         path.join(staging, "assets", file),

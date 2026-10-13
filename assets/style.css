@@ -385,6 +385,10 @@ label .search-field input {
 /* 헤더 아래 3px 프리즘 띠 — 사이트의 시그니처는 이것 하나 */
 header {
   position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 20px;
   padding: 12px max(24px, calc((100% - 1280px) / 2)) 15px;
   background: var(--canvas);
 }
@@ -407,8 +411,8 @@ header::after {
 }
 .brand span {
   font-family: "Wanted Sans", sans-serif;
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 17px;
+  font-weight: 600;
   letter-spacing: 0;
   color: var(--muted);
 }
@@ -1070,5 +1074,121 @@ footer {
   }
   .work-nav .button {
     flex: 1 1 0;
+  }
+}
+
+/* ── 헤더 '레이트 바이브 코딩?' 버튼과 설명 모달 ── */
+.about-open {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 14px;
+}
+.about {
+  width: min(40rem, calc(100% - 32px));
+  max-height: calc(100% - 48px);
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--canvas);
+  color: var(--ink);
+  box-shadow: 0 24px 64px -24px rgba(11, 11, 15, 0.45);
+}
+.about::before {
+  content: "";
+  display: block;
+  position: sticky;
+  top: 0;
+  height: 3px;
+  background: var(--prism);
+}
+.about:focus-visible {
+  outline: 0;
+}
+.about::backdrop {
+  background: rgba(11, 11, 15, 0.45);
+}
+.about[open] {
+  animation: about-in 200ms var(--ease);
+}
+@keyframes about-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.about-body {
+  padding: 32px 32px 8px;
+  font-size: 17px;
+  line-height: 1.75;
+  word-break: keep-all;
+}
+.about-eyebrow {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.about h2 {
+  margin: 0 0 24px;
+  font-family: "Paperlogy", sans-serif;
+  font-size: 24px;
+  line-height: 1.4;
+}
+.about h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 24px 0 8px;
+  font-size: 18px;
+}
+.about-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ink);
+  font-size: 13px;
+  color: var(--canvas);
+}
+.about p {
+  margin: 0 0 12px;
+}
+.about-analogy {
+  margin: 24px 0 8px;
+  padding: 16px 20px;
+  border-left: 3px solid var(--pf-lime-edge);
+  border-radius: var(--r-sm);
+  background: var(--tint);
+}
+.about-analogy-label {
+  font-weight: 700;
+}
+.about-analogy p:last-child {
+  margin-bottom: 0;
+}
+.about-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 32px 24px;
+}
+@media (max-width: 540px) {
+  .about-body {
+    padding: 24px 20px 4px;
+    font-size: 16px;
+  }
+  .about h2 {
+    font-size: 20px;
+  }
+  .about-actions {
+    padding: 12px 20px 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .about[open] {
+    animation: none;
   }
 }
