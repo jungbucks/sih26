@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<!-- ===== 1. 메타 정보 ===== -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>한눈에 보는 교과목 연계 지도</title>
+<meta name="description" content="과목을 카드로, 선수-후속 관계를 화살표로 이어 과목 간 연계를 그래프로 한눈에 보는 도구">
+
+<!-- ===== 2. 스타일 ===== -->
+<style>
+  :root {
+    --ink: #111827;        /* 본문 글자: 거의 검정(고대비) */
+    --ink-soft: #374151;
+    --line: #9ca3af;
+    --bg: #ffffff;
+    --panel: #f3f4f6;
+    --accent: #1e40af;     /* 강조색 하나: 진한 파랑 */
+    --accent-soft: #dbeafe;
+    --warn: #991b1b;
+    --warn-bg: #fef2f2;
+    --ok: #14532d;
+    --ok-bg: #f0fdf4;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+  header h1 { font-size: 1.6rem; line-height: 1.3; margin: 0 0 8px; }
+  header p { margin: 0 0 4px; color: var(--ink-soft); }
+
+  .layout { display: grid; gap: 24px; margin-top: 24px; }
+  .layout > * { min-width: 0; }  /* 넓은 지도가 화면 밖으로 밀어내지 않도록 */
+  @media (min-width: 880px) {
+    .layout { grid-template-columns: 320px 1fr; align-items: start; }
+  }
+
+  .panel { background: var(--panel); border-radius: 14px; padding: 18px; }
+  .panel + .panel { margin-top: 16px; }
+  .panel h2 { font-size: 1.1rem; margin: 0 0 10px; }
+  label { display: block; font-weight: 600; margin: 8px 0 4px; }
+  input[type="text"], select {
+    width: 100%;
+    font: inherit;
+    font-size: 17px;
+    padding: 10px 12px;
+    border: 2px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+  }
+  input[type="text"]:focus, select:focus, button:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+  button {
+    font: inherit;
+    font-size: 17px;
+    font-weight: 600;
+    min-height: 46px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 2px solid var(--accent);
+    cursor: pointer;
+  }
+  .btn-main { background: var(--accent); color: #fff; width: 100%; margin-top: 12px; }
+  .btn-line { background: #fff; color: var(--accent); }
+  .btn-danger { background: #fff; color: var(--warn); border-color: var(--warn); width: 100%; }
+  .btn-danger-fill { background: var(--warn); color: #fff; border-color: var(--warn); }
+
+  .msg { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; font-weight: 600; }
+  .msg:empty { display: none; }
+  .msg.error { background: var(--warn-bg); color: var(--warn); border-left: 4px solid var(--warn); }
+  .msg.success { background: var(--ok-bg); color: var(--ok); border-left: 4px solid var(--ok); }
+  .hint { font-size: 15px; color: var(--ink-soft); margin: 6px 0 0; }
+
+  .confirm-box { margin-top: 12px; padding: 12px; border: 2px solid var(--warn); border-radius: 8px; background: #fff; }
+  .confirm-box[hidden] { display: none; }
+  .confirm-box p { margin: 0 0 10px; }
+  .confirm-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .confirm-actions button { flex: 1 1 120px; }
+
+  /* 그래프(지도) 영역 */
+  .map-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .map-head h2 { font-size: 1.2rem; margin: 0; }
+  .count { color: var(--ink-soft); font-size: 15px; }
+  .map-scroll {
+    margin-top: 10px;
+    border: 2px solid #d1d5db;
+    border-radius: 14px;
+    overflow-x: auto;
+    background: #fff;
+  }
+  .map { position: relative; margin: 0 auto; }
+  .map svg { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .edge { fill: none; stroke: #4b5563; stroke-width: 2.5; }
+  .edge.on { stroke: var(--accent); stroke-width: 4; }
+  .edge.dim { stroke: #d1d5db; }
+  .node {
+    position: absolute;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 4px 8px;
+    min-height: 0;
+    background: #fff;
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    font-size: 17px;
+    line-height: 1.25;
+    text-align: center;
+  }
+  .node .tag { font-size: 13px; font-weight: 700; }
+  .node.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .node.pre, .node.post { background: var(--accent-soft); border-color: var(--accent); border-width: 3px; }
+  .node.dim { color: #6b7280; border-color: #d1d5db; }
+
+  .selection-info { margin: 12px 0 0; padding: 10px 14px; border-left: 4px solid var(--accent); background: var(--accent-soft); }
+  .selection-info[hidden] { display: none; }
+  .selection-info p { margin: 0; }
+
+  .summary h3 { font-size: 1.05rem; margin: 20px 0 6px; }
+  .summary ul { margin: 0; padding-left: 1.2em; }
+  .summary li { margin: 2px 0; }
+  .empty { color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<!-- ===== 3. 화면 구조 ===== -->
+<div class="wrap">
+  <header>
+    <h1>한눈에 보는 교과목 연계 지도</h1>
+    <p>어떤 과목을 먼저 들어야 다음 과목으로 이어질까요? 과목은 카드로, 먼저 듣는 과목(선수 과목)에서 다음 과목(후속 과목)으로 가는 관계는 화살표(➔)로 보여 줍니다.</p>
+    <p>사용 순서: ① 예시 지도 보기 → ② 과목 추가 → ③ 두 과목을 골라 연결 추가 → ④ 과목 카드를 눌러 연계 흐름 확인</p>
+  </header>
+
+  <div class="layout">
+    <!-- 입력 폼 영역 -->
+    <aside>
+      <section class="panel" aria-labelledby="h-add">
+        <h2 id="h-add">1. 과목 등록</h2>
+        <form id="form-subject" novalidate>
+          <label for="input-subject">과목 이름</label>
+          <input type="text" id="input-subject" maxlength="12" placeholder="예: 확률과 통계" autocomplete="off">
+          <button type="submit" class="btn-main" id="btn-add-subject">과목 추가</button>
+        </form>
+        <p class="msg" id="msg-subject" role="status" aria-live="polite"></p>
+        <p class="hint">과목 이름은 12자 이내, 최대 20개까지 등록할 수 있어요. 과목이 많아지면 카드가 여러 줄로 나뉘고 화살표가 서로 겹쳐 보일 수 있으니, 아래 '연결 요약'도 함께 확인하세요.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="h-link">
+        <h2 id="h-link">2. 과목 연결 (선수 ➔ 후속)</h2>
+        <form id="form-edge" novalidate>
+          <label for="select-from">선수 과목 (먼저 듣는 과목, 출발)</label>
+          <select id="select-from"></select>
+          <label for="select-to">후속 과목 (나중에 듣는 과목, 도착)</label>
+          <select id="select-to"></select>
+          <button type="submit" class="btn-main" id="btn-add-edge">연결 추가</button>
+        </form>
+        <p class="msg" id="msg-edge" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel" aria-labelledby="h-reset">
+        <h2 id="h-reset">3. 처음으로 되돌리기</h2>
+        <p class="hint">초기화 시 직접 추가한 과목과 연결 정보가 삭제되고 기본 예시로 되돌아갑니다.</p>
+        <button type="button" class="btn-danger" id="btn-reset" style="margin-top:10px">전체 데이터 초기화</button>
+        <div class="confirm-box" id="confirm-reset" hidden>
+          <p><strong>정말 초기화할까요?</strong> 직접 추가한 과목과 연결 정보가 모두 삭제됩니다.</p>
+          <div class="confirm-actions">
+            <button type="button" class="btn-danger-fill" id="btn-reset-yes">네, 초기화</button>
+            <button type="button" class="btn-line" id="btn-reset-no">취소</button>
+          </div>
+        </div>
+        <p class="msg" id="msg-reset" role="status" aria-live="polite"></p>
+        <p class="hint" id="storage-note"></p>
+      </section>
+    </aside>
+
+    <!-- 메인 영역: 그래프 지도 + 텍스트 요약 -->
+    <main>
+      <div class="map-head">
+        <h2>과목 연계 지도</h2>
+        <span class="count" id="count-info"></span>
+      </div>
+      <p class="hint">위에서 아래로 화살표를 따라가면 듣는 순서예요. 카드를 누르면 그 과목과 이어진 선수·후속 과목이 강조되고, 한 번 더 누르면 강조가 풀립니다.</p>
+      <div class="map-scroll" id="map-scroll">
+        <div class="map" id="map" aria-label="과목 카드와 연결 화살표 지도"></div>
+      </div>
+      <div class="selection-info" id="selection-info" hidden aria-live="polite"></div>
+
+      <section class="summary" aria-labelledby="h-summary">
+        <h3 id="h-summary">연결 요약 (글로 보기)</h3>
+        <ul id="list-edges"></ul>
+        <h3>아직 연결되지 않은 과목</h3>
+        <ul id="list-alone"></ul>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script>
+// ===== 4. 예시 데이터·설정 =====
+const STORAGE_KEY = "sih26:20405:map";   // 이 작품 전용 저장 이름
+const MAX_SUBJECTS = 20;                  // 등록 가능한 최대 과목 수
+const MAX_NAME_LENGTH = 12;               // 과목 이름 최대 글자 수
+
+// 기본 예시 지도 (노드 = 과목, 간선 = 선수 ➔ 후속 관계)
+const SAMPLE_DATA = {
+  nodes: [
+    { id: 1, name: "수학 I" },
+    { id: 2, name: "수학 II" },
+    { id: 3, name: "미적분" },
+    { id: 4, name: "통합과학" },
+    { id: 5, name: "물리학 I" }
+  ],
+  edges: [
+    { from: 1, to: 2 },
+    { from: 2, to: 3 },
+    { from: 4, to: 5 }
+  ]
+};
+
+// 지도 그리기 크기(픽셀)
+const CARD_W = 132, CARD_H = 56, GAP_X = 16, GAP_Y = 52, PAD = 16;
+
+// ===== 5. 데이터·상태 =====
+let graph = { nodes: [], edges: [] };  // 그래프 = 노드 배열 + 간선 배열
+let selectedId = null;                  // 지금 눌러 둔 과목 카드
+let storageOk = true;                   // 브라우저 저장이 되는지
+
+// ===== 6. 처리 함수 =====
+
+// 예시 데이터를 복사해서 새 그래프로 만든다(원본이 바뀌지 않도록 깊은 복사)
+function makeSampleGraph() {
+  return JSON.parse(JSON.stringify(SAMPLE_DATA));
+}
+
+// 저장된 그래프 불러오기. 실패하면 null
+function loadGraph() {
+  try {
+    const text = localStorage.getItem(STORAGE_KEY);
+    if (!text) return null;
+    const data = JSON.parse(text);
+    if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) return null;
+    // 망가진 저장 내용 걸러내기: 이름 있는 과목만, 양 끝 과목이 실제로 있는 연결만 남김
+    const nodes = data.nodes.filter(n => n && Number.isInteger(n.id) && typeof n.name === "string").slice(0, MAX_SUBJECTS);
+    const ids = new Set(nodes.map(n => n.id));
+    const edges = data.edges.filter(e => e && ids.has(e.from) && ids.has(e.to) && e.from !== e.to);
+    return { nodes, edges };
+  } catch (e) {
+    storageOk = false;
+    return null;
+  }
+}
+
+// 그래프를 JSON으로 저장. 막힌 환경이면 저장만 건너뛴다
+function saveGraph() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(graph));
+    storageOk = true;
+  } catch (e) {
+    storageOk = false;
+  }
+}
+
+// 저장 지우기 (이 작품의 키만 지운다. 다른 작품 데이터는 건드리지 않음)
+function clearSaved() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    storageOk = false;
+  }
+}
+
+function findNode(id) {
+  return graph.nodes.find(n => n.id === id);
+}
+
+// 인접 리스트 만들기: 과목마다 "다음에 오는 과목들(후속)"과 "앞에 오는 과목들(선수)" 목록
+function buildAdjacency() {
+  const next = {}, prev = {};
+  graph.nodes.forEach(n => { next[n.id] = []; prev[n.id] = []; });
+  graph.edges.forEach(e => {
+    next[e.from].push(e.to);
+    prev[e.to].push(e.from);
+  });
+  return { next, prev };
+}
+
+// 출발 과목에서 화살표를 따라 갈 수 있는 모든 과목 찾기 (너비 우선 탐색, BFS)
+function reachable(startId, adj) {
+  const visited = new Set();
+  const queue = [...adj[startId]];
+  while (queue.length > 0) {
+    const id = queue.shift();
+    if (visited.has(id)) continue;
+    visited.add(id);
+    queue.push(...adj[id]);
+  }
+  return visited;
+}
+
+// [노드 추가] 과목 이름을 검사한 뒤 새 노드로 저장한다. 결과 메시지를 돌려줌
+function addSubject(rawName) {
+  const name = rawName.trim().replace(/\s+/g, " ");
+  if (name === "") {
+    return { ok: false, text: "과목 이름을 입력해주세요." };
+  }
+  if (name.length > MAX_NAME_LENGTH) {
+    return { ok: false, text: `과목 이름은 ${MAX_NAME_LENGTH}자 이내로 입력해주세요.` };
+  }
+  if (graph.nodes.length >= MAX_SUBJECTS) {
+    return { ok: false, text: `과목은 최대 ${MAX_SUBJECTS}개까지 등록할 수 있어요.` };
+  }
+  // 중복 검사: 같은 이름의 과목(노드)이 이미 있는지 하나씩 비교 (띄어쓰기는 무시)
+  const key = name.replace(/\s/g, "");
+  const same = graph.nodes.some(n => n.name.replace(/\s/g, "") === key);
+  if (same) {
+    return { ok: false, text: `'${name}' 과목은 이미 등록되어 있습니다.` };
+  }
+  // 새 번호(id) = 지금까지 가장 큰 번호 + 1
+  const newId = graph.nodes.reduce((max, n) => Math.max(max, n.id), 0) + 1;
+  graph.nodes.push({ id: newId, name: name });
+  saveGraph();
+  return { ok: true, text: `'${name}' 과목을 추가했어요.` };
+}
+
+// [간선 추가] 선수 과목 ➔ 후속 과목 연결을 검사한 뒤 저장한다
+function addEdge(fromId, toId) {
+  if (graph.nodes.length < 2) {
+    return { ok: false, text: "연결할 다른 과목이 없습니다. 과목을 더 추가해주세요." };
+  }
+  if (!fromId || !toId) {
+    return { ok: false, text: "선수 과목과 후속 과목을 모두 선택해주세요." };
+  }
+  // 자기 자신에게 연결 금지 (과목A ➔ 과목A)
+  if (fromId === toId) {
+    return { ok: false, text: "같은 과목끼리는 연결할 수 없습니다. 서로 다른 두 과목을 골라주세요." };
+  }
+  const fromName = findNode(fromId).name, toName = findNode(toId).name;
+  // 중복 검사: 간선 배열에 똑같은 (출발, 도착) 쌍이 이미 있는지 확인
+  const exists = graph.edges.some(e => e.from === fromId && e.to === toId);
+  if (exists) {
+    return { ok: false, text: `이미 연결된 과목 관계입니다. (${fromName} ➔ ${toName})` };
+  }
+  // 순환 검사: 도착 과목에서 화살표를 따라가 출발 과목에 닿으면, 연결 시 빙글빙글 도는 고리가 생김
+  const adj = buildAdjacency();
+  if (reachable(toId, adj.next).has(fromId)) {
+    return { ok: false, text: `${toName}이(가) 이미 ${fromName}보다 앞선 과목이라 거꾸로 연결할 수 없습니다.` };
+  }
+  graph.edges.push({ from: fromId, to: toId });
+  saveGraph();
+  return { ok: true, text: `연결했어요: ${fromName} ➔ ${toName}` };
+}
+
+// 초기화: 저장을 지우고 예시 데이터로 되돌림
+function resetGraph() {
+  clearSaved();
+  graph = makeSampleGraph();
+  selectedId = null;
+  saveGraph();
+}
+
+// 과목마다 몇 번째 줄(층)에 둘지 계산: 선수 과목이 있으면 그보다 한 줄 아래
+function computeLevels() {
+  const adj = buildAdjacency();
+  const level = {};
+  function levelOf(id) {
+    if (level[id] !== undefined) return level[id];
+    level[id] = 0; // 계산 중 표시(혹시 모를 고리 방지)
+    let lv = 0;
+    adj.prev[id].forEach(p => { lv = Math.max(lv, levelOf(p) + 1); });
+    level[id] = lv;
+    return lv;
+  }
+  graph.nodes.forEach(n => levelOf(n.id));
+  return level;
+}
+
+// ===== 7. 화면 갱신 =====
+
+function showMessage(el, result) {
+  el.textContent = result.text;
+  el.className = "msg " + (result.ok ? "success" : "error");
+}
+
+function fillSelects() {
+  const selFrom = document.getElementById("select-from");
+  const selTo = document.getElementById("select-to");
+  [selFrom, selTo].forEach((sel, i) => {
+    const before = sel.value;
+    sel.innerHTML = "";
+    const first = document.createElement("option");
+    first.value = "";
+    first.textContent = i === 0 ? "-- 선수 과목 선택 --" : "-- 후속 과목 선택 --";
+    sel.appendChild(first);
+    graph.nodes.forEach(n => {
+      const op = document.createElement("option");
+      op.value = String(n.id);
+      op.textContent = n.name;
+      sel.appendChild(op);
+    });
+    if (graph.nodes.some(n => String(n.id) === before)) sel.value = before;
+  });
+}
+
+// 카드와 화살표 지도 그리기
+function drawMap() {
+  const map = document.getElementById("map");
+  map.innerHTML = "";
+
+  if (graph.nodes.length === 0) {
+    map.style.width = "auto"; map.style.height = "auto";
+    const p = document.createElement("p");
+    p.className = "empty"; p.style.padding = "16px";
+    p.textContent = "등록된 과목이 없어요. 왼쪽에서 과목을 추가해 보세요.";
+    map.appendChild(p);
+    return;
+  }
+
+  // 연결이 하나라도 있는 과목은 층(level)별로, 연결 없는 과목은 맨 아래 따로 모은다
+  const adj = buildAdjacency();
+  const level = computeLevels();
+  const linked = new Set();
+  graph.edges.forEach(e => { linked.add(e.from); linked.add(e.to); });
+  const levels = [];
+  graph.nodes.filter(n => linked.has(n.id)).forEach(n => {
+    (levels[level[n.id]] = levels[level[n.id]] || []).push(n);
+  });
+  const alone = graph.nodes.filter(n => !linked.has(n.id));
+
+  // 화면 폭에 들어가는 카드 수만큼만 한 줄에 놓고, 넘치면 다음 줄로 접는다
+  const boxW = document.getElementById("map-scroll").clientWidth || 600;
+  const perRow = Math.max(2, Math.floor((boxW - PAD * 2 + GAP_X) / (CARD_W + GAP_X)));
+  const groups = levels.filter(Boolean);
+  if (alone.length) groups.push(alone);
+  const widest = Math.min(perRow, Math.max(...groups.map(g => g.length)));
+  const width = PAD * 2 + widest * CARD_W + (widest - 1) * GAP_X;
+
+  // 각 카드의 위치 정하기: 선수 과목들의 평균 위치에 가깝게 정렬 → 화살표가 덜 꼬임
+  const pos = {};
+  let y = PAD;
+  let aloneLabelY = null;
+  groups.forEach(group => {
+    const isAlone = group === alone;
+    if (isAlone) {
+      if (y > PAD) y += 8;            // 위 그룹과 살짝 띄우기
+      aloneLabelY = y + 14;
+      y += 26;                          // "연결 없는 과목" 글자 자리
+    }
+    const avgX = n => {
+      const ps = adj.prev[n.id].filter(p => pos[p]);
+      return ps.length ? ps.reduce((s, p) => s + pos[p].x, 0) / ps.length : 0;
+    };
+    const sorted = isAlone ? group : [...group].sort((a, b) => avgX(a) - avgX(b));
+    for (let i = 0; i < sorted.length; i += perRow) {
+      const row = sorted.slice(i, i + perRow);
+      const rowW = row.length * CARD_W + (row.length - 1) * GAP_X;
+      const startX = (width - rowW) / 2;
+      row.forEach((n, k) => { pos[n.id] = { x: startX + k * (CARD_W + GAP_X), y: y }; });
+      y += CARD_H + (isAlone ? GAP_X : GAP_Y);
+    }
+  });
+  const height = y - (alone.length ? GAP_X : GAP_Y) + PAD;
+  map.style.width = width + "px";
+  map.style.height = height + "px";
+
+  // 강조할 과목 계산: 선택 과목 앞쪽(선수) 전체와 뒤쪽(후속) 전체
+  let preSet = new Set(), postSet = new Set();
+  if (selectedId !== null) {
+    preSet = reachable(selectedId, adj.prev);
+    postSet = reachable(selectedId, adj.next);
+  }
+  const inFlow = id => id === selectedId || preSet.has(id) || postSet.has(id);
+
+  // 화살표(SVG) 그리기
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("width", width);
+  svg.setAttribute("height", height);
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML =
+    '<defs>' +
+    '<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4b5563"/></marker>' +
+    '<marker id="arrow-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e40af"/></marker>' +
+    '<marker id="arrow-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d1d5db"/></marker>' +
+    '</defs>';
+  if (aloneLabelY !== null) {
+    const label = document.createElementNS(NS, "text");
+    label.setAttribute("x", PAD);
+    label.setAttribute("y", aloneLabelY);
+    label.setAttribute("fill", "#374151");
+    label.setAttribute("font-size", "15");
+    label.textContent = "아직 연결되지 않은 과목";
+    svg.appendChild(label);
+  }
+  graph.edges.forEach(e => {
+    const a = pos[e.from], b = pos[e.to];
+    const x1 = a.x + CARD_W / 2, y1 = a.y + CARD_H;
+    const x2 = b.x + CARD_W / 2, y2 = b.y - 2;
+    const mid = (y1 + y2) / 2;
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("d", `M${x1},${y1} C${x1},${mid} ${x2},${mid} ${x2},${y2}`);
+    let cls = "edge", marker = "arrow";
+    if (selectedId !== null) {
+      if (inFlow(e.from) && inFlow(e.to)) { cls += " on"; marker = "arrow-on"; }
+      else { cls += " dim"; marker = "arrow-dim"; }
+    }
+    path.setAttribute("class", cls);
+    path.setAttribute("marker-end", `url(#${marker})`);
+    svg.appendChild(path);
+  });
+  map.appendChild(svg);
+
+  // 과목 카드(버튼) 그리기
+  graph.nodes.forEach(n => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "node";
+    btn.dataset.id = n.id;
+    btn.style.left = pos[n.id].x + "px";
+    btn.style.top = pos[n.id].y + "px";
+    btn.style.width = CARD_W + "px";
+    btn.style.height = CARD_H + "px";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = n.name;   // 사용자 입력은 textContent로 안전하게
+    btn.appendChild(nameSpan);
+
+    let tag = "";
+    if (selectedId !== null) {
+      if (n.id === selectedId) { btn.classList.add("selected"); tag = "선택한 과목"; }
+      else if (preSet.has(n.id)) { btn.classList.add("pre"); tag = "선수 과목"; }
+      else if (postSet.has(n.id)) { btn.classList.add("post"); tag = "후속 과목"; }
+      else { btn.classList.add("dim"); }
+    }
+    if (tag) {
+      const tagSpan = document.createElement("span");
+      tagSpan.className = "tag";
+      tagSpan.textContent = tag;   // 색뿐 아니라 글자로도 구분
+      btn.appendChild(tagSpan);
+    }
+    btn.setAttribute("aria-pressed", n.id === selectedId ? "true" : "false");
+    btn.setAttribute("aria-label", n.name + (tag ? ` (${tag})` : "") + " 카드, 누르면 연계 흐름 강조");
+    map.appendChild(btn);
+  });
+}
+
+// 선택한 과목의 연계 흐름을 글로 보여 주기
+function drawSelectionInfo() {
+  const box = document.getElementById("selection-info");
+  box.innerHTML = "";
+  if (selectedId === null || !findNode(selectedId)) { box.hidden = true; return; }
+  const adj = buildAdjacency();
+  const names = set => [...set].map(id => findNode(id).name);
+  const pre = names(reachable(selectedId, adj.prev));
+  const post = names(reachable(selectedId, adj.next));
+  const lines = [
+    `선택한 과목: ${findNode(selectedId).name}`,
+    `먼저 들으면 좋은 선수 과목: ${pre.length ? pre.join(", ") : "없음"}`,
+    `이어서 들을 수 있는 후속 과목: ${post.length ? post.join(", ") : "없음"}`
+  ];
+  lines.forEach((t, i) => {
+    const p = document.createElement("p");
+    if (i === 0) { const b = document.createElement("strong"); b.textContent = t; p.appendChild(b); }
+    else p.textContent = t;
+    box.appendChild(p);
+  });
+  box.hidden = false;
+}
+
+// 텍스트 요약 리스트
+function drawSummary() {
+  const listEdges = document.getElementById("list-edges");
+  const listAlone = document.getElementById("list-alone");
+  listEdges.innerHTML = ""; listAlone.innerHTML = "";
+
+  if (graph.edges.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty"; li.textContent = "아직 연결이 없어요.";
+    listEdges.appendChild(li);
+  }
+  graph.edges.forEach(e => {
+    const li = document.createElement("li");
+    li.textContent = `${findNode(e.from).name} ➔ ${findNode(e.to).name}`;
+    listEdges.appendChild(li);
+  });
+
+  const linked = new Set();
+  graph.edges.forEach(e => { linked.add(e.from); linked.add(e.to); });
+  const alone = graph.nodes.filter(n => !linked.has(n.id));
+  if (alone.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty"; li.textContent = "없음 (모든 과목이 연결되어 있어요)";
+    listAlone.appendChild(li);
+  }
+  alone.forEach(n => {
+    const li = document.createElement("li");
+    li.textContent = n.name;
+    listAlone.appendChild(li);
+  });
+
+  document.getElementById("count-info").textContent =
+    `과목 ${graph.nodes.length}/${MAX_SUBJECTS}개 · 연결 ${graph.edges.length}개`;
+  document.getElementById("storage-note").textContent = storageOk
+    ? "변경 내용은 이 브라우저에 자동 저장됩니다."
+    : "이 환경에서는 저장되지 않습니다. 새로고침하면 예시 지도로 돌아가요. (지도 사용은 그대로 가능)";
+}
+
+function render() {
+  fillSelects();
+  drawMap();
+  drawSelectionInfo();
+  drawSummary();
+}
+
+// ===== 8. 이벤트 연결 =====
+
+document.getElementById("form-subject").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const input = document.getElementById("input-subject");
+  const result = addSubject(input.value);
+  showMessage(document.getElementById("msg-subject"), result);
+  if (result.ok) input.value = "";
+  input.focus();
+  render();
+});
+
+document.getElementById("form-edge").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const fromId = Number(document.getElementById("select-from").value) || null;
+  const toId = Number(document.getElementById("select-to").value) || null;
+  const result = addEdge(fromId, toId);
+  showMessage(document.getElementById("msg-edge"), result);
+  render();
+});
+
+// 카드 클릭: 같은 카드를 다시 누르면 강조 해제
+document.getElementById("map").addEventListener("click", ev => {
+  const card = ev.target.closest(".node");
+  if (!card) return;
+  const id = Number(card.dataset.id);
+  selectedId = (selectedId === id) ? null : id;
+  render();
+  const again = document.querySelector(`.node[data-id="${id}"]`);
+  if (again) again.focus();
+});
+
+// 초기화: 페이지 안 확인 상자로 한 번 더 묻기
+document.getElementById("btn-reset").addEventListener("click", () => {
+  document.getElementById("confirm-reset").hidden = false;
+  document.getElementById("btn-reset-yes").focus();
+});
+document.getElementById("btn-reset-no").addEventListener("click", () => {
+  document.getElementById("confirm-reset").hidden = true;
+  document.getElementById("btn-reset").focus();
+});
+document.getElementById("btn-reset-yes").addEventListener("click", () => {
+  resetGraph();
+  document.getElementById("confirm-reset").hidden = true;
+  ["msg-subject", "msg-edge"].forEach(id => { document.getElementById(id).textContent = ""; });
+  showMessage(document.getElementById("msg-reset"), { ok: true, text: "기본 예시 지도로 되돌렸어요." });
+  render();
+});
+
+// 창 크기가 바뀌면 한 줄에 들어갈 카드 수가 달라지므로 지도를 다시 그린다
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(drawMap, 150);
+});
+
+// 시작: 저장된 지도가 있으면 불러오고, 없으면 예시 지도
+(function start() {
+  const saved = loadGraph();
+  if (saved) {
+    graph = saved;
+  } else {
+    graph = makeSampleGraph();
+    saveGraph();
+  }
+  render();
+})();
+</script>
+</body>
+</html>

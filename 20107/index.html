@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>나만의 공부 계획표</title>
+<meta name="description" content="과목, 할 일, 목표 시간을 적어 두면 과목별로 묶어 보여 주고 이 브라우저에 저장해 주는 공부 계획표">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1f2328;
+    --muted: #59636e;
+    --line: #d8dde3;
+    --accent: #1f5fbf;
+    --accent-weak: #e8f0fc;
+    --ok: #1a7f37;
+    --ok-weak: #e9f6ec;
+    --err: #b42318;
+    --err-weak: #fdecea;
+    --warn: #8a5a00;
+    --warn-weak: #fff6e0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .wrap { max-width: 42rem; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; line-height: 1.3; }
+  h2 { font-size: 1.15rem; margin: 0 0 12px; }
+  .intro { color: var(--muted); margin: 0 0 8px; }
+  .privacy { font-size: 0.95rem; color: var(--muted); margin: 0 0 20px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 16px;
+    margin-bottom: 20px;
+  }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  label:first-of-type { margin-top: 0; }
+  .hint { display: block; font-size: 0.9rem; color: var(--muted); font-weight: 400; }
+  input[type="text"] {
+    width: 100%;
+    font: inherit;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  input[aria-invalid="true"] { border-color: var(--err); border-width: 2px; }
+  button {
+    font: inherit;
+    font-size: 1rem;
+    min-height: 44px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+  }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn-danger { border-color: var(--err); color: var(--err); }
+  .btn-danger-solid { background: var(--err); border-color: var(--err); color: #fff; font-weight: 600; }
+  .btn-small { min-height: 40px; padding: 6px 12px; font-size: 0.95rem; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .examples { margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--line); }
+  .examples p { margin: 0 0 8px; font-size: 0.95rem; color: var(--muted); }
+  .examples .row { margin-top: 0; }
+  .example-btn { background: var(--accent-weak); border-color: transparent; font-size: 0.95rem; }
+
+  /* 안내 메시지: 색 + 글자 머리말로 함께 구분 */
+  #storageStatus { margin: 0 0 20px; }
+  .msg { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 0.95rem; }
+  .msg:empty { display: none; }
+  .msg-error { background: var(--err-weak); color: var(--err); border-left: 4px solid var(--err); }
+  .msg-ok { background: var(--ok-weak); color: var(--ok); border-left: 4px solid var(--ok); }
+  .msg-warn { background: var(--warn-weak); color: var(--warn); border-left: 4px solid var(--warn); }
+  .msg ul { margin: 4px 0 0; padding-left: 20px; }
+
+  .list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .empty { color: var(--muted); padding: 16px 0; margin: 0; }
+  .group { margin-top: 16px; }
+  .group:first-child { margin-top: 0; }
+  .group h3 {
+    font-size: 1.05rem;
+    margin: 0 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid var(--accent);
+  }
+  .group h3 .count { font-weight: 400; color: var(--muted); font-size: 0.9rem; margin-left: 6px; }
+  .plans { list-style: none; margin: 0; padding: 0; }
+  .plan { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .plan:last-child { border-bottom: none; }
+  .plan-main { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .plan-text { flex: 1 1 12rem; min-width: 0; }
+  .plan-minutes { color: var(--muted); font-size: 0.95rem; }
+  .plan-actions { display: flex; gap: 6px; }
+  .confirm-box { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--err-weak); }
+  .confirm-box p { margin: 0 0 8px; color: var(--err); font-size: 0.95rem; }
+  .confirm-box .row { margin-top: 0; }
+  .edit-box { margin-top: 8px; padding: 12px; border-radius: 8px; background: var(--accent-weak); }
+  .edit-box label { margin-top: 8px; }
+  .edit-box label:first-of-type { margin-top: 0; }
+  .reset-area { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .total { color: var(--muted); font-size: 0.95rem; }
+</style>
+</head>
+<body>
+<!-- ===== 화면 구조 ===== -->
+<main class="wrap">
+  <header>
+    <h1>나만의 공부 계획표</h1>
+    <p class="intro">공부를 시작하기 전에 과목, 할 일, 목표 시간을 적어 두세요. 같은 과목끼리 묶어서 보여 주니 해야 할 일을 잊지 않을 수 있어요.</p>
+    <p class="privacy">계획은 서버로 보내지 않고 이 기기의 이 브라우저에만 저장됩니다. 같은 기기를 쓰는 다른 사람이 볼 수 있으니 이름, 연락처 같은 개인정보나 민감한 메모는 적지 마세요.</p>
+  </header>
+
+  <!-- 저장 상태 안내 -->
+  <div id="storageStatus" class="msg" role="status" aria-live="polite"></div>
+
+  <section class="card" aria-labelledby="addTitle">
+    <h2 id="addTitle">공부 계획 추가</h2>
+    <form id="addForm" novalidate>
+      <label for="subjectInput">과목 이름 <span class="hint">예: 수학, 영어</span></label>
+      <input type="text" id="subjectInput" autocomplete="off" maxlength="30" placeholder="과목 이름을 입력하세요">
+
+      <label for="taskInput">공부할 내용 <span class="hint">예: 문제집 풀기</span></label>
+      <input type="text" id="taskInput" autocomplete="off" maxlength="100" placeholder="무엇을 공부할지 입력하세요">
+
+      <label for="minutesInput">목표 공부 시간(분) <span class="hint">1 이상의 정수, 예: 40</span></label>
+      <input type="text" id="minutesInput" inputmode="numeric" autocomplete="off" maxlength="5" placeholder="분 단위 숫자">
+
+      <div class="row">
+        <button type="submit" class="btn-primary" id="addButton">계획 추가</button>
+      </div>
+      <div id="addMessage" class="msg" role="alert" aria-live="assertive"></div>
+    </form>
+
+    <div class="examples">
+      <p>처음이라면 입력 예시를 눌러 보세요. 입력칸만 채워지고, <strong>계획 추가</strong>를 눌러야 목록에 들어갑니다.</p>
+      <div class="row" id="exampleButtons"></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="listTitle">
+    <div class="list-head">
+      <h2 id="listTitle">과목별 공부 계획</h2>
+      <span class="total" id="totalText"></span>
+    </div>
+    <div id="planList"></div>
+
+    <div class="reset-area">
+      <button type="button" class="btn-danger" id="resetButton">전체 초기화</button>
+      <div id="resetConfirm" class="confirm-box" hidden>
+        <p>이 프로그램에 등록한 공부 계획 <span id="resetCount">0</span>개를 모두 삭제합니다. 다른 웹사이트의 데이터는 지우지 않습니다. 삭제한 계획은 되돌릴 수 없어요. 정말 초기화할까요?</p>
+        <div class="row">
+          <button type="button" class="btn-danger-solid" id="resetYes">네, 모두 삭제</button>
+          <button type="button" id="resetNo">취소</button>
+        </div>
+      </div>
+      <div id="resetMessage" class="msg" role="status"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+// ===== 예시 데이터·설정 =====
+// 예시는 목록에 바로 넣지 않고 "입력칸 채우기"로만 제공한다 (내 계획과 섞이지 않게)
+const EXAMPLE_PLANS = [
+  { subject: "수학", task: "문제집 풀기", minutes: 40 },
+  { subject: "영어", task: "단어 외우기", minutes: 30 },
+  { subject: "수학", task: "개념 복습", minutes: 20 }
+];
+// 이 프로그램만 쓰는 저장 키 (다른 데이터와 겹치지 않도록 접두사 사용)
+const STORAGE_KEY = "sih26:20107:plans";
+
+// ===== 데이터·상태 =====
+let plans = [];            // 공부 계획 목록: { id, subject, task, minutes }
+let editingId = null;      // 지금 수정 중인 계획의 id (없으면 null)
+let deletingId = null;     // 삭제 확인을 띄운 계획의 id (없으면 null)
+let storageAvailable = true;
+
+// 화면 요소
+const subjectInput = document.getElementById("subjectInput");
+const taskInput = document.getElementById("taskInput");
+const minutesInput = document.getElementById("minutesInput");
+const addForm = document.getElementById("addForm");
+const addMessage = document.getElementById("addMessage");
+const storageStatus = document.getElementById("storageStatus");
+const planList = document.getElementById("planList");
+const totalText = document.getElementById("totalText");
+const exampleButtons = document.getElementById("exampleButtons");
+const resetButton = document.getElementById("resetButton");
+const resetConfirm = document.getElementById("resetConfirm");
+const resetCount = document.getElementById("resetCount");
+const resetYes = document.getElementById("resetYes");
+const resetNo = document.getElementById("resetNo");
+const resetMessage = document.getElementById("resetMessage");
+
+// ===== 처리 함수 =====
+
+// 겹치지 않는 고유 id 만들기 (시간 + 무작위 글자)
+function makeId() {
+  return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+}
+
+// 입력값 검사: 문제가 있으면 오류 목록을, 없으면 정리된 값을 돌려준다
+function validatePlan(subjectRaw, taskRaw, minutesRaw) {
+  const subject = subjectRaw.trim();   // 앞뒤 공백 제거 (공백만 있으면 빈 칸)
+  const task = taskRaw.trim();
+  const minutesText = minutesRaw.trim();
+  const errors = [];   // { field, text }
+
+  if (subject === "") {
+    errors.push({ field: "subject", text: "과목 이름이 비어 있어요. 과목 이름을 입력해 주세요." });
+  }
+  if (task === "") {
+    errors.push({ field: "task", text: "공부할 내용이 비어 있어요. 무엇을 공부할지 입력해 주세요." });
+  }
+  if (minutesText === "") {
+    errors.push({ field: "minutes", text: "목표 공부 시간이 비어 있어요. 분 단위 숫자를 입력해 주세요." });
+  } else if (!/^[0-9]+$/.test(minutesText)) {
+    errors.push({ field: "minutes", text: "목표 공부 시간에는 숫자만 입력해 주세요. 소수점, 글자, 음수는 쓸 수 없어요. (예: 40)" });
+  } else if (Number(minutesText) < 1) {
+    errors.push({ field: "minutes", text: "목표 공부 시간은 1분 이상이어야 해요." });
+  }
+
+  return { errors: errors, subject: subject, task: task, minutes: Number(minutesText) };
+}
+
+// localStorage에 저장 시도: 성공하면 true, 실패하면 false
+function savePlans() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
+    storageAvailable = true;
+    return true;
+  } catch (e) {
+    storageAvailable = false;
+    return false;
+  }
+}
+
+// 저장된 계획 불러오기: 결과 상태 문자열을 돌려준다
+function loadPlans() {
+  let text;
+  try {
+    text = localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    storageAvailable = false;
+    return "unavailable";
+  }
+  if (text === null) return "none";
+  try {
+    const data = JSON.parse(text);
+    if (!Array.isArray(data)) return "broken";
+    // 모양이 올바른 항목만 골라서 쓴다
+    plans = data.filter(function (p) {
+      return p && typeof p.id === "string" && typeof p.subject === "string" &&
+        typeof p.task === "string" && Number.isInteger(p.minutes) && p.minutes >= 1;
+    });
+    return "loaded";
+  } catch (e) {
+    return "broken";
+  }
+}
+
+// 과목 이름이 같은 계획끼리 묶기 (처음 등장한 순서대로)
+function groupBySubject(list) {
+  const groups = [];
+  list.forEach(function (plan) {
+    let group = groups.find(function (g) { return g.subject === plan.subject; });
+    if (!group) {
+      group = { subject: plan.subject, items: [] };
+      groups.push(group);
+    }
+    group.items.push(plan);
+  });
+  return groups;
+}
+
+// 변경 후 저장을 시도하고 결과를 안내
+function saveAndReport(actionText) {
+  const ok = savePlans();
+  if (ok) {
+    showStorageStatus("ok", "저장 완료: " + actionText + " 이 브라우저에 저장했어요.");
+  } else {
+    showStorageStatus("warn", "저장 안 됨: " + actionText + " 하지만 이 환경에서는 저장할 수 없어서, 지금 화면에서만 보이고 페이지를 닫으면 사라질 수 있어요.");
+  }
+}
+
+// ===== 화면 갱신 =====
+
+function showStorageStatus(kind, text) {
+  storageStatus.className = "msg msg-" + kind;
+  storageStatus.textContent = text;
+}
+
+// 입력 오류를 목록으로 보여 주고, 잘못된 칸을 표시
+function showErrors(box, errors, inputs) {
+  Object.keys(inputs).forEach(function (key) {
+    inputs[key].setAttribute("aria-invalid", "false");
+  });
+  box.textContent = "";
+  if (errors.length === 0) {
+    box.className = "msg";
+    return;
+  }
+  box.className = "msg msg-error";
+  const title = document.createElement("strong");
+  title.textContent = "입력 오류: 아래 내용을 고쳐 주세요.";
+  box.appendChild(title);
+  const ul = document.createElement("ul");
+  errors.forEach(function (err) {
+    const li = document.createElement("li");
+    li.textContent = err.text;
+    ul.appendChild(li);
+    inputs[err.field].setAttribute("aria-invalid", "true");
+  });
+  box.appendChild(ul);
+  inputs[errors[0].field].focus();
+}
+
+// 버튼 하나 만들기 (도우미)
+function makeButton(text, className, handler) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = text;
+  if (className) btn.className = className;
+  btn.addEventListener("click", handler);
+  return btn;
+}
+
+// 입력칸 + 라벨 만들기 (수정 화면용)
+function makeField(box, id, labelText, value, extra) {
+  const label = document.createElement("label");
+  label.htmlFor = id;
+  label.textContent = labelText;
+  const input = document.createElement("input");
+  input.type = "text";
+  input.id = id;
+  input.value = value;
+  input.autocomplete = "off";
+  Object.keys(extra || {}).forEach(function (k) { input.setAttribute(k, extra[k]); });
+  box.appendChild(label);
+  box.appendChild(input);
+  return input;
+}
+
+// 계획 한 개(목록의 한 줄) 그리기
+function renderPlanItem(plan) {
+  const li = document.createElement("li");
+  li.className = "plan";
+  li.dataset.id = plan.id;
+
+  // 수정 중인 항목은 수정 화면을 보여 준다
+  if (editingId === plan.id) {
+    const box = document.createElement("form");
+    box.className = "edit-box";
+    box.noValidate = true;
+    const subjectEdit = makeField(box, "editSubject", "과목 이름", plan.subject, { maxlength: "30" });
+    const taskEdit = makeField(box, "editTask", "공부할 내용", plan.task, { maxlength: "100" });
+    const minutesEdit = makeField(box, "editMinutes", "목표 공부 시간(분)", String(plan.minutes), { inputmode: "numeric", maxlength: "5" });
+    const msg = document.createElement("div");
+    msg.className = "msg";
+    msg.setAttribute("role", "alert");
+    const row = document.createElement("div");
+    row.className = "row";
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "submit";
+    saveBtn.className = "btn-primary btn-small";
+    saveBtn.textContent = "수정 저장";
+    row.appendChild(saveBtn);
+    row.appendChild(makeButton("수정 취소", "btn-small", function () {
+      editingId = null;           // 취소하면 기존 내용 그대로
+      renderPlans();
+    }));
+    box.appendChild(row);
+    box.appendChild(msg);
+    box.addEventListener("submit", function (event) {
+      event.preventDefault();
+      updatePlan(plan.id, subjectEdit, taskEdit, minutesEdit, msg);
+    });
+    li.appendChild(box);
+    setTimeout(function () { subjectEdit.focus(); }, 0);
+    return li;
+  }
+
+  const main = document.createElement("div");
+  main.className = "plan-main";
+  const text = document.createElement("div");
+  text.className = "plan-text";
+  const taskSpan = document.createElement("span");
+  taskSpan.className = "plan-task";
+  taskSpan.textContent = plan.task;           // textContent라서 입력이 코드로 실행되지 않음
+  const minutesSpan = document.createElement("span");
+  minutesSpan.className = "plan-minutes";
+  minutesSpan.textContent = " · 목표 " + plan.minutes + "분";
+  text.appendChild(taskSpan);
+  text.appendChild(minutesSpan);
+
+  const actions = document.createElement("div");
+  actions.className = "plan-actions";
+  actions.appendChild(makeButton("수정", "btn-small", function () {
+    editingId = plan.id;
+    deletingId = null;
+    renderPlans();
+  }));
+  actions.appendChild(makeButton("삭제", "btn-small btn-danger", function () {
+    deletingId = plan.id;
+    editingId = null;
+    renderPlans();
+  }));
+  main.appendChild(text);
+  main.appendChild(actions);
+  li.appendChild(main);
+
+  // 삭제 확인 상자 (실수로 지우지 않도록)
+  if (deletingId === plan.id) {
+    const confirmBox = document.createElement("div");
+    confirmBox.className = "confirm-box";
+    const p = document.createElement("p");
+    p.textContent = "‘" + plan.subject + " — " + plan.task + "’ 계획을 삭제할까요?";
+    const row = document.createElement("div");
+    row.className = "row";
+    const yes = makeButton("네, 삭제", "btn-small btn-danger-solid", function () { deletePlan(plan.id); });
+    row.appendChild(yes);
+    row.appendChild(makeButton("취소", "btn-small", function () {
+      deletingId = null;
+      renderPlans();
+    }));
+    confirmBox.appendChild(p);
+    confirmBox.appendChild(row);
+    li.appendChild(confirmBox);
+    setTimeout(function () { yes.focus(); }, 0);
+  }
+  return li;
+}
+
+// 과목별 목록 전체 다시 그리기
+function renderPlans() {
+  planList.textContent = "";
+  if (plans.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = "등록된 공부 계획이 없습니다.";
+    planList.appendChild(empty);
+    totalText.textContent = "";
+    resetButton.disabled = true;
+    return;
+  }
+  resetButton.disabled = false;
+
+  totalText.textContent = "계획 " + plans.length + "개";
+
+  groupBySubject(plans).forEach(function (group) {
+    const section = document.createElement("section");
+    section.className = "group";
+    const h3 = document.createElement("h3");
+    h3.textContent = group.subject;
+    const count = document.createElement("span");
+    count.className = "count";
+    count.textContent = group.items.length + "개";
+    h3.appendChild(count);
+    const ul = document.createElement("ul");
+    ul.className = "plans";
+    group.items.forEach(function (plan) { ul.appendChild(renderPlanItem(plan)); });
+    section.appendChild(h3);
+    section.appendChild(ul);
+    planList.appendChild(section);
+  });
+}
+
+// 예시 버튼 그리기
+function renderExampleButtons() {
+  EXAMPLE_PLANS.forEach(function (ex) {
+    const label = "예시: " + ex.subject + " · " + ex.task + " · " + ex.minutes + "분";
+    exampleButtons.appendChild(makeButton(label, "example-btn btn-small", function () {
+      subjectInput.value = ex.subject;
+      taskInput.value = ex.task;
+      minutesInput.value = String(ex.minutes);
+      showErrors(addMessage, [], { subject: subjectInput, task: taskInput, minutes: minutesInput });
+      document.getElementById("addButton").focus();
+    }));
+  });
+}
+
+// ===== 계획 추가·수정·삭제·초기화 =====
+
+function addPlan() {
+  const result = validatePlan(subjectInput.value, taskInput.value, minutesInput.value);
+  const inputs = { subject: subjectInput, task: taskInput, minutes: minutesInput };
+  showErrors(addMessage, result.errors, inputs);
+  if (result.errors.length > 0) return;   // 잘못된 입력이면 추가하지 않음
+
+  plans.push({ id: makeId(), subject: result.subject, task: result.task, minutes: result.minutes });
+  // 입력칸을 비워서 같은 버튼을 또 눌러도 똑같은 계획이 중복으로 들어가지 않게 함
+  subjectInput.value = "";
+  taskInput.value = "";
+  minutesInput.value = "";
+  resetMessage.textContent = "";
+  resetMessage.className = "msg";
+  renderPlans();
+  saveAndReport("‘" + result.subject + "’ 계획을 추가했어요.");
+  subjectInput.focus();
+}
+
+function updatePlan(id, subjectEdit, taskEdit, minutesEdit, msgBox) {
+  const result = validatePlan(subjectEdit.value, taskEdit.value, minutesEdit.value);
+  showErrors(msgBox, result.errors, { subject: subjectEdit, task: taskEdit, minutes: minutesEdit });
+  if (result.errors.length > 0) return;   // 검사 통과해야 반영
+
+  const plan = plans.find(function (p) { return p.id === id; });
+  if (!plan) return;
+  plan.subject = result.subject;
+  plan.task = result.task;
+  plan.minutes = result.minutes;
+  editingId = null;
+  renderPlans();
+  saveAndReport("계획을 수정했어요.");
+}
+
+function deletePlan(id) {
+  // 해당 id만 빼고 나머지는 그대로 둔다
+  plans = plans.filter(function (p) { return p.id !== id; });
+  deletingId = null;
+  renderPlans();
+  saveAndReport("계획 1개를 삭제했어요.");
+}
+
+function resetAllPlans() {
+  plans = [];
+  editingId = null;
+  deletingId = null;
+  // 이 프로그램의 키 하나만 지운다 (localStorage.clear()는 쓰지 않음)
+  let removed = true;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    removed = false;
+  }
+  resetConfirm.hidden = true;
+  renderPlans();
+  if (removed) {
+    showStorageStatus("ok", "초기화 완료: 이 프로그램에 저장된 공부 계획을 모두 삭제했어요.");
+  } else {
+    showStorageStatus("warn", "초기화 완료(화면만): 목록을 비웠어요. 이 환경에서는 저장 기능을 쓸 수 없어 저장된 데이터는 원래 없었어요.");
+  }
+  resetButton.focus();
+}
+
+// ===== 이벤트 연결 =====
+
+addForm.addEventListener("submit", function (event) {
+  event.preventDefault();
+  addPlan();
+});
+
+resetButton.addEventListener("click", function () {
+  resetCount.textContent = String(plans.length);
+  resetConfirm.hidden = false;
+  resetYes.focus();
+});
+resetNo.addEventListener("click", function () {
+  resetConfirm.hidden = true;
+  resetButton.focus();
+});
+resetYes.addEventListener("click", resetAllPlans);
+
+// ===== 시작 =====
+(function start() {
+  const state = loadPlans();
+  if (state === "unavailable") {
+    showStorageStatus("warn", "저장 안 됨: 이 환경에서는 브라우저 저장 기능을 쓸 수 없어요. 계획을 추가하고 볼 수는 있지만, 페이지를 닫으면 사라질 수 있어요.");
+  } else if (state === "broken") {
+    plans = [];
+    showStorageStatus("warn", "불러오기 실패: 저장된 데이터를 읽을 수 없어서 빈 목록으로 시작해요. 새로 추가하면 다시 저장됩니다.");
+  } else if (state === "loaded") {
+    showStorageStatus("ok", "불러오기 완료: 저장된 계획 " + plans.length + "개를 불러왔어요.");
+  } else {
+    showStorageStatus("ok", "저장 준비됨: 아직 저장된 계획이 없어요. 계획을 추가하면 이 브라우저에 자동으로 저장돼요.");
+  }
+  renderExampleButtons();
+  renderPlans();
+})();
+</script>
+</body>
+</html>

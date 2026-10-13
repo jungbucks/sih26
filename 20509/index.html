@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<!-- ===== 1. 메타 정보 ===== -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>게임 강화 확률 &amp; 기댓값 시뮬레이터</title>
+<meta name="description" content="성공 확률을 넣으면 평균 몇 번 만에 성공하는지(기댓값)를 알려 주고, 직접 강화 버튼을 눌러 독립시행 결과를 쌓아 보는 시뮬레이터">
+
+<!-- ===== 2. 스타일 ===== -->
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --line: #dde1e7;
+    --text: #1d232b;
+    --muted: #5b6573;
+    --accent: #1f5fae;      /* 버튼·강조 (한 가지 색만 사용) */
+    --accent-dark: #174a88;
+    --ok: #1d6b3a;          /* 성공 글자 */
+    --ok-bg: #e8f4ec;
+    --bad: #9b2c2c;         /* 실패·경고 글자 */
+    --bad-bg: #fbecec;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+  }
+  main {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 24px 16px 40px;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; line-height: 1.4; }
+  .lead { margin: 0 0 20px; color: var(--muted); }
+  section.card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 16px;
+    margin-bottom: 16px;
+  }
+  h2 { font-size: 1.05rem; margin: 0 0 10px; }
+
+  /* 상단: 확률 입력 */
+  label { display: block; font-weight: 600; margin-bottom: 6px; }
+  .input-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .input-wrap { display: flex; align-items: center; gap: 6px; }
+  input[type="number"] {
+    width: 6.5rem;
+    font-size: 1.1rem;
+    padding: 8px 10px;
+    border: 1px solid #b9c0ca;
+    border-radius: 8px;
+    font-family: inherit;
+  }
+  input[aria-invalid="true"] { border: 2px solid var(--bad); }
+  button {
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 9px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: var(--card);
+    color: var(--accent);
+    cursor: pointer;
+    min-height: 44px;
+  }
+  button.primary { background: var(--accent); color: #fff; }
+  button.primary:hover { background: var(--accent-dark); }
+  button:focus-visible, input:focus-visible { outline: 3px solid #f0b429; outline-offset: 2px; }
+  .warn {
+    margin: 10px 0 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--bad-bg);
+    color: var(--bad);
+    font-weight: 600;
+  }
+  .warn[hidden] { display: none; }
+
+  /* 중단: 기댓값·카운터·강화 버튼 */
+  .expect {
+    border-left: 4px solid var(--accent);
+    background: #eef3fa;
+    padding: 12px 14px;
+    border-radius: 0 8px 8px 0;
+    margin: 0 0 16px;
+  }
+  .expect strong { color: var(--accent-dark); }
+  .expect small { display: block; color: var(--muted); margin-top: 4px; font-size: 0.92rem; }
+  .counter { text-align: center; margin: 4px 0 14px; }
+  .counter .label { color: var(--muted); font-size: 0.95rem; }
+  .counter .num { font-size: 3rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .counter .sub { color: var(--muted); font-size: 0.95rem; }
+  .last {
+    text-align: center;
+    min-height: 1.7em;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .last.ok { color: var(--ok); }
+  .last.bad { color: var(--bad); }
+  #tryBtn {
+    display: block;
+    width: 100%;
+    font-size: 1.25rem;
+    font-weight: 700;
+    padding: 16px;
+  }
+
+  /* 하단: 기록 목록 */
+  .log-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .log-head p { margin: 0 0 8px; color: var(--muted); font-size: 0.92rem; }
+  #logList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 18rem;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  #logList li {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  #logList li:last-child { border-bottom: none; }
+  #logList li.ok { background: var(--ok-bg); color: var(--ok); font-weight: 700; }
+  #logList li .p { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
+  #logList li.empty { color: var(--muted); justify-content: center; }
+  /* 독립시행 안내: 스크롤해도 화면 아래에 항상 보이게 고정 */
+  .notice {
+    position: sticky;
+    bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin: 0;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    border: 1px solid #e3c873;
+    background: #fdf8e6;
+    border-radius: 8px;
+  }
+  .store-note { color: var(--muted); font-size: 0.9rem; margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<!-- ===== 3. 화면 구조 ===== -->
+<main>
+  <h1>게임 강화 확률 &amp; 기댓값 시뮬레이터</h1>
+  <p class="lead">강화 버튼을 누르기 전에, 이 확률이면 평균 몇 번 만에 성공하는지 먼저 확인하고 직접 눌러 보세요.</p>
+
+  <!-- 상단: 성공 확률 입력 -->
+  <section class="card" aria-labelledby="setTitle">
+    <h2 id="setTitle">1. 성공 확률 설정</h2>
+    <label for="probInput">성공 확률(%) — 1~100 사이 정수</label>
+    <div class="input-row">
+      <span class="input-wrap">
+        <input id="probInput" type="number" min="1" max="100" step="1" inputmode="numeric" value="50" aria-describedby="probWarn">
+        <span>%</span>
+      </span>
+      <button id="setBtn" type="button" class="primary">확률 설정</button>
+      <button id="resetBtn" type="button">초기화</button>
+    </div>
+    <p id="probWarn" class="warn" role="alert" hidden></p>
+  </section>
+
+  <!-- 중단: 기댓값 안내, 시도 횟수, 강화 버튼 -->
+  <section class="card" aria-labelledby="tryTitle">
+    <h2 id="tryTitle">2. 강화 시도</h2>
+    <p id="expectBox" class="expect" aria-live="polite"></p>
+    <div class="counter">
+      <div class="label">현재 총 시도 횟수</div>
+      <div class="num"><span id="totalCount">0</span>회</div>
+      <div class="sub" id="okBadCount">성공 0회 · 실패 0회</div>
+    </div>
+    <p id="lastResult" class="last" aria-live="polite"></p>
+    <button id="tryBtn" type="button" class="primary">강화 시도</button>
+  </section>
+
+  <!-- 하단: 기록 목록과 독립시행 안내 -->
+  <section class="card" aria-labelledby="logTitle">
+    <div class="log-head">
+      <h2 id="logTitle">3. 시도 기록</h2>
+      <p>최근 기록이 맨 위에 보입니다.</p>
+    </div>
+    <ol id="logList" aria-label="강화 시도 결과 기록"></ol>
+    <p id="storeNote" class="store-note"></p>
+  </section>
+
+  <p class="notice"><strong>※ 안내:</strong> 매 시도는 독립시행이므로 평균 기댓값보다 더 많은 시도가 필요할 수 있습니다.</p>
+</main>
+
+<script>
+// ===== 4. 예시 데이터·설정 =====
+const DEFAULT_PROB = 50;                  // 처음 접속하면 50%로 시작
+const STORAGE_KEY = "sih26:20509:state";  // 이 작품 전용 저장 이름
+const MAX_SAVED_LOGS = 1000;              // 기록은 최근 1000개까지만 보관(브라우저가 무거워지지 않게)
+const WARN_TEXT = "1~100 사이의 숫자를 입력하세요";
+
+// ===== 5. 데이터·상태 =====
+const state = {
+  prob: null,       // 설정된 성공 확률(정수). 아직 설정 안 했으면 null
+  total: 0,         // 총 시도 횟수
+  success: 0,       // 성공 횟수
+  logs: []          // 기록: { n: 회차, ok: 성공여부, p: 그때 확률 }
+};
+let canSave = true; // 저장(localStorage)을 쓸 수 있는지
+
+// 화면 요소 가져오기
+const probInput = document.getElementById("probInput");
+const setBtn = document.getElementById("setBtn");
+const resetBtn = document.getElementById("resetBtn");
+const probWarn = document.getElementById("probWarn");
+const expectBox = document.getElementById("expectBox");
+const totalCount = document.getElementById("totalCount");
+const okBadCount = document.getElementById("okBadCount");
+const lastResult = document.getElementById("lastResult");
+const tryBtn = document.getElementById("tryBtn");
+const logList = document.getElementById("logList");
+const storeNote = document.getElementById("storeNote");
+
+// ===== 6. 처리 함수 =====
+
+// 입력값을 검사해서 올바른 정수면 그 숫자를, 아니면 null을 돌려준다
+function readProb() {
+  const text = probInput.value.trim();
+  if (text === "") return null;            // 빈 값
+  const p = Number(text);
+  if (!Number.isInteger(p)) return null;   // 숫자가 아니거나 소수
+  if (p < 1 || p > 100) return null;       // 0 이하, 100 초과
+  return p;
+}
+
+// 기댓값 계산: 성공 확률이 p%이면 평균 100 ÷ p 번 만에 첫 성공
+// 예) 50% → 100 ÷ 50 = 2.0회, 1% → 100 ÷ 1 = 100.0회
+function calcExpected(p) {
+  return 100 / p;
+}
+
+// 강화 한 번 굴리기: 1~100 사이 난수 R을 만들어 R ≤ p 이면 성공
+function rollOnce(p) {
+  const R = Math.floor(Math.random() * 100) + 1; // 0~99 → 1~100
+  return R <= p;                                  // 조건문: 참이면 성공
+}
+
+// 저장하기 (막혀 있으면 조용히 넘어가고 안내만 바꿈)
+function saveState() {
+  if (!canSave) return;
+  try {
+    const data = {
+      prob: state.prob,
+      total: state.total,
+      success: state.success,
+      logs: state.logs.slice(-MAX_SAVED_LOGS)
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    canSave = false;
+    renderStoreNote();
+  }
+}
+
+// 불러오기
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (Number.isInteger(data.prob) && data.prob >= 1 && data.prob <= 100) state.prob = data.prob;
+    if (Number.isInteger(data.total) && data.total >= 0) state.total = data.total;
+    if (Number.isInteger(data.success) && data.success >= 0 && data.success <= state.total) state.success = data.success;
+    if (Array.isArray(data.logs)) {
+      state.logs = data.logs.filter(function (x) {
+        return x && Number.isInteger(x.n) && typeof x.ok === "boolean" && Number.isInteger(x.p);
+      }).slice(-MAX_SAVED_LOGS);
+    }
+  } catch (e) {
+    canSave = false;
+  }
+}
+
+// 저장 기록 지우기
+function clearSaved() {
+  if (!canSave) return;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (e) {
+    canSave = false;
+  }
+}
+
+// 경고 보이기/숨기기
+function showWarn(message) {
+  probWarn.textContent = "입력 오류: " + message;
+  probWarn.hidden = false;
+  probInput.setAttribute("aria-invalid", "true");
+}
+function hideWarn() {
+  probWarn.hidden = true;
+  probWarn.textContent = "";
+  probInput.removeAttribute("aria-invalid");
+}
+
+// 입력창의 확률을 검사해서 설정. 성공하면 true
+function applyProb() {
+  const p = readProb();
+  if (p === null) {
+    showWarn(WARN_TEXT + " (소수점 없는 정수)");
+    return false;
+  }
+  hideWarn();
+  state.prob = p;
+  saveState();
+  return true;
+}
+
+// ===== 7. 화면 갱신 =====
+
+function renderExpected() {
+  expectBox.textContent = "";
+  if (state.prob === null) {
+    expectBox.textContent = "성공 확률을 입력하고 [확률 설정]을 누르면 기댓값이 나옵니다.";
+    return;
+  }
+  const e = calcExpected(state.prob).toFixed(1); // 소수점 첫째 자리까지
+  expectBox.append("이 확률의 수학적 평균 기댓값은 ");
+  const strong = document.createElement("strong");
+  strong.textContent = "약 " + e + "회";
+  expectBox.append(strong, "입니다.");
+  const small = document.createElement("small");
+  small.textContent = "설정된 성공 확률 " + state.prob + "% · 평균적으로 첫 성공까지 걸리는 시도 횟수 (100 ÷ " + state.prob + ")";
+  expectBox.append(small);
+}
+
+function renderCounter() {
+  totalCount.textContent = state.total;
+  okBadCount.textContent = "성공 " + state.success + "회 · 실패 " + (state.total - state.success) + "회";
+}
+
+// 기록 목록 다시 그리기 (최근 것이 위)
+function renderLogs() {
+  logList.textContent = "";
+  if (state.logs.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "아직 기록이 없습니다.";
+    logList.append(li);
+    return;
+  }
+  for (let i = state.logs.length - 1; i >= 0; i--) {
+    logList.append(makeLogItem(state.logs[i]));
+  }
+}
+
+// 기록 한 줄 만들기: "3회: 성공!" / "2회: 실패"
+function makeLogItem(log) {
+  const li = document.createElement("li");
+  if (log.ok) li.className = "ok";
+  const main = document.createElement("span");
+  main.textContent = log.n + "회: " + (log.ok ? "성공!" : "실패");
+  const p = document.createElement("span");
+  p.className = "p";
+  p.textContent = "확률 " + log.p + "%";
+  li.append(main, p);
+  return li;
+}
+
+function renderLast(log) {
+  if (!log) {
+    lastResult.textContent = "";
+    lastResult.className = "last";
+    return;
+  }
+  lastResult.textContent = log.n + "회째 결과: " + (log.ok ? "성공!" : "실패");
+  lastResult.className = "last " + (log.ok ? "ok" : "bad");
+}
+
+function renderStoreNote() {
+  storeNote.textContent = canSave
+    ? "확률과 기록은 이 브라우저에 자동 저장됩니다. (최근 " + MAX_SAVED_LOGS + "개까지)"
+    : "이 환경에서는 저장되지 않습니다. 새로고침하면 기록이 사라져요. (시뮬레이션은 정상 작동)";
+}
+
+function renderAll() {
+  renderExpected();
+  renderCounter();
+  renderLogs();
+  renderStoreNote();
+}
+
+// ===== 8. 이벤트 연결 =====
+
+// [확률 설정] 버튼
+function handleSet() {
+  if (applyProb()) renderExpected();
+}
+
+// [강화 시도] 버튼
+function handleTry() {
+  // 입력창 값이 잘못됐으면 시도 불가 (횟수 안 올라감)
+  if (!applyProb()) return;
+  renderExpected();
+
+  const ok = rollOnce(state.prob);
+  state.total = state.total + 1;          // 총 시도 횟수 1 증가
+  if (ok) state.success = state.success + 1;
+
+  const log = { n: state.total, ok: ok, p: state.prob };
+  state.logs.push(log);
+  if (state.logs.length > MAX_SAVED_LOGS) state.logs.shift(); // 오래된 기록부터 정리
+
+  // 목록이 비어 있던 경우("아직 기록이 없습니다")엔 비우고 시작
+  if (state.logs.length === 1) logList.textContent = "";
+  logList.prepend(makeLogItem(log));
+  if (logList.children.length > MAX_SAVED_LOGS) logList.lastElementChild.remove();
+  logList.scrollTop = 0;
+
+  renderCounter();
+  renderLast(log);
+  saveState();
+}
+
+// [초기화] 버튼: 시도 횟수와 기록을 0/빈 상태로
+function handleReset() {
+  state.total = 0;
+  state.success = 0;
+  state.logs = [];
+  clearSaved();
+  // 확률 설정은 남겨 두되, 입력값이 올바르면 다시 저장
+  if (readProb() !== null) {
+    hideWarn();
+    state.prob = readProb();
+    saveState();
+  }
+  renderAll();
+  renderLast(null);
+}
+
+setBtn.addEventListener("click", handleSet);
+tryBtn.addEventListener("click", handleTry);
+resetBtn.addEventListener("click", handleReset);
+// 입력창에서 Enter를 누르면 [확률 설정]과 같게
+probInput.addEventListener("keydown", function (e) {
+  if (e.key === "Enter") handleSet();
+});
+
+// 처음 시작: 저장된 기록 불러오기 → 없으면 50%로 시작
+loadState();
+if (state.prob === null) state.prob = DEFAULT_PROB;
+probInput.value = state.prob;
+renderAll();
+</script>
+</body>
+</html>
