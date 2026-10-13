@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<!-- ===== 1. 메타 정보 ===== -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>무드픽(Mood Pick)</title>
+<meta name="description" content="지금 기분과 원하는 이야기 분위기를 고르면 실사·애니메이션 영화를 추천하고, 감상 전 주의 사항과 즐겨찾기·감상 완료 보관함을 제공하는 프로그램">
+  <meta name="class" content="M반 (2-8)">
+  <meta name="status" content="PRD">
+
+<!-- ===== 2. 스타일 ===== -->
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --card: #ffffff;
+    --text: #1f2328;
+    --muted: #57606a;
+    --line: #d8dbe0;
+    --accent: #1d5f8a;       /* 강조색 하나만 사용 */
+    --accent-soft: #e6f0f7;
+    --warn-bg: #fff6e0;
+    --warn-line: #c98a00;
+    --error: #b42318;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  main { max-width: 46rem; margin: 0 auto; padding: 32px 16px 64px; }
+  section { margin-bottom: 48px; }
+  h1 { font-size: 1.7rem; margin: 0 0 8px; line-height: 1.3; }
+  h2 { font-size: 1.25rem; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 1.1rem; margin: 0; line-height: 1.4; }
+  p { margin: 0 0 12px; }
+  .muted { color: var(--muted); font-size: 0.95rem; }
+
+  fieldset { border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 12px 16px 16px; margin: 0 0 16px; }
+  legend { font-weight: 700; padding: 0 6px; }
+  .choice-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+  .choice-list label {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 44px;
+  }
+  .choice-list input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+  .choice-list label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+
+  button {
+    font: inherit; font-size: 1rem; cursor: pointer; border-radius: 8px; min-height: 44px; padding: 8px 14px;
+    border: 1px solid var(--accent); background: var(--card); color: var(--accent);
+  }
+  button.primary { background: var(--accent); color: #fff; font-weight: 700; padding: 10px 22px; }
+  button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  button:focus-visible, input:focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }
+
+  .notice { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+  .notice.error { border-left-color: var(--error); background: #fdecea; color: #7a1a10; }
+  .notice:empty { display: none; }
+
+  .movie-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .card-head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
+  .rank { font-weight: 700; color: var(--accent); }
+  .meta { color: var(--muted); font-size: 0.95rem; margin-bottom: 8px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; padding: 0; list-style: none; }
+  .tags li { font-size: 0.9rem; border: 1px solid var(--line); border-radius: 999px; padding: 1px 10px; }
+  .tags li.hit { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .match { font-weight: 700; }
+  .reason { margin: 8px 0; }
+  .caution { background: var(--warn-bg); border-left: 4px solid var(--warn-line); border-radius: 6px; padding: 8px 12px; margin: 10px 0; }
+  .caution strong { display: block; }
+  .card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+  .vault-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .vault-item { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; }
+  .vault-item .state { color: var(--muted); font-size: 0.92rem; }
+  .vault-item .card-actions { margin-top: 0; }
+  footer { color: var(--muted); font-size: 0.92rem; border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+</head>
+<body>
+<!-- ===== 3. 화면 구조 ===== -->
+<main>
+  <!-- 첫 번째 영역: 프로그램 소개 -->
+  <section id="intro">
+    <h1>무드픽(Mood Pick)</h1>
+    <p>오늘 하루 어떤 기분인가요? 지금 마음과 보고 싶은 이야기 분위기를 하나씩 고르면, 실사 영화와 애니메이션 영화 10편 중에서 가까운 작품부터 골라 드려요.</p>
+    <p class="muted">추천은 작품마다 미리 붙여 둔 태그와 고른 조건이 몇 개 맞는지로만 정해집니다. 프로그램이 여러분의 감정을 정확히 판단하는 것은 아니에요.</p>
+  </section>
+
+  <!-- 두 번째 영역: 추천 조건 선택 -->
+  <section id="condition">
+    <h2>추천 조건 고르기</h2>
+    <form id="conditionForm" novalidate>
+      <fieldset>
+        <legend>지금 감정</legend>
+        <div class="choice-list" id="emotionList"></div>
+      </fieldset>
+      <fieldset>
+        <legend>원하는 이야기 분위기</legend>
+        <div class="choice-list" id="moodList"></div>
+      </fieldset>
+      <button type="submit" class="primary" id="recommendButton">추천받기</button>
+    </form>
+    <p class="notice error" id="formMessage" role="alert"></p>
+  </section>
+
+  <!-- 세 번째 영역: 추천 결과 -->
+  <section id="result" aria-live="polite">
+    <h2>추천 결과</h2>
+    <p class="notice" id="resultSummary">위에서 감정과 분위기를 고르고 '추천받기'를 눌러 주세요.</p>
+    <div id="resultList"></div>
+  </section>
+
+  <!-- 네 번째 영역: 작품 보관함 -->
+  <section id="vault">
+    <h2>작품 보관함</h2>
+    <div class="vault-tabs" role="group" aria-label="보관함 목록 선택">
+      <button type="button" id="showFavoriteTab" aria-pressed="true">즐겨찾기 목록 (<span id="favoriteCount">0</span>)</button>
+      <button type="button" id="showWatchedTab" aria-pressed="false">감상 완료 목록 (<span id="watchedCount">0</span>)</button>
+    </div>
+    <p class="notice" id="storageMessage"></p>
+    <div id="vaultList"></div>
+  </section>
+
+  <footer>
+    <p>작품 정보는 제목·개봉 연도·감독처럼 널리 알려진 기본 정보만 담았습니다. 감정·분위기 태그는 작품의 객관적 사실이 아니라 추천을 위한 분류입니다. 주의 사항은 간단한 안내이므로, 민감한 주제가 걱정된다면 공식 관람 등급과 소개 자료를 함께 확인하세요.</p>
+    <p>선택 기록은 이 브라우저 안에만 저장되며 외부로 전송되지 않습니다.</p>
+  </footer>
+</main>
+
+<script>
+// ===== 4. 예시 데이터·설정 =====
+
+// 저장 키 (반드시 sih26:20615: 로 시작)
+const STORAGE_KEY = "sih26:20615:state";
+// 한 번에 보여 줄 추천 작품 수
+const MAX_RESULTS = 5;
+
+// 선택지: key는 코드에서 쓰는 이름, label은 화면에 보이는 글자
+const EMOTIONS = [
+  { key: "comfort", label: "위로받고 싶음" },
+  { key: "excited", label: "신나고 싶음" },
+  { key: "sad",     label: "슬프고 싶은 기분" },
+  { key: "angry",   label: "답답하거나 화가 남" },
+  { key: "explore", label: "새로운 것을 탐구하고 싶음" }
+];
+const MOODS = [
+  { key: "dark",   label: "어둡고 묵직함" },
+  { key: "warm",   label: "따뜻하고 포근함" },
+  { key: "tense",  label: "긴장감 있고 흥미진진함" },
+  { key: "dreamy", label: "몽환적이고 신비로움" }
+];
+
+// 작품 데이터 (배열 순서 = 점수가 같을 때 보여 주는 순서)
+// ref: 작품이 실제로 있는지 확인할 수 있는 기본 정보(개봉 연도·감독/제작사)
+// 감정·분위기 태그는 추천용 분류이며 작품의 객관적 사실이 아님
+const MOVIES = [
+  {
+    id: "totoro", title: "이웃집 토토로", type: "애니메이션 영화",
+    year: 1988, ref: "감독 미야자키 하야오 · 스튜디오 지브리",
+    plot: "시골로 이사 온 자매 사츠키와 메이가 숲에 사는 신비한 존재 토토로를 만나며 겪는 이야기입니다.",
+    emotions: ["comfort"], moods: ["warm", "dreamy"],
+    reason: "큰 사건 없이 자연과 가족의 일상을 잔잔하게 보여 주어 마음을 쉬게 하기 좋습니다.",
+    caution: "어머니가 병원에 입원해 있어 가족이 걱정하는 장면과, 어린 동생이 길을 잃는 장면이 있습니다."
+  },
+  {
+    id: "spirited", title: "센과 치히로의 행방불명", type: "애니메이션 영화",
+    year: 2001, ref: "감독 미야자키 하야오 · 스튜디오 지브리",
+    plot: "이사 가던 소녀 치히로가 신들이 머무는 낯선 세계에 들어가, 돼지로 변한 부모를 구하기 위해 온천장에서 일하게 되는 이야기입니다.",
+    emotions: ["explore", "comfort"], moods: ["dreamy"],
+    reason: "규칙도 생김새도 낯선 세계를 하나씩 알아 가는 재미가 크고, 주인공이 조금씩 용기를 얻는 과정이 담겨 있습니다.",
+    caution: "부모가 돼지로 변하는 장면 등 어린 관객에게는 무섭게 느껴질 수 있는 장면이 있습니다."
+  },
+  {
+    id: "coco", title: "코코", type: "애니메이션 영화",
+    year: 2017, ref: "디즈니·픽사 제작",
+    plot: "음악가를 꿈꾸는 멕시코 소년 미겔이 '죽은 자의 날'에 죽은 자들의 세상에 들어가 가족의 숨겨진 이야기를 알게 되는 이야기입니다.",
+    emotions: ["sad", "comfort"], moods: ["warm", "dreamy"],
+    reason: "가족을 기억하는 일에 대한 이야기라 마음껏 울고 난 뒤 따뜻한 여운이 남습니다.",
+    caution: "죽음, 가족의 상실, 잊히는 것에 대한 슬픔을 다룹니다."
+  },
+  {
+    id: "insideout", title: "인사이드 아웃", type: "애니메이션 영화",
+    year: 2015, ref: "감독 피트 닥터 · 디즈니·픽사 제작",
+    plot: "이사로 생활이 크게 바뀐 소녀 라일리의 머릿속에서 기쁨, 슬픔 같은 감정들이 겪는 모험을 그린 이야기입니다.",
+    emotions: ["comfort", "sad"], moods: ["warm"],
+    reason: "슬픔도 필요한 감정이라는 메시지를 담고 있어, 지친 마음을 다독이고 싶을 때 어울립니다.",
+    caution: "이사 후의 외로움과 우울한 감정, 상상 속 친구와의 이별 장면이 있습니다."
+  },
+  {
+    id: "up", title: "업", type: "애니메이션 영화",
+    year: 2009, ref: "감독 피트 닥터 · 디즈니·픽사 제작",
+    plot: "세상을 떠난 아내와의 약속을 지키려고 집에 수많은 풍선을 매달아 남아메리카로 떠난 노인 칼과 소년 러셀의 모험 이야기입니다.",
+    emotions: ["sad", "excited"], moods: ["warm"],
+    reason: "초반의 뭉클한 장면과 이어지는 유쾌한 모험이 함께 있어 울다가 웃을 수 있습니다.",
+    caution: "초반에 배우자의 죽음 등 상실을 다루는 장면이 있습니다."
+  },
+  {
+    id: "shawshank", title: "쇼생크 탈출", type: "실사 영화",
+    year: 1994, ref: "감독 프랭크 다라본트 · 원작 스티븐 킹",
+    plot: "아내를 살해했다는 누명을 쓰고 종신형을 받은 은행원 앤디가 쇼생크 교도소에서 희망을 잃지 않고 살아가는 이야기입니다.",
+    emotions: ["angry", "comfort"], moods: ["dark"],
+    reason: "부당한 상황을 오래 견디는 묵직한 이야기 끝에 통쾌함과 희망이 찾아와, 답답한 마음에 위로가 됩니다.",
+    caution: "교도소 안의 폭력과 성폭력 암시, 자살을 다루는 장면이 있습니다."
+  },
+  {
+    id: "interstellar", title: "인터스텔라", type: "실사 영화",
+    year: 2014, ref: "감독 크리스토퍼 놀란",
+    plot: "황폐해져 가는 지구를 대신할 새로운 터전을 찾아 우주로 떠난 전직 조종사 쿠퍼와, 지구에서 그를 기다리는 딸의 이야기입니다.",
+    emotions: ["explore", "sad"], moods: ["tense", "dreamy"],
+    reason: "우주와 시간에 대한 상상력을 자극하고, 가족을 향한 그리움이 깊은 여운을 남깁니다.",
+    caution: "가족과의 긴 이별, 우주 사고로 인한 긴박한 장면이 있습니다. 상영 시간이 약 2시간 50분으로 깁니다."
+  },
+  {
+    id: "parasite", title: "기생충", type: "실사 영화",
+    year: 2019, ref: "감독 봉준호",
+    plot: "반지하에 사는 기택네 가족이 부유한 박 사장네 집에 하나둘 일자리를 얻어 들어가면서 벌어지는 이야기입니다.",
+    emotions: ["angry"], moods: ["dark", "tense"],
+    reason: "빈부 격차를 날카롭게 보여 주어, 세상이 답답하게 느껴질 때 함께 생각해 볼 거리가 많습니다.",
+    caution: "후반부에 폭력적이고 피가 나오는 장면이 있으며, 계층 갈등을 무겁게 다룹니다."
+  },
+  {
+    id: "jurassic", title: "쥬라기 공원", type: "실사 영화",
+    year: 1993, ref: "감독 스티븐 스필버그",
+    plot: "유전공학으로 되살린 공룡들이 사는 섬의 테마파크에서 안전 장치가 멈추면서 방문객들이 위험에 빠지는 이야기입니다.",
+    emotions: ["excited", "explore"], moods: ["tense"],
+    reason: "공룡을 처음 마주하는 놀라움과 쫓고 쫓기는 긴장감이 이어져 신나게 볼 수 있습니다.",
+    caution: "공룡이 사람을 공격하는 긴장감 높은 장면과 일부 피가 보이는 장면이 있습니다."
+  },
+  {
+    id: "deadpoets", title: "죽은 시인의 사회", type: "실사 영화",
+    year: 1989, ref: "감독 피터 위어",
+    plot: "1959년 엄격한 명문 기숙학교에 새로 온 영어 교사 키팅이 학생들에게 스스로 생각하고 자신의 꿈을 찾도록 이끄는 이야기입니다.",
+    emotions: ["sad", "angry"], moods: ["dark"],
+    reason: "정해진 길만 강요받는 답답함과 그 속에서 자기 목소리를 찾으려는 학생들의 모습이 깊은 울림을 줍니다.",
+    caution: "학생의 자살과 부모의 강압적인 태도를 다룹니다."
+  }
+];
+
+// ===== 5. 데이터·상태 =====
+let favoriteIds = [];          // 즐겨찾기한 작품 id 목록
+let watchedIds = [];           // 감상 완료한 작품 id 목록
+let storageWorks = true;       // localStorage 사용 가능 여부
+let currentVaultTab = "favorite";
+let lastCondition = null;      // 마지막으로 추천받은 조건 (상태 변경 후 결과 다시 그리기용)
+
+// ===== 6. 처리 함수 =====
+
+// 저장된 상태 불러오기 (저장 기능이 막혀 있어도 오류 없이 진행)
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const data = JSON.parse(saved);
+      const validIds = MOVIES.map(m => m.id);
+      // 없는 작품 id나 중복은 걸러 냄
+      favoriteIds = [...new Set(data.favorite || [])].filter(id => validIds.includes(id));
+      watchedIds = [...new Set(data.watched || [])].filter(id => validIds.includes(id));
+    }
+    storageWorks = true;
+  } catch (error) {
+    storageWorks = false;
+  }
+}
+
+// 현재 상태 저장하기
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ favorite: favoriteIds, watched: watchedIds }));
+    storageWorks = true;
+  } catch (error) {
+    storageWorks = false;
+  }
+}
+
+function findMovie(id) {
+  return MOVIES.find(m => m.id === id);
+}
+function labelOf(list, key) {
+  const item = list.find(x => x.key === key);
+  return item ? item.label : key;
+}
+
+// 즐겨찾기 추가/해제 (배열에 한 번만 들어가도록)
+function toggleFavorite(id) {
+  if (favoriteIds.includes(id)) {
+    favoriteIds = favoriteIds.filter(x => x !== id);
+  } else {
+    favoriteIds.push(id);
+  }
+  saveState();
+}
+
+// 감상 완료/미감상 바꾸기 (즐겨찾기와는 따로 관리)
+function toggleWatched(id) {
+  if (watchedIds.includes(id)) {
+    watchedIds = watchedIds.filter(x => x !== id);
+  } else {
+    watchedIds.push(id);
+  }
+  saveState();
+}
+
+// 추천 점수 계산: 감정 일치 1점 + 분위기 일치 1점
+function scoreMovie(movie, emotionKey, moodKey) {
+  const emotionMatch = movie.emotions.includes(emotionKey);
+  const moodMatch = movie.moods.includes(moodKey);
+  return { movie, emotionMatch, moodMatch, score: (emotionMatch ? 1 : 0) + (moodMatch ? 1 : 0) };
+}
+
+// 감상 완료 작품을 빼고, 점수 높은 순으로 정렬 (같은 점수는 데이터 순서 유지)
+function getRecommendations(emotionKey, moodKey) {
+  const scored = MOVIES
+    .map((movie, index) => ({ ...scoreMovie(movie, emotionKey, moodKey), index }))
+    .filter(item => !watchedIds.includes(item.movie.id));
+  scored.sort((a, b) => (b.score - a.score) || (a.index - b.index));
+  return scored.slice(0, MAX_RESULTS);
+}
+
+// 조건 일치 여부를 사람이 읽을 수 있는 문장으로
+function explainMatch(item, emotionKey, moodKey) {
+  const emotionText = `감정 '${labelOf(EMOTIONS, emotionKey)}'`;
+  const moodText = `분위기 '${labelOf(MOODS, moodKey)}'`;
+  if (item.score === 2) return `두 조건 모두 일치: ${emotionText}, ${moodText}`;
+  if (item.emotionMatch) return `한 조건 일치: ${emotionText} 일치 / 일치하지 않는 조건: ${moodText}`;
+  if (item.moodMatch) return `한 조건 일치: ${moodText} 일치 / 일치하지 않는 조건: ${emotionText}`;
+  return `일치하는 조건 없음: ${emotionText}, ${moodText} 모두 이 작품의 태그와 다릅니다`;
+}
+
+// ===== 7. 화면 갱신 =====
+
+// 라디오 버튼 목록 만들기
+function renderChoices(container, list, groupName) {
+  list.forEach(item => {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = groupName;
+    input.value = item.key;
+    label.append(input, document.createTextNode(item.label));
+    container.appendChild(label);
+  });
+}
+
+// 작품 태그 목록 (선택한 조건과 같은 태그는 굵게 + "(일치)" 글자 표시)
+function makeTagList(movie, emotionKey, moodKey) {
+  const ul = document.createElement("ul");
+  ul.className = "tags";
+  ul.setAttribute("aria-label", "작품 태그");
+  movie.emotions.forEach(key => ul.appendChild(makeTag("감정: " + labelOf(EMOTIONS, key), key === emotionKey)));
+  movie.moods.forEach(key => ul.appendChild(makeTag("분위기: " + labelOf(MOODS, key), key === moodKey)));
+  return ul;
+}
+function makeTag(text, isHit) {
+  const li = document.createElement("li");
+  li.textContent = isHit ? text + " (일치)" : text;
+  if (isHit) li.className = "hit";
+  return li;
+}
+
+// 즐겨찾기·감상 완료 버튼 만들기
+function makeActionButtons(movie) {
+  const box = document.createElement("div");
+  box.className = "card-actions";
+
+  const favButton = document.createElement("button");
+  favButton.type = "button";
+  const isFav = favoriteIds.includes(movie.id);
+  favButton.textContent = isFav ? "즐겨찾기 해제" : "즐겨찾기 추가";
+  favButton.setAttribute("aria-pressed", String(isFav));
+  favButton.dataset.action = "favorite";
+  favButton.dataset.id = movie.id;
+
+  const watchButton = document.createElement("button");
+  watchButton.type = "button";
+  const isWatched = watchedIds.includes(movie.id);
+  watchButton.textContent = isWatched ? "미감상으로 변경" : "감상 완료로 표시";
+  watchButton.setAttribute("aria-pressed", String(isWatched));
+  watchButton.dataset.action = "watched";
+  watchButton.dataset.id = movie.id;
+
+  box.append(favButton, watchButton);
+  return box;
+}
+
+function makeText(tag, className, text) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  el.textContent = text;
+  return el;
+}
+
+// 추천 결과 그리기
+function renderResults() {
+  const summary = document.getElementById("resultSummary");
+  const list = document.getElementById("resultList");
+  list.innerHTML = "";
+  if (!lastCondition) return;
+
+  const { emotionKey, moodKey } = lastCondition;
+  const results = getRecommendations(emotionKey, moodKey);
+
+  if (results.length === 0) {
+    summary.textContent = "모든 작품을 감상 완료로 표시해서 추천할 작품이 없어요. 보관함의 '감상 완료 목록'에서 일부 작품을 미감상으로 바꾸면 다시 추천받을 수 있습니다.";
+    return;
+  }
+
+  const best = results[0].score;
+  let message = `감정 '${labelOf(EMOTIONS, emotionKey)}', 분위기 '${labelOf(MOODS, moodKey)}' 조건으로 ${results.length}편을 골랐어요. `;
+  if (best === 2) message += "두 조건이 모두 맞는 작품부터 보여 드립니다.";
+  else if (best === 1) message += "두 조건이 모두 맞는 작품은 없어서, 한 조건이 맞는 가장 가까운 작품부터 보여 드립니다.";
+  else message += "조건이 맞는 작품이 없어서 목록 순서대로 보여 드립니다. 각 작품의 일치하지 않는 조건을 확인해 주세요.";
+  if (watchedIds.length > 0) message += ` (감상 완료한 ${watchedIds.length}편은 제외했어요.)`;
+  summary.textContent = message;
+
+  results.forEach((item, i) => {
+    const m = item.movie;
+    const card = document.createElement("article");
+    card.className = "movie-card";
+    card.dataset.id = m.id;
+
+    const head = document.createElement("div");
+    head.className = "card-head";
+    head.append(makeText("span", "rank", `${i + 1}위`), makeText("h3", "", m.title));
+    card.appendChild(head);
+    card.appendChild(makeText("p", "meta", `${m.type} · ${m.year}년 · ${m.ref}`));
+    card.appendChild(makeText("p", "", m.plot));
+    card.appendChild(makeTagList(m, emotionKey, moodKey));
+    card.appendChild(makeText("p", "match", `일치 점수 ${item.score}점 — ${explainMatch(item, emotionKey, moodKey)}`));
+    card.appendChild(makeText("p", "reason", "추천 이유: " + m.reason));
+
+    const caution = document.createElement("div");
+    caution.className = "caution";
+    caution.append(makeText("strong", "", "감상 전 주의 사항"), makeText("span", "", m.caution || "관련 정보 확인 필요"));
+    card.appendChild(caution);
+
+    card.appendChild(makeActionButtons(m));
+    list.appendChild(card);
+  });
+}
+
+// 보관함 그리기
+function renderVault() {
+  document.getElementById("favoriteCount").textContent = favoriteIds.length;
+  document.getElementById("watchedCount").textContent = watchedIds.length;
+  document.getElementById("showFavoriteTab").setAttribute("aria-pressed", String(currentVaultTab === "favorite"));
+  document.getElementById("showWatchedTab").setAttribute("aria-pressed", String(currentVaultTab === "watched"));
+
+  const storageMessage = document.getElementById("storageMessage");
+  storageMessage.className = storageWorks ? "notice" : "notice error";
+  storageMessage.textContent = storageWorks
+    ? ""
+    : "이 환경에서는 저장 기능을 쓸 수 없어 상태가 저장되지 않음: 즐겨찾기와 감상 완료는 지금 화면에서만 유지되고 새로고침하면 사라집니다.";
+
+  const list = document.getElementById("vaultList");
+  list.innerHTML = "";
+  const ids = currentVaultTab === "favorite" ? favoriteIds : watchedIds;
+
+  if (ids.length === 0) {
+    list.appendChild(makeText("p", "muted", currentVaultTab === "favorite"
+      ? "아직 즐겨찾기한 작품이 없어요. 추천 결과에서 '즐겨찾기 추가'를 눌러 보세요."
+      : "아직 감상 완료한 작품이 없어요. 본 작품은 '감상 완료로 표시'를 누르면 이곳으로 옮겨지고 추천에서는 빠집니다."));
+    return;
+  }
+
+  ids.forEach(id => {
+    const m = findMovie(id);
+    if (!m) return;
+    const row = document.createElement("div");
+    row.className = "vault-item";
+    row.dataset.id = m.id;
+    const info = document.createElement("div");
+    const states = [
+      favoriteIds.includes(id) ? "즐겨찾기함" : "즐겨찾기 안 함",
+      watchedIds.includes(id) ? "감상 완료" : "미감상"
+    ];
+    info.append(makeText("h3", "", m.title), makeText("span", "state", `${m.type} · 상태: ${states.join(", ")}`));
+    row.append(info, makeActionButtons(m));
+    list.appendChild(row);
+  });
+}
+
+function renderAll() {
+  renderResults();
+  renderVault();
+}
+
+// ===== 8. 이벤트 연결 =====
+
+// 추천받기 버튼
+function handleRecommend(event) {
+  event.preventDefault();
+  const form = document.getElementById("conditionForm");
+  const emotionInput = form.querySelector('input[name="emotion"]:checked');
+  const moodInput = form.querySelector('input[name="mood"]:checked');
+  const formMessage = document.getElementById("formMessage");
+
+  const missing = [];
+  if (!emotionInput) missing.push("지금 감정");
+  if (!moodInput) missing.push("원하는 이야기 분위기");
+  if (missing.length > 0) {
+    formMessage.textContent = `추천을 받으려면 '${missing.join("'과(와) '")}'을(를) 하나 골라 주세요.`;
+    return;
+  }
+  formMessage.textContent = "";
+  lastCondition = { emotionKey: emotionInput.value, moodKey: moodInput.value };
+  renderResults();
+  document.getElementById("result").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// 카드와 보관함의 버튼 클릭을 한곳에서 처리 (이벤트 위임)
+function handleActionClick(event) {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  const id = button.dataset.id;
+  if (!findMovie(id)) return;
+  if (button.dataset.action === "favorite") toggleFavorite(id);
+  if (button.dataset.action === "watched") toggleWatched(id);
+  renderAll();
+}
+
+function startApp() {
+  renderChoices(document.getElementById("emotionList"), EMOTIONS, "emotion");
+  renderChoices(document.getElementById("moodList"), MOODS, "mood");
+  loadState();
+
+  document.getElementById("conditionForm").addEventListener("submit", handleRecommend);
+  document.getElementById("resultList").addEventListener("click", handleActionClick);
+  document.getElementById("vaultList").addEventListener("click", handleActionClick);
+  document.getElementById("showFavoriteTab").addEventListener("click", () => { currentVaultTab = "favorite"; renderVault(); });
+  document.getElementById("showWatchedTab").addEventListener("click", () => { currentVaultTab = "watched"; renderVault(); });
+  renderVault();
+}
+
+startApp();
+</script>
+</body>
+</html>

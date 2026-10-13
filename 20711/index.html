@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>빵 레시피 단계 체크</title>
+<meta name="description" content="빵을 고르면 알레르기 주의 문구와 레시피 단계가 나오고, 끝낸 단계를 눌러 줄을 그어 가며 요리 흐름을 확인하는 주방용 체크리스트">
+  <meta name="class" content="M반 (2-8)">
+  <meta name="status" content="PRD">
+<style>
+  :root {
+    --bg: #fafaf8;
+    --surface: #ffffff;
+    --text: #1f2328;
+    --muted: #6b7078;
+    --done: #9aa0a6;
+    --line: #e3e3de;
+    --accent: #2f6b4f;        /* 선택된 빵 버튼 색 */
+    --accent-soft: #e8f1ec;
+    --warn-bg: #fff4e5;       /* 알레르기 주의 영역 */
+    --warn-border: #d9822b;
+    --warn-text: #7a3e00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  main {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 32px 16px 56px;
+  }
+  h1 { font-size: 1.5rem; line-height: 1.4; margin: 0 0 4px; }
+  .lead { margin: 0 0 24px; color: var(--muted); }
+  h2 { font-size: 1.1rem; margin: 0 0 12px; }
+
+  /* 상단: 빵 선택 버튼 */
+  .bread-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .bread-btn {
+    font: inherit;
+    font-weight: 600;
+    min-height: 52px;
+    padding: 8px 6px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .bread-btn:hover { border-color: var(--accent); }
+  .bread-btn[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .bread-btn:focus-visible, .step:focus-visible {
+    outline: 3px solid #1a5fb4;
+    outline-offset: 2px;
+  }
+
+  /* 중단: 알레르기 주의 문구 */
+  .allergy {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    padding: 14px 16px;
+    background: var(--warn-bg);
+    border: 2px solid var(--warn-border);
+    border-radius: 10px;
+    color: var(--warn-text);
+  }
+  .allergy[hidden] { display: none; }
+  .allergy svg { flex: none; margin-top: 3px; }
+  .allergy strong { display: block; font-size: 1.05rem; }
+  .allergy p { margin: 0; }
+
+  /* 하단: 레시피 목록 */
+  .placeholder {
+    margin: 0;
+    padding: 20px 16px;
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    color: var(--muted);
+  }
+  .hint { margin: 0 0 10px; color: var(--muted); font-size: 0.95rem; }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .step {
+    width: 100%;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    text-align: left;
+    font: inherit;
+    padding: 14px 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--text);
+    cursor: pointer;
+    word-break: keep-all;
+  }
+  .step-num {
+    flex: none;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 0.9rem;
+    display: grid;
+    place-items: center;
+    margin-top: 1px;
+  }
+  .step-text { flex: 1; }
+  .step-state { flex: none; font-size: 0.85rem; color: var(--muted); margin-top: 3px; }
+
+  /* 완료한 단계: 글씨가 연해지고 가운데 줄이 그어짐 */
+  .step.done { background: #f3f3f0; }
+  .step.done .step-text {
+    text-decoration: line-through;
+    color: var(--done);
+  }
+  .step.done .step-num {
+    border-color: var(--done);
+    background: var(--done);
+    color: #fff;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>빵 레시피 단계 체크</h1>
+  <p class="lead">빵을 고르고, 끝낸 단계를 눌러 줄을 그어 가세요. 잘못 눌렀다면 한 번 더 누르면 돌아옵니다.</p>
+
+  <!-- 상단: 빵 종류 선택 버튼 3개 -->
+  <section aria-labelledby="pick-title">
+    <h2 id="pick-title">빵 고르기</h2>
+    <div class="bread-buttons">
+      <button type="button" class="bread-btn" data-bread="meringue" aria-pressed="false">머랭쿠키</button>
+      <button type="button" class="bread-btn" data-bread="saltbread" aria-pressed="false">소금빵</button>
+      <button type="button" class="bread-btn" data-bread="buttercookie" aria-pressed="false">버터쿠키</button>
+    </div>
+  </section>
+
+  <!-- 중단: 알레르기 주의 문구 (빵을 고르면 나타남) -->
+  <div id="allergy" class="allergy" role="alert" hidden>
+    <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2.5 1.5 21h21L12 2.5z" fill="#d9822b"/>
+      <rect x="11" y="9" width="2" height="6.5" rx="1" fill="#fff"/>
+      <circle cx="12" cy="18" r="1.2" fill="#fff"/>
+    </svg>
+    <div>
+      <strong>알레르기 유발 물질 주의</strong>
+      <p id="allergy-text"></p>
+    </div>
+  </div>
+
+  <!-- 하단: 레시피 순서 목록 -->
+  <section aria-labelledby="recipe-title">
+    <h2 id="recipe-title">레시피 순서</h2>
+    <div id="recipe-area">
+      <p class="placeholder">위에서 빵 버튼을 누르면 레시피 순서가 여기에 나타납니다.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+// ===== 예시 데이터 =====
+// 레시피 데이터가 저장된 곳입니다.
+// 빵마다 이름(name), 알레르기 재료(allergens), 요리 단계(steps) 배열을 가지고 있어요.
+// steps 배열의 글 하나하나가 화면 목록의 한 줄(li)이 됩니다.
+const RECIPES = {
+  meringue: {
+    name: "머랭쿠키",
+    allergens: ["달걀(흰자)"],
+    steps: [
+      "달걀흰자 2개를 볼에 넣고 거품기로 하얗게 거품을 낸다.",
+      "설탕 60g을 세 번에 나누어 넣으며 뿔이 단단하게 설 때까지 휘핑한다.",
+      "짤주머니에 담아 유산지를 깐 팬 위에 작고 동그랗게 짠다.",
+      "100℃로 예열한 오븐에서 60분 동안 말리듯 굽고, 오븐 안에서 식힌다."
+    ]
+  },
+  saltbread: {
+    name: "소금빵",
+    allergens: ["밀(밀가루)", "우유", "버터(유제품)"],
+    steps: [
+      "강력분 250g, 설탕, 소금, 이스트, 우유를 섞어 매끈해질 때까지 반죽한다.",
+      "반죽을 덮어 두 배로 부풀 때까지 따뜻한 곳에서 1시간 발효한다.",
+      "반죽을 6개로 나눠 길쭉하게 밀고, 버터 한 조각을 넣어 돌돌 만다.",
+      "윗면에 굵은소금을 뿌리고 200℃ 오븐에서 15분 굽는다."
+    ]
+  },
+  buttercookie: {
+    name: "버터쿠키",
+    allergens: ["버터(유제품)", "달걀", "밀(밀가루)"],
+    steps: [
+      "실온에 둔 버터 100g을 부드럽게 풀고 설탕 50g을 넣어 섞는다.",
+      "달걀 1개를 조금씩 넣으며 크림처럼 섞는다.",
+      "박력분 150g을 체에 쳐서 넣고 주걱으로 가르듯 섞는다.",
+      "모양을 내어 팬에 올리고 170℃ 오븐에서 12분 굽는다."
+    ]
+  }
+};
+
+// ===== 화면 요소 =====
+const breadButtons = document.querySelectorAll(".bread-btn");
+const allergyBox = document.getElementById("allergy");
+const allergyText = document.getElementById("allergy-text");
+const recipeArea = document.getElementById("recipe-area");
+
+// ===== 화면 갱신 함수 =====
+
+// 선택한 빵 버튼만 눌린 상태로 표시
+function markSelectedButton(breadKey) {
+  breadButtons.forEach(function (btn) {
+    btn.setAttribute("aria-pressed", btn.dataset.bread === breadKey ? "true" : "false");
+  });
+}
+
+// 알레르기 주의 문구 표시
+function showAllergy(recipe) {
+  allergyText.textContent = "이 레시피에는 " + recipe.allergens.join(", ") +
+    "이(가) 들어갑니다. 알레르기가 있다면 재료를 바꾸거나 만들지 마세요.";
+  allergyBox.hidden = false;
+}
+
+// 단계 하나(li)를 만들어 돌려줌
+function createStepItem(text, index) {
+  const li = document.createElement("li");
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "step";
+  btn.setAttribute("aria-pressed", "false");
+
+  const num = document.createElement("span");
+  num.className = "step-num";
+  num.textContent = String(index + 1);
+
+  const body = document.createElement("span");
+  body.className = "step-text";
+  body.textContent = text;   // textContent로 넣어 안전하게 표시
+
+  const state = document.createElement("span");
+  state.className = "step-state";
+  state.textContent = "";    // 완료하면 "완료" 글자가 나타남 (색만으로 구분하지 않기 위해)
+
+  btn.append(num, body, state);
+  li.appendChild(btn);
+  return li;
+}
+
+// 레시피 목록 그리기: 이전 목록과 완료 상태는 모두 지우고 새로 덮어씀
+function showRecipe(breadKey) {
+  const recipe = RECIPES[breadKey];
+  if (!recipe) return;
+
+  markSelectedButton(breadKey);
+  showAllergy(recipe);
+
+  recipeArea.textContent = "";   // 이전 레시피 완전히 지우기
+
+  const hint = document.createElement("p");
+  hint.className = "hint";
+  hint.textContent = recipe.name + " · 끝낸 단계를 누르세요";
+  recipeArea.appendChild(hint);
+
+  const list = document.createElement("ol");
+  list.className = "steps";
+  recipe.steps.forEach(function (text, i) {
+    list.appendChild(createStepItem(text, i));
+  });
+  recipeArea.appendChild(list);
+}
+
+// 단계 하나의 완료 상태를 뒤집기 (완료 ↔ 미완료)
+function toggleStep(stepBtn) {
+  const isDone = stepBtn.classList.toggle("done");
+  stepBtn.setAttribute("aria-pressed", isDone ? "true" : "false");
+  stepBtn.querySelector(".step-state").textContent = isDone ? "완료" : "";
+  // 마지막 단계까지 끝나도 팝업이나 화면 전환 없이 목록을 그대로 둡니다.
+}
+
+// ===== 이벤트 연결 =====
+
+// 빵 버튼을 누르면 그 빵의 레시피를 보여줌
+breadButtons.forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    showRecipe(btn.dataset.bread);
+  });
+});
+
+// 단계를 클릭했을 때 줄이 그어지고, 다시 클릭하면 취소되는 부분입니다.
+// 목록은 빵을 바꿀 때마다 새로 만들어지므로, 바깥 상자(recipeArea)에 한 번만 리스너를 달고
+// 실제로 눌린 단계 버튼(.step)을 찾아 "done" 클래스를 붙였다 뗐다(toggle) 합니다.
+// "done" 클래스가 붙으면 CSS가 글씨를 연하게 하고 가운데 줄(line-through)을 긋습니다.
+recipeArea.addEventListener("click", function (event) {
+  const stepBtn = event.target.closest(".step");
+  if (!stepBtn) return;
+  toggleStep(stepBtn);
+});
+</script>
+</body>
+</html>

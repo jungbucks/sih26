@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>주간 시간표 &amp; 수행평가 과제 정리기</title>
+<meta name="description" content="과목·내용·제출 시기만 입력해 이번 주 요일별 과제와 다음 주 이후 과제를 한눈에 챙기는 정리기">
+  <meta name="class" content="M반 (2-8)">
+  <meta name="status" content="PRD">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --line: #dde1e6;
+    --text: #1f2328;
+    --muted: #5b636e;
+    --accent: #2f6db5;
+    --accent-weak: #e8f0fa;
+    --danger: #c62828;
+    --danger-weak: #fdecec;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 20px 16px 48px; }
+  header.top {
+    display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px;
+  }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; line-height: 1.4; }
+  .sub { margin: 0; color: var(--muted); }
+  .top-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 8px; padding: 8px 14px;
+    border: 1px solid var(--line); background: var(--card); color: var(--text);
+    min-height: 40px;
+  }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #8cb4e6; outline-offset: 1px; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.danger { color: var(--danger); border-color: #e3b4b4; }
+  button.small { padding: 4px 10px; min-height: 34px; font-size: 0.95rem; }
+
+  /* 과제 입력 폼 */
+  form.add-form {
+    margin-top: 16px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+    display: grid; grid-template-columns: 1fr 2fr 1fr 1fr auto; gap: 12px; align-items: end;
+  }
+  .field label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.95rem; }
+  .field input, .field select {
+    width: 100%; font: inherit; padding: 8px 10px; border: 2px solid var(--line); border-radius: 8px; background: #fff; color: var(--text);
+    min-height: 42px;
+  }
+  .field input.invalid, .field select.invalid { border-color: var(--danger); background: var(--danger-weak); }
+  .field.hidden { display: none; }
+  .form-msg { grid-column: 1 / -1; margin: 0; min-height: 1.6em; }
+  .form-msg.error { color: var(--danger); font-weight: 600; }
+  .form-msg.ok { color: var(--muted); }
+  .storage-note { margin: 8px 0 0; color: var(--muted); font-size: 0.95rem; }
+
+  /* 확인 상자(페이지 안 확인 창) */
+  .confirm-box {
+    margin-top: 12px; border: 2px solid var(--danger); background: var(--danger-weak); border-radius: 12px; padding: 12px 16px;
+  }
+  .confirm-box p { margin: 0 0 8px; }
+  .confirm-box .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  [hidden] { display: none !important; }
+
+  /* 요일 카드 */
+  h2 { font-size: 1.1rem; margin: 28px 0 10px; }
+  .week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .day-card, .later-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-height: 120px;
+  }
+  .day-card h3 { margin: 0 0 8px; font-size: 1rem; display: flex; justify-content: space-between; gap: 6px; }
+  .day-card h3 .date { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
+  .day-card.today { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  ul.tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  li.task { border-top: 1px solid var(--line); padding-top: 8px; }
+  li.task:first-child { border-top: 0; padding-top: 0; }
+  .task-text { margin: 0 0 6px; }
+  .task-subject { font-weight: 700; }
+  .task-due { display: block; color: var(--muted); font-size: 0.9rem; }
+  .done-tag {
+    display: inline-block; margin-right: 6px; padding: 0 6px; border: 1px solid var(--text); border-radius: 4px;
+    font-size: 0.85rem; font-weight: 700; text-decoration: none;
+  }
+  li.task.completed .task-body { text-decoration: line-through; color: var(--muted); }
+  .task-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .later-card ul.tasks { gap: 10px; }
+  .count-note { color: var(--muted); font-size: 0.95rem; margin: 6px 0 0; }
+
+  /* 시간표 레이어 */
+  .modal-back {
+    position: fixed; inset: 0; background: rgba(20, 24, 30, 0.45);
+    display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 10;
+  }
+  .modal {
+    background: var(--card); border-radius: 14px; padding: 16px; width: 100%; max-width: 640px; max-height: 90vh; overflow: auto;
+  }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .modal-head h2 { margin: 0; }
+  .table-scroll { overflow-x: auto; }
+  table.timetable { border-collapse: collapse; width: 100%; min-width: 300px; }
+  table.timetable th, table.timetable td { border: 1px solid var(--line); padding: 6px 4px; text-align: center; font-size: 0.95rem; }
+  table.timetable thead th { background: var(--accent-weak); }
+  table.timetable tbody th { background: #f1f3f5; font-weight: 600; white-space: nowrap; }
+
+  @media (max-width: 860px) {
+    form.add-form { grid-template-columns: 1fr 1fr; }
+    .field.content { grid-column: 1 / -1; order: 1; }
+    .field.subject { order: 0; grid-column: 1 / -1; }
+    .field.when { order: 2; }
+    .field.date { order: 3; }
+    .add-btn-wrap { order: 4; grid-column: 1 / -1; }
+    .form-msg { order: 5; }
+    .add-btn-wrap button { width: 100%; }
+    .week { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 480px) {
+    form.add-form { grid-template-columns: 1fr; }
+    .week { grid-template-columns: 1fr; }
+    .day-card { min-height: 64px; }
+    h1 { font-size: 1.2rem; }
+  }
+</style>
+</head>
+<body>
+<!-- ===== 화면 구조 ===== -->
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>주간 시간표 &amp; 수행평가 과제 정리기</h1>
+      <p class="sub">과목, 내용, 제출 시기 세 가지만 입력하세요.</p>
+    </div>
+    <div class="top-actions">
+      <button type="button" id="openTimetableBtn">시간표 보기</button>
+      <button type="button" id="resetBtn" class="danger">전체 데이터 초기화</button>
+    </div>
+  </header>
+
+  <!-- 초기화 확인 상자: 샌드박스에서는 confirm()이 막히므로 페이지 안에서 확인 -->
+  <div class="confirm-box" id="resetConfirm" hidden role="alertdialog" aria-labelledby="resetQ">
+    <p id="resetQ">저장된 과제를 모두 지우고 처음 예시 상태로 되돌릴까요? 되돌릴 수 없습니다.</p>
+    <div class="row">
+      <button type="button" id="resetYesBtn" class="danger">예, 초기화합니다</button>
+      <button type="button" id="resetNoBtn">취소</button>
+    </div>
+  </div>
+
+  <form class="add-form" id="addForm" novalidate>
+    <div class="field subject">
+      <label for="subjectInput">과목명</label>
+      <input type="text" id="subjectInput" maxlength="20" placeholder="예: 수학" autocomplete="off">
+    </div>
+    <div class="field content">
+      <label for="contentInput">과제 내용</label>
+      <input type="text" id="contentInput" maxlength="60" placeholder="예: 교과서 10쪽 풀기" autocomplete="off">
+    </div>
+    <div class="field when">
+      <label for="whenSelect">제출 시기</label>
+      <select id="whenSelect">
+        <option value="0">이번 주 월요일</option>
+        <option value="1">이번 주 화요일</option>
+        <option value="2">이번 주 수요일</option>
+        <option value="3">이번 주 목요일</option>
+        <option value="4">이번 주 금요일</option>
+        <option value="later">다음 주 이후 (날짜 선택)</option>
+      </select>
+    </div>
+    <div class="field date hidden" id="dateField">
+      <label for="dateInput">마감 날짜</label>
+      <input type="date" id="dateInput">
+    </div>
+    <div class="add-btn-wrap">
+      <button type="submit" class="primary" id="addBtn">과제 추가</button>
+    </div>
+    <p class="form-msg" id="formMsg" role="alert" aria-live="assertive"></p>
+  </form>
+  <p class="storage-note" id="storageNote"></p>
+
+  <h2>이번 주 마감 과제</h2>
+  <div class="week" id="weekArea"></div>
+
+  <h2>다음 주 이후 마감 과제</h2>
+  <div class="later-card" id="laterCard">
+    <ul class="tasks" id="laterList"></ul>
+  </div>
+  <p class="count-note" id="countNote"></p>
+</div>
+
+<!-- 시간표 레이어(모달) -->
+<div class="modal-back" id="timetableLayer" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ttTitle">
+    <div class="modal-head">
+      <h2 id="ttTitle">주간 시간표</h2>
+      <button type="button" id="closeTimetableBtn">닫기</button>
+    </div>
+    <div class="table-scroll">
+      <table class="timetable" id="timetable"></table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 예시 데이터·설정 =====
+const STORAGE_KEY = "sih26:20517:tasks";   // localStorage 저장 이름(학번 접두사)
+const MAX_TASKS = 20;                       // 등록 가능한 과제 최대 개수
+const DAY_NAMES = ["월", "화", "수", "목", "금"];
+const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+
+// 고정된 가상 주간 시간표 (이번 버전은 수정 기능 없음)
+const TIMETABLE = [
+  // 교시별로 [월, 화, 수, 목, 금]
+  ["국어", "수학", "영어", "과학", "정보"],
+  ["수학", "영어", "국어", "사회", "체육"],
+  ["영어", "과학", "수학", "국어", "음악"],
+  ["사회", "국어", "정보", "수학", "영어"],
+  ["과학", "체육", "사회", "영어", "수학"],
+  ["체육", "정보", "미술", "과학", "국어"],
+  ["창체", "사회", "미술", "자율", "동아리"]
+];
+
+// ===== 날짜 도우미 =====
+// 이번 주 월요일 날짜 구하기 (토·일에는 지난 월요일 기준)
+function getThisMonday() {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = (d.getDay() + 6) % 7; // 월=0 ... 일=6
+  d.setDate(d.getDate() - diff);
+  return d;
+}
+function addDays(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+// Date → "YYYY-MM-DD"
+function toISO(date) {
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return date.getFullYear() + "-" + m + "-" + day;
+}
+// "YYYY-MM-DD" → Date
+function fromISO(text) {
+  const p = text.split("-").map(Number);
+  return new Date(p[0], p[1] - 1, p[2]);
+}
+// "10월 22일 목요일" 형태로 바꾸기
+function formatKoreanDate(iso) {
+  const d = fromISO(iso);
+  return (d.getMonth() + 1) + "월 " + d.getDate() + "일 " + WEEKDAY_KO[d.getDay()] + "요일";
+}
+
+// 처음 화면에 보여 줄 가상 데이터
+function makeSampleTasks() {
+  const nextThursday = addDays(getThisMonday(), 10); // 다음 주 목요일
+  return [
+    { id: 1, subject: "수학", content: "교과서 10쪽 풀기", day: 2, dueDate: null, isCompleted: false },
+    { id: 2, subject: "과학", content: "탐구 보고서 작성", day: null, dueDate: toISO(nextThursday), isCompleted: false }
+  ];
+}
+
+// ===== 데이터·상태 =====
+let tasks = [];          // 과제 목록 (day: 0~4는 이번 주 요일, dueDate는 다음 주 이후 날짜)
+let canSave = true;      // 브라우저 저장 가능 여부
+
+// ===== 처리 함수 =====
+// saveData: 과제 목록을 JSON으로 바꿔 브라우저에 저장
+function saveData() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    canSave = true;
+  } catch (e) {
+    canSave = false;
+  }
+  renderStorageNote();
+}
+
+// loadData: 저장된 과제 불러오기. 없거나 실패하면 가상 데이터 사용
+function loadData() {
+  try {
+    const text = localStorage.getItem(STORAGE_KEY);
+    if (text) {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        tasks = parsed.filter(isValidTask).slice(0, MAX_TASKS);
+        return;
+      }
+    }
+  } catch (e) {
+    canSave = false;
+  }
+  tasks = makeSampleTasks();
+}
+function isValidTask(t) {
+  return t && typeof t.subject === "string" && typeof t.content === "string" &&
+    ((Number.isInteger(t.day) && t.day >= 0 && t.day <= 4) || typeof t.dueDate === "string");
+}
+
+// 빈칸 표시 지우기
+function clearInvalid() {
+  [subjectInput, contentInput, dateInput].forEach(function (el) {
+    el.classList.remove("invalid");
+    el.removeAttribute("aria-invalid");
+  });
+}
+function markInvalid(el) {
+  el.classList.add("invalid");
+  el.setAttribute("aria-invalid", "true");
+}
+function showMessage(text, isError) {
+  formMsg.textContent = text;
+  formMsg.className = "form-msg " + (isError ? "error" : "ok");
+}
+
+// addTasks: 입력을 검사하고 올바르면 과제를 목록에 추가
+function addTasks() {
+  clearInvalid();
+  const subject = subjectInput.value.trim();
+  const content = contentInput.value.trim();
+  const when = whenSelect.value;
+
+  // 1) 과목·내용이 비었는지 확인
+  if (subject === "" || content === "") {
+    if (subject === "") markInvalid(subjectInput);
+    if (content === "") markInvalid(contentInput);
+    showMessage("과목과 내용을 모두 입력해 주세요!", true);
+    (subject === "" ? subjectInput : contentInput).focus();
+    return;
+  }
+  // 2) 최대 개수 확인
+  if (tasks.length >= MAX_TASKS) {
+    showMessage("과제는 최대 " + MAX_TASKS + "개까지 등록할 수 있어요. 끝난 과제를 삭제한 뒤 다시 추가해 주세요.", true);
+    return;
+  }
+
+  const task = { id: Date.now(), subject: subject, content: content, day: null, dueDate: null, isCompleted: false };
+
+  if (when === "later") {
+    // 3) 다음 주 이후라면 날짜가 필요
+    const nextMonday = toISO(addDays(getThisMonday(), 7));
+    if (dateInput.value === "") {
+      markInvalid(dateInput);
+      showMessage("다음 주 이후 과제는 마감 날짜를 선택해 주세요!", true);
+      dateInput.focus();
+      return;
+    }
+    if (dateInput.value < nextMonday) {
+      markInvalid(dateInput);
+      showMessage("다음 주 월요일(" + formatKoreanDate(nextMonday) + ") 이후 날짜를 골라 주세요. 이번 주 과제는 요일에서 선택하세요.", true);
+      dateInput.focus();
+      return;
+    }
+    task.dueDate = dateInput.value;
+  } else {
+    task.day = Number(when);
+  }
+
+  tasks.push(task);
+  saveData();
+  renderTasks();
+
+  // 4) 입력창 초기화
+  subjectInput.value = "";
+  contentInput.value = "";
+  dateInput.value = "";
+  const where = task.dueDate ? "다음 주 이후 마감 과제" : DAY_NAMES[task.day] + "요일 카드";
+  showMessage("'" + subject + " - " + content + "' 과제를 " + where + "에 추가했어요.", false);
+  subjectInput.focus();
+}
+
+// toggleComplete: 완료 상태(isCompleted)를 true ↔ false로 바꾸기
+function toggleComplete(id) {
+  const task = tasks.find(function (t) { return t.id === id; });
+  if (!task) return;
+  task.isCompleted = !task.isCompleted;
+  saveData();
+  renderTasks();
+}
+
+// deleteTask: 잘못 등록한 과제 지우기
+function deleteTask(id) {
+  tasks = tasks.filter(function (t) { return t.id !== id; });
+  saveData();
+  renderTasks();
+  showMessage("과제를 삭제했어요.", false);
+}
+
+// resetAll: 저장된 과제만 지우고 가상 데이터로 되돌리기
+function resetAll() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { canSave = false; }
+  tasks = makeSampleTasks();
+  clearInvalid();
+  subjectInput.value = "";
+  contentInput.value = "";
+  dateInput.value = "";
+  renderTasks();
+  renderStorageNote();
+  showMessage("초기 예시 상태로 되돌렸어요.", false);
+}
+
+// ===== 화면 갱신 =====
+// 과제 하나를 목록 항목(li)으로 만들기 (사용자 입력은 textContent로 안전하게 넣음)
+function createTaskItem(task) {
+  const li = document.createElement("li");
+  li.className = "task" + (task.isCompleted ? " completed" : "");
+
+  const p = document.createElement("p");
+  p.className = "task-text";
+  if (task.isCompleted) {
+    const tag = document.createElement("span");
+    tag.className = "done-tag";
+    tag.textContent = "[완료]";
+    p.appendChild(tag);
+  }
+  const body = document.createElement("span");
+  body.className = "task-body";
+  const subj = document.createElement("span");
+  subj.className = "task-subject";
+  subj.textContent = task.subject;
+  body.appendChild(subj);
+  body.appendChild(document.createTextNode(" - " + task.content));
+  p.appendChild(body);
+  if (task.dueDate) {
+    const due = document.createElement("span");
+    due.className = "task-due";
+    due.textContent = formatKoreanDate(task.dueDate) + " 마감";
+    p.appendChild(due);
+  }
+  li.appendChild(p);
+
+  const actions = document.createElement("div");
+  actions.className = "task-actions";
+  const doneBtn = document.createElement("button");
+  doneBtn.type = "button";
+  doneBtn.className = "small";
+  doneBtn.dataset.action = "toggle";
+  doneBtn.dataset.id = task.id;
+  doneBtn.textContent = task.isCompleted ? "완료 취소" : "완료";
+  doneBtn.setAttribute("aria-label", (task.isCompleted ? "완료 취소: " : "완료: ") + task.subject + " " + task.content);
+  const delBtn = document.createElement("button");
+  delBtn.type = "button";
+  delBtn.className = "small danger";
+  delBtn.dataset.action = "delete";
+  delBtn.dataset.id = task.id;
+  delBtn.textContent = "삭제";
+  delBtn.setAttribute("aria-label", "삭제: " + task.subject + " " + task.content);
+  actions.appendChild(doneBtn);
+  actions.appendChild(delBtn);
+  li.appendChild(actions);
+  return li;
+}
+
+// renderTasks: 요일 카드 5개와 '다음 주 이후' 카드를 다시 그리기
+function renderTasks() {
+  const monday = getThisMonday();
+  const todayISO = toISO(new Date());
+  weekArea.textContent = "";
+
+  for (let i = 0; i < 5; i++) {
+    const date = addDays(monday, i);
+    const card = document.createElement("section");
+    card.className = "day-card" + (toISO(date) === todayISO ? " today" : "");
+    card.dataset.day = i;
+    const h3 = document.createElement("h3");
+    h3.textContent = DAY_NAMES[i] + "요일";
+    const dateSpan = document.createElement("span");
+    dateSpan.className = "date";
+    dateSpan.textContent = (date.getMonth() + 1) + "/" + date.getDate() + (toISO(date) === todayISO ? " 오늘" : "");
+    h3.appendChild(dateSpan);
+    card.appendChild(h3);
+
+    const ul = document.createElement("ul");
+    ul.className = "tasks";
+    tasks.filter(function (t) { return t.day === i; }).forEach(function (t) {
+      ul.appendChild(createTaskItem(t));
+    });
+    // 과제가 없는 요일은 안내 문구 없이 빈 상자로 둠
+    card.appendChild(ul);
+    weekArea.appendChild(card);
+  }
+
+  // 다음 주 이후 과제는 마감 날짜가 빠른 순서로
+  laterList.textContent = "";
+  tasks.filter(function (t) { return t.dueDate; })
+    .sort(function (a, b) { return a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0; })
+    .forEach(function (t) { laterList.appendChild(createTaskItem(t)); });
+
+  countNote.textContent = "등록한 과제 " + tasks.length + " / 최대 " + MAX_TASKS + "개";
+}
+
+function renderStorageNote() {
+  storageNote.textContent = canSave ? "" : "이 화면에서는 브라우저 저장이 막혀 있어, 새로고침하면 등록한 과제가 저장되지 않습니다.";
+}
+
+// 시간표 표 만들기
+function renderTimetable() {
+  const table = document.getElementById("timetable");
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  ["교시"].concat(DAY_NAMES).forEach(function (name) {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.textContent = name;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  const tbody = document.createElement("tbody");
+  TIMETABLE.forEach(function (row, idx) {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
+    th.scope = "row";
+    th.textContent = (idx + 1) + "교시";
+    tr.appendChild(th);
+    row.forEach(function (subject) {
+      const td = document.createElement("td");
+      td.textContent = subject;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(thead);
+  table.appendChild(tbody);
+}
+
+function openTimetable() {
+  timetableLayer.hidden = false;
+  closeTimetableBtn.focus();
+}
+function closeTimetable() {
+  timetableLayer.hidden = true;
+  openTimetableBtn.focus();
+}
+
+// 제출 시기에 따라 날짜 입력칸 보이기/숨기기
+function updateDateField() {
+  const isLater = whenSelect.value === "later";
+  dateField.classList.toggle("hidden", !isLater);
+  if (isLater) dateInput.min = toISO(addDays(getThisMonday(), 7));
+}
+
+// ===== 이벤트 연결 =====
+const subjectInput = document.getElementById("subjectInput");
+const contentInput = document.getElementById("contentInput");
+const whenSelect = document.getElementById("whenSelect");
+const dateField = document.getElementById("dateField");
+const dateInput = document.getElementById("dateInput");
+const formMsg = document.getElementById("formMsg");
+const storageNote = document.getElementById("storageNote");
+const weekArea = document.getElementById("weekArea");
+const laterList = document.getElementById("laterList");
+const countNote = document.getElementById("countNote");
+const timetableLayer = document.getElementById("timetableLayer");
+const openTimetableBtn = document.getElementById("openTimetableBtn");
+const closeTimetableBtn = document.getElementById("closeTimetableBtn");
+const resetConfirm = document.getElementById("resetConfirm");
+
+document.getElementById("addForm").addEventListener("submit", function (e) {
+  e.preventDefault();
+  addTasks();
+});
+whenSelect.addEventListener("change", updateDateField);
+
+// 입력하면 빨간 테두리 해제
+[subjectInput, contentInput, dateInput].forEach(function (el) {
+  el.addEventListener("input", function () {
+    if (el.value.trim() !== "") {
+      el.classList.remove("invalid");
+      el.removeAttribute("aria-invalid");
+    }
+  });
+});
+
+// 완료/삭제 버튼 (카드 영역에 한 번만 연결)
+function handleTaskClick(e) {
+  const btn = e.target.closest("button[data-action]");
+  if (!btn) return;
+  const id = Number(btn.dataset.id);
+  if (btn.dataset.action === "toggle") toggleComplete(id);
+  if (btn.dataset.action === "delete") deleteTask(id);
+}
+weekArea.addEventListener("click", handleTaskClick);
+laterList.addEventListener("click", handleTaskClick);
+
+openTimetableBtn.addEventListener("click", openTimetable);
+closeTimetableBtn.addEventListener("click", closeTimetable);
+timetableLayer.addEventListener("click", function (e) {
+  if (e.target === timetableLayer) closeTimetable(); // 바깥 어두운 부분 클릭 시 닫기
+});
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape" && !timetableLayer.hidden) closeTimetable();
+});
+
+document.getElementById("resetBtn").addEventListener("click", function () {
+  resetConfirm.hidden = false;
+  document.getElementById("resetNoBtn").focus();
+});
+document.getElementById("resetNoBtn").addEventListener("click", function () {
+  resetConfirm.hidden = true;
+});
+document.getElementById("resetYesBtn").addEventListener("click", function () {
+  resetConfirm.hidden = true;
+  resetAll();
+});
+
+// 시작
+loadData();
+renderTimetable();
+updateDateField();
+renderTasks();
+renderStorageNote();
+</script>
+</body>
+</html>
