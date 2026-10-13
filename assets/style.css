@@ -497,6 +497,19 @@ footer {
   line-height: 1;
   color: var(--muted);
 }
+/* 진행 단계(PRD·N회 개선): 반 칩보다 한 단계 약한 회색 배지 */
+.student-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 7px;
+  border-radius: var(--r-sm);
+  background: var(--line);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--muted);
+}
 /* 이 탭에서 본 작품: 연두 점 + '봄' */
 .seen-badge {
   display: inline-flex;

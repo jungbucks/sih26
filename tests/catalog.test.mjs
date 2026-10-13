@@ -104,6 +104,22 @@ test("잘못된 메타 구조·자료형·길이·상태는 전체 실패", asyn
     await assert.rejects(catalog(r));
   }
 });
+test("학생 HTML의 진행 단계 메타: 허용값만 사용, 오버라이드 우선", async (t) => {
+  const r = await fixture(t);
+  const html = (s) =>
+    `<title>t</title><meta name="status" content="${s}">`;
+  await student(r, "20100", html(" 2회  개선 "));
+  await student(r, "20101", html("완성!"));
+  await student(r, "20102", html("PRD"));
+  await fs.writeFile(
+    path.join(r, "project-meta.json"),
+    JSON.stringify({ 20102: { status: "1회 개선" } }),
+  );
+  const s = Object.fromEntries(
+    (await catalog(r)).projects.map((p) => [p.id, p.status]),
+  );
+  assert.deepEqual(s, { 20100: "2회 개선", 20101: undefined, 20102: "1회 개선" });
+});
 test("201작품은 누락 없이 전체 실패", async (t) => {
   const r = await fixture(t);
   for (let i = 0; i < 201; i++) await student(r, String(20000 + i));

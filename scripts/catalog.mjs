@@ -10,6 +10,19 @@ export const limits = {
   status: 10,
   changes: 500,
 };
+// 진행 단계: PRD → 1~5회 개선 (이전 값도 호환)
+export const STATUSES = [
+  "",
+  "PRD",
+  "1회 개선",
+  "2회 개선",
+  "3회 개선",
+  "4회 개선",
+  "5회 개선",
+  "첫 버전",
+  "개선 중",
+  "개선 완료",
+];
 export function normalize(v) {
   return v.replace(/\s+/gu, " ").trim();
 }
@@ -40,7 +53,7 @@ export async function metadata(root) {
         throw Error(`메타 길이 초과: ${id}.${k}`);
       if (
         k === "status" &&
-        !["", "첫 버전", "개선 중", "개선 완료"].includes(entry[k])
+        !STATUSES.includes(entry[k])
       )
         throw Error(`잘못된 진행 상태: ${id}`);
     }
@@ -54,7 +67,7 @@ function extract(html) {
     if (n.tagName === "title" && !out.title) out.title = text(n);
     if (n.tagName === "meta") {
       const a = Object.fromEntries(n.attrs.map((x) => [x.name, x.value]));
-      if (["description", "class"].includes(a.name?.toLowerCase()))
+      if (["description", "class", "status"].includes(a.name?.toLowerCase()))
         out[a.name.toLowerCase()] = a.content || "";
     }
     for (const c of n.childNodes || []) walk(c);
@@ -98,6 +111,9 @@ export async function catalog(root) {
       meta = {};
     for (const key of ["title", "description", "class"])
       meta[key] = [...normalize(raw[key] || "")].slice(0, limits[key]).join("");
+    // 학생 HTML의 진행 단계는 허용값일 때만 사용 (잘못된 값은 무시)
+    const status = normalize(raw.status || "");
+    if (status && STATUSES.includes(status)) meta.status = status;
     Object.assign(meta, overrides[id] || {});
     meta.title ||= `프로젝트 ${id}`;
     meta.description ||= "프로그램을 실행해 확인해 보세요.";
