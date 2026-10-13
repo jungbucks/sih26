@@ -427,19 +427,32 @@ footer {
     box-shadow 220ms var(--ease),
     transform 220ms var(--ease);
 }
+/* 카드 호버: 프리즘 테두리가 카드 둘레를 따라 돈다 (각도 변수를 애니메이션) */
+@property --prism-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 135deg;
+}
+@keyframes prism-spin {
+  to {
+    --prism-angle: 495deg;
+  }
+}
 .card:hover {
   border-color: transparent;
   background:
     linear-gradient(var(--canvas), var(--canvas)) padding-box,
-    linear-gradient(
-        135deg,
+    conic-gradient(
+        from var(--prism-angle),
         var(--pf-magenta),
         var(--pf-violet),
         var(--pf-cyan),
         var(--pf-prism-lime),
-        var(--pf-amber)
+        var(--pf-amber),
+        var(--pf-magenta)
       )
       border-box;
+  animation: prism-spin 2.4s linear infinite;
   box-shadow: 0 16px 36px -18px rgba(11, 11, 15, 0.32);
   transform: translateY(-2px);
 }
@@ -932,6 +945,9 @@ footer {
   .primary:hover,
   .primary:active {
     transform: none;
+  }
+  .card:hover {
+    animation: none;
   }
 }
 
