@@ -55,6 +55,8 @@ function render() {
   const q = $("search").value.trim(),
     group = $("class").value;
   const result = filterProjects(projects, q, group);
+  // 반을 고르면 선택칸 테두리를 프리즘으로 켜서 '필터 적용 중'임을 보여 준다
+  $("class").parentElement.classList.toggle("is-active", !!group);
   $("cards").replaceChildren(...result.slice(0, limit).map(card));
   $("result").textContent =
     q || group ? `검색 결과 ${result.length}개` : `작품 ${projects.length}개`;
