@@ -636,6 +636,80 @@ footer {
   border: 0;
   background: var(--canvas);
 }
+/* AI 검토 의견: 번호 카드 3장 (넓은 화면 3열, 좁은 화면 1열) */
+.feedback {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--r-lg) + 16px);
+  background: var(--tint);
+}
+.feedback-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.feedback-heading h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.feedback-stage {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.feedback-tip {
+  margin: 4px 0 16px;
+  font-size: 14px;
+  color: var(--muted);
+  word-break: keep-all;
+}
+.feedback-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.feedback-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--canvas);
+}
+.feedback-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--canvas);
+}
+.feedback-card h3 {
+  margin: 12px 0 6px;
+  font-size: 16px;
+  line-height: 1.4;
+  word-break: keep-all;
+}
+.feedback-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--muted);
+  word-break: keep-all;
+}
+@media (max-width: 850px) {
+  .feedback-list {
+    grid-template-columns: 1fr;
+  }
+}
 .work-nav {
   display: flex;
   justify-content: space-between;

@@ -60,6 +60,50 @@ export async function metadata(root) {
   }
   return m;
 }
+// AI 검토 의견: feedback.json { 학번: { stage, items: [{ title, body }] } }
+export const FEEDBACK_LIMITS = { items: 3, title: 60, body: 300 };
+export async function feedback(root) {
+  let raw;
+  try {
+    raw = await fs.readFile(path.join(root, "feedback.json"), "utf8");
+  } catch (e) {
+    if (e.code === "ENOENT") return {};
+    throw e;
+  }
+  const f = JSON.parse(raw);
+  if (!f || Array.isArray(f) || typeof f !== "object")
+    throw Error("feedback.json: 객체여야 합니다.");
+  const out = {};
+  for (const [id, entry] of Object.entries(f)) {
+    const bad = (why) => Error(`잘못된 검토 의견: ${id} (${why})`);
+    if (!/^\d{5}$/.test(id) || !entry || typeof entry !== "object")
+      throw bad("구조");
+    const stage = normalize(String(entry.stage ?? ""));
+    if (typeof entry.stage !== "string" || !STATUSES.includes(stage))
+      throw bad("stage");
+    const items = entry.items;
+    if (
+      !Array.isArray(items) ||
+      items.length < 1 ||
+      items.length > FEEDBACK_LIMITS.items
+    )
+      throw bad("items 1~3개");
+    out[id] = {
+      stage,
+      items: items.map((it) => {
+        if (!it || typeof it.title !== "string" || typeof it.body !== "string")
+          throw bad("title·body 문자열");
+        const title = normalize(it.title),
+          body = normalize(it.body);
+        if (!title || [...title].length > FEEDBACK_LIMITS.title)
+          throw bad("title 길이");
+        if ([...body].length > FEEDBACK_LIMITS.body) throw bad("body 길이");
+        return { title, body };
+      }),
+    };
+  }
+  return out;
+}
 function extract(html) {
   const out = {};
   const text = (n) => (n.value || "") + (n.childNodes || []).map(text).join("");
@@ -77,6 +121,7 @@ function extract(html) {
 }
 export async function catalog(root) {
   const overrides = await metadata(root),
+    reviews = await feedback(root),
     projects = [],
     excluded = [];
   for (const ent of (await fs.readdir(root, { withFileTypes: true })).sort(
@@ -144,7 +189,14 @@ export async function catalog(root) {
     } catch (e) {
       if (e.code !== "ENOENT") throw e;
     }
-    projects.push({ id, ...meta, path: `${id}/`, updatedAt, prd });
+    projects.push({
+      id,
+      ...meta,
+      path: `${id}/`,
+      updatedAt,
+      prd,
+      feedback: reviews[id] || null,
+    });
   }
   if (projects.length > 200)
     throw Error(

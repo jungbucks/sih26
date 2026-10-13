@@ -120,6 +120,32 @@ test("학생 HTML의 진행 단계 메타: 허용값만 사용, 오버라이드 
   );
   assert.deepEqual(s, { 20100: "2회 개선", 20101: undefined, 20102: "1회 개선" });
 });
+test("AI 검토 의견: 학번별 연결, 공백 정리, 잘못된 형식은 전체 실패", async (t) => {
+  const r = await fixture(t);
+  await student(r, "20100");
+  await student(r, "20101");
+  const item = { title: " 제목  하나 ", body: "설명" };
+  await fs.writeFile(
+    path.join(r, "feedback.json"),
+    JSON.stringify({ 20100: { stage: "PRD", items: [item, item, item] } }),
+  );
+  const [a, b] = (await catalog(r)).projects;
+  assert.equal(a.feedback.stage, "PRD");
+  assert.equal(a.feedback.items.length, 3);
+  assert.equal(a.feedback.items[0].title, "제목 하나");
+  assert.equal(b.feedback, null);
+  for (const bad of [
+    { 20100: { stage: "완성", items: [item] } },
+    { 20100: { stage: "PRD", items: [] } },
+    { 20100: { stage: "PRD", items: [item, item, item, item] } },
+    { 20100: { stage: "PRD", items: [{ title: "x".repeat(61), body: "" }] } },
+    { 20100: { stage: "PRD", items: [{ title: "t" }] } },
+    { 2010: { stage: "PRD", items: [item] } },
+  ]) {
+    await fs.writeFile(path.join(r, "feedback.json"), JSON.stringify(bad));
+    await assert.rejects(catalog(r));
+  }
+});
 test("201작품은 누락 없이 전체 실패", async (t) => {
   const r = await fixture(t);
   for (let i = 0; i < 201; i++) await student(r, String(20000 + i));

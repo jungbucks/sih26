@@ -18,6 +18,23 @@ function setNav(a, p, label) {
   a.href = `work.html?id=${p.id}`;
   a.replaceChildren(el("span", label, "nav-dir"), el("span", p.title, "nav-title"));
 }
+// AI 검토 의견: 번호가 붙은 카드 1~3장 (없으면 영역을 숨긴다)
+function renderFeedback(f) {
+  $("feedback").hidden = !f;
+  if (!f) return;
+  $("feedback-stage").textContent = `${f.stage} 기준`;
+  $("feedback-list").replaceChildren(
+    ...f.items.map((it, i) => {
+      const li = el("li", undefined, "feedback-card");
+      li.append(
+        el("span", String(i + 1), "feedback-num"),
+        el("h3", it.title),
+        el("p", it.body),
+      );
+      return li;
+    }),
+  );
+}
 function renderNav(list) {
   const view = loadView();
   let order = filterProjects(list, view.q, view.group);
@@ -43,6 +60,7 @@ async function init() {
       .filter(Boolean)
       .join(" · ");
     $("changes").textContent = p.changes || "";
+    renderFeedback(p.feedback);
     $("run").href = p.path;
     $("download").href = `${p.path}index.html`;
     $("download").download = `${id}.html`;
