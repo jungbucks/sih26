@@ -22,10 +22,11 @@ function setNav(a, p, label) {
 function renderFeedback(f) {
   $("feedback").hidden = !f;
   if (!f) return;
-  $("feedback-stage").textContent = `${f.stage} 기준`;
+  $("feedback-stage").textContent = `${f.stage} 기준 · 개선 제안 ${f.items.length}개`;
   $("feedback-list").replaceChildren(
     ...f.items.map((it, i) => {
       const li = el("li", undefined, "feedback-card");
+      li.style.setProperty("--i", i); // 카드가 차례로 나타나는 순서
       li.append(
         el("span", String(i + 1), "feedback-num"),
         el("h3", it.title),
@@ -124,6 +125,12 @@ async function init() {
     }
   }
 }
+// 스위치를 켜면 검토 의견이 아래로 펼쳐진다. 접힌 동안은 inert로 읽기·포커스에서 뺀다
+$("feedback-toggle").addEventListener("change", (e) => {
+  const open = e.target.checked;
+  $("feedback").classList.toggle("open", open);
+  $("feedback-panel").inert = !open;
+});
 $("retry").onclick = init;
 addEventListener("pagehide", () => clearTimeout(timer));
 init();

@@ -43,15 +43,34 @@
           <div id="frame"></div>
         </section>
         <section id="feedback" class="feedback" aria-labelledby="feedback-label" hidden>
-          <div class="feedback-heading">
-            <h2 id="feedback-label">AI 검토 의견</h2>
-            <p id="feedback-stage" class="feedback-stage"></p>
+          <label class="pf-switch">
+            <input
+              id="feedback-toggle"
+              class="pf-switch__input"
+              type="checkbox"
+              role="switch"
+              aria-controls="feedback-panel"
+            />
+            <span class="pf-switch__track" aria-hidden="true">
+              <span class="pf-switch__ticks"
+                ><span></span><span></span><span></span><span></span><span></span><span></span
+              ></span>
+              <span class="pf-switch__thumb"></span>
+            </span>
+            <span class="pf-switch__copy">
+              <span id="feedback-label" class="pf-switch__label">AI 검토 의견</span>
+              <span id="feedback-stage" class="pf-switch__hint"></span>
+            </span>
+          </label>
+          <div id="feedback-panel" class="feedback-panel" inert>
+            <div class="feedback-inner">
+              <p class="feedback-tip">
+                기획서를 보고 작품을 만든 AI가 남긴 개선 제안입니다. 이를 바탕으로 다음 개선
+                방향을 정하거나, 새로운 기능·디자인을 더해 보세요.
+              </p>
+              <ol id="feedback-list" class="feedback-list"></ol>
+            </div>
           </div>
-          <p class="feedback-tip">
-            기획서를 보고 작품을 만든 AI가 남긴 개선 제안입니다. 이를 바탕으로 다음 개선 방향을
-            정하거나, 새로운 기능·디자인을 더해 보세요.
-          </p>
-          <ol id="feedback-list" class="feedback-list"></ol>
         </section>
         <nav id="work-nav" class="work-nav" aria-label="다른 작품" hidden>
           <a id="prev" class="button" hidden></a>
