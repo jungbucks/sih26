@@ -7,7 +7,7 @@
 <title>게임 강화 확률 &amp; 기댓값 시뮬레이터</title>
 <meta name="description" content="성공 확률을 넣으면 평균 몇 번 만에 성공하는지(기댓값)를 알려 주고, 직접 강화 버튼을 눌러 독립시행 결과를 쌓아 보는 시뮬레이터">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="PRD">
+  <meta name="status" content="1회 개선">
 
 <!-- ===== 2. 스타일 ===== -->
 <style>
@@ -140,12 +140,9 @@
   #logList li.ok { background: var(--ok-bg); color: var(--ok); font-weight: 700; }
   #logList li .p { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
   #logList li.empty { color: var(--muted); justify-content: center; }
-  /* 독립시행 안내: 스크롤해도 화면 아래에 항상 보이게 고정 */
+  /* 독립시행 안내: 시도 기록 카드 맨 아래에 고정 위치로 (스크롤 때 기록을 가리지 않게) */
   .notice {
-    position: sticky;
-    bottom: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    margin: 0;
+    margin: 12px 0 0;
     padding: 8px 12px;
     font-size: 0.95rem;
     line-height: 1.55;
@@ -154,6 +151,40 @@
     border-radius: 8px;
   }
   .store-note { color: var(--muted); font-size: 0.9rem; margin: 10px 0 0; }
+
+  /* 강화 연출: 성공 = 초록 빛 반짝임, 실패 = 빨간 흔들림 */
+  .rate { font-weight: 700; color: var(--text); }
+  @keyframes glowOk {
+    0%   { box-shadow: 0 0 0 0 rgba(29,107,58,0); border-color: var(--line); }
+    30%  { box-shadow: 0 0 0 6px rgba(29,107,58,0.35), 0 0 24px 6px rgba(46,160,90,0.45); border-color: var(--ok); background: var(--ok-bg); }
+    100% { box-shadow: 0 0 0 0 rgba(29,107,58,0); border-color: var(--line); }
+  }
+  @keyframes shakeBad {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-8px); }
+    30% { transform: translateX(7px); }
+    45% { transform: translateX(-6px); }
+    60% { transform: translateX(5px); }
+    75% { transform: translateX(-3px); }
+  }
+  @keyframes flashBad {
+    0%   { border-color: var(--line); background: var(--card); }
+    25%  { border-color: var(--bad); background: var(--bad-bg); }
+    100% { border-color: var(--line); background: var(--card); }
+  }
+  @keyframes popOk {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.18); }
+    100% { transform: scale(1); }
+  }
+  section.card.fx-ok { animation: glowOk 0.9s ease-out; }
+  section.card.fx-bad { animation: shakeBad 0.45s ease-in-out, flashBad 0.9s ease-out; }
+  .last.fx-ok { animation: popOk 0.5s ease-out; }
+  /* 움직임을 줄이도록 설정한 사람에게는 흔들림·확대 없이 색만 바뀌게 */
+  @media (prefers-reduced-motion: reduce) {
+    section.card.fx-bad { animation: flashBad 0.9s ease-out; }
+    .last.fx-ok { animation: none; }
+  }
 </style>
 </head>
 <body>
@@ -178,13 +209,14 @@
   </section>
 
   <!-- 중단: 기댓값 안내, 시도 횟수, 강화 버튼 -->
-  <section class="card" aria-labelledby="tryTitle">
+  <section class="card" id="tryCard" aria-labelledby="tryTitle">
     <h2 id="tryTitle">2. 강화 시도</h2>
     <p id="expectBox" class="expect" aria-live="polite"></p>
     <div class="counter">
       <div class="label">현재 총 시도 횟수</div>
       <div class="num"><span id="totalCount">0</span>회</div>
       <div class="sub" id="okBadCount">성공 0회 · 실패 0회</div>
+      <div class="sub">실제 성공률: <span id="realRate" class="rate">-</span></div>
     </div>
     <p id="lastResult" class="last" aria-live="polite"></p>
     <button id="tryBtn" type="button" class="primary">강화 시도</button>
@@ -198,9 +230,8 @@
     </div>
     <ol id="logList" aria-label="강화 시도 결과 기록"></ol>
     <p id="storeNote" class="store-note"></p>
+    <p class="notice"><strong>※ 안내:</strong> 매 시도는 독립시행이므로 평균 기댓값보다 더 많은 시도가 필요할 수 있습니다.</p>
   </section>
-
-  <p class="notice"><strong>※ 안내:</strong> 매 시도는 독립시행이므로 평균 기댓값보다 더 많은 시도가 필요할 수 있습니다.</p>
 </main>
 
 <script>
@@ -227,6 +258,8 @@ const probWarn = document.getElementById("probWarn");
 const expectBox = document.getElementById("expectBox");
 const totalCount = document.getElementById("totalCount");
 const okBadCount = document.getElementById("okBadCount");
+const realRate = document.getElementById("realRate");
+const tryCard = document.getElementById("tryCard");
 const lastResult = document.getElementById("lastResult");
 const tryBtn = document.getElementById("tryBtn");
 const logList = document.getElementById("logList");
@@ -345,9 +378,27 @@ function renderExpected() {
   expectBox.append(small);
 }
 
+// 실제 성공 비율(%) = 성공 횟수 ÷ 총 시도 횟수 × 100
+// 시도가 0회면 0으로 나누게 되어 NaN이 나오므로 계산하지 않고 "-"를 돌려준다
+function calcRealRate(success, total) {
+  if (total === 0) return "-";
+  return (success / total * 100).toFixed(1) + "%";
+}
+
 function renderCounter() {
   totalCount.textContent = state.total;
   okBadCount.textContent = "성공 " + state.success + "회 · 실패 " + (state.total - state.success) + "회";
+  realRate.textContent = calcRealRate(state.success, state.total);
+}
+
+// 강화 연출: 같은 결과가 연달아 나와도 매번 다시 재생되도록 클래스를 뗐다 붙인다
+function playEffect(ok) {
+  [tryCard, lastResult].forEach(function (el) {
+    el.classList.remove("fx-ok", "fx-bad");
+    void el.offsetWidth; // 브라우저가 "클래스가 빠졌다"를 알아채게 한 번 다시 그리기
+  });
+  tryCard.classList.add(ok ? "fx-ok" : "fx-bad");
+  if (ok) lastResult.classList.add("fx-ok");
 }
 
 // 기록 목록 다시 그리기 (최근 것이 위)
@@ -430,6 +481,7 @@ function handleTry() {
 
   renderCounter();
   renderLast(log);
+  playEffect(ok);
   saveState();
 }
 

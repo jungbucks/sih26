@@ -6,7 +6,7 @@
 <title>나만의 공부 계획표</title>
 <meta name="description" content="과목, 할 일, 목표 시간을 적어 두면 과목별로 묶어 보여 주고 이 브라우저에 저장해 주는 공부 계획표">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="PRD">
+  <meta name="status" content="1회 개선">
 <style>
   :root {
     --bg: #f6f7f9;
@@ -79,8 +79,31 @@
   .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
   .examples { margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--line); }
   .examples p { margin: 0 0 8px; font-size: 0.95rem; color: var(--muted); }
-  .examples .row { margin-top: 0; }
-  .example-btn { background: var(--accent-weak); border-color: transparent; font-size: 0.95rem; }
+  .examples summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; color: var(--accent); }
+  .examples summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .example-list { list-style: none; margin: 4px 0 0; padding: 0; }
+  .example-list label {
+    display: flex; align-items: center; gap: 10px;
+    margin: 0 0 6px; padding: 8px 12px; min-height: 44px;
+    font-weight: 400; border-radius: 8px; background: var(--accent-weak); cursor: pointer;
+  }
+  .example-list input[type="checkbox"] { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--accent); }
+  .examples .row { margin-top: 8px; }
+
+  /* 저장 상태 배지: 목록 위에서 바로 보이게 (색 + 글자로 구분) */
+  .save-badge { font-size: 0.9rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .save-badge:empty { display: none; }
+  .save-badge.ok { background: var(--ok-weak); color: var(--ok); }
+  .save-badge.warn { background: var(--warn-weak); color: var(--warn); }
+
+  /* 완료한 공부 */
+  .done-area { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .done-area h3 { font-size: 1.05rem; margin: 0 0 8px; color: var(--ok); }
+  .done-area h3 .count { font-weight: 400; color: var(--muted); font-size: 0.9rem; margin-left: 6px; }
+  .plan.done .plan-task { text-decoration: line-through; text-decoration-color: var(--muted); }
+  .plan.done .plan-text { color: var(--muted); }
+  .plan-subject { font-weight: 600; color: var(--text); }
+  .btn-done { border-color: var(--ok); color: var(--ok); }
 
   /* 안내 메시지: 색 + 글자 머리말로 함께 구분 */
   #storageStatus { margin: 0 0 20px; }
@@ -149,18 +172,29 @@
       <div id="addMessage" class="msg" role="alert" aria-live="assertive"></div>
     </form>
 
-    <div class="examples">
-      <p>처음이라면 입력 예시를 눌러 보세요. 입력칸만 채워지고, <strong>계획 추가</strong>를 눌러야 목록에 들어갑니다.</p>
-      <div class="row" id="exampleButtons"></div>
-    </div>
+    <details class="examples" id="exampleBox">
+      <summary>예시 계획 목록 열기</summary>
+      <p>필요한 예시에 체크하고 <strong>선택한 예시 추가</strong>를 누르세요. 고른 것만 내 목록에 들어갑니다.</p>
+      <ul class="example-list" id="exampleList"></ul>
+      <div class="row">
+        <button type="button" class="btn-primary" id="exampleAddButton">선택한 예시 추가</button>
+      </div>
+      <div id="exampleMessage" class="msg" role="status" aria-live="polite"></div>
+    </details>
   </section>
 
   <section class="card" aria-labelledby="listTitle">
     <div class="list-head">
       <h2 id="listTitle">과목별 공부 계획</h2>
       <span class="total" id="totalText"></span>
+      <span class="save-badge" id="saveBadge" role="status" aria-live="polite"></span>
     </div>
     <div id="planList"></div>
+
+    <div class="done-area" id="doneArea" hidden>
+      <h3>완료한 공부<span class="count" id="doneCount"></span></h3>
+      <ul class="plans" id="doneList"></ul>
+    </div>
 
     <div class="reset-area">
       <button type="button" class="btn-danger" id="resetButton">전체 초기화</button>
@@ -178,7 +212,7 @@
 
 <script>
 // ===== 예시 데이터·설정 =====
-// 예시는 목록에 바로 넣지 않고 "입력칸 채우기"로만 제공한다 (내 계획과 섞이지 않게)
+// 예시는 체크한 것만 골라서 내 목록에 넣는다 (고르지 않은 예시는 섞이지 않게)
 const EXAMPLE_PLANS = [
   { subject: "수학", task: "문제집 풀기", minutes: 40 },
   { subject: "영어", task: "단어 외우기", minutes: 30 },
@@ -188,10 +222,15 @@ const EXAMPLE_PLANS = [
 const STORAGE_KEY = "sih26:20107:plans";
 
 // ===== 데이터·상태 =====
-let plans = [];            // 공부 계획 목록: { id, subject, task, minutes }
+let plans = [];            // 공부 계획 목록: { id, subject, task, minutes, done }
 let editingId = null;      // 지금 수정 중인 계획의 id (없으면 null)
 let deletingId = null;     // 삭제 확인을 띄운 계획의 id (없으면 null)
 let storageAvailable = true;
+
+// 전시판 미리보기처럼 "주소(출처)가 없는" 상자 안에서 열리면 origin이 "null"이 된다.
+// 이런 곳에서는 저장이 막히거나, 저장된 것처럼 보여도 새로고침하면 사라진다.
+// (내려받은 파일을 직접 연 file:// 주소도 origin이 "null"이지만 저장은 되므로 제외)
+const IN_PREVIEW_BOX = (window.origin === "null" && location.protocol !== "file:");
 
 // 화면 요소
 const subjectInput = document.getElementById("subjectInput");
@@ -202,7 +241,13 @@ const addMessage = document.getElementById("addMessage");
 const storageStatus = document.getElementById("storageStatus");
 const planList = document.getElementById("planList");
 const totalText = document.getElementById("totalText");
-const exampleButtons = document.getElementById("exampleButtons");
+const exampleList = document.getElementById("exampleList");
+const exampleAddButton = document.getElementById("exampleAddButton");
+const exampleMessage = document.getElementById("exampleMessage");
+const saveBadge = document.getElementById("saveBadge");
+const doneArea = document.getElementById("doneArea");
+const doneCount = document.getElementById("doneCount");
+const doneList = document.getElementById("doneList");
 const resetButton = document.getElementById("resetButton");
 const resetConfirm = document.getElementById("resetConfirm");
 const resetCount = document.getElementById("resetCount");
@@ -242,11 +287,18 @@ function validatePlan(subjectRaw, taskRaw, minutesRaw) {
 }
 
 // localStorage에 저장 시도: 성공하면 true, 실패하면 false
+// "저장 명령을 내렸다"가 아니라 "다시 읽어 봤더니 똑같이 들어 있다"까지 확인해야 성공으로 친다
 function savePlans() {
+  if (IN_PREVIEW_BOX) {        // 미리보기 상자 안에서는 새로고침하면 사라지므로 성공이라 하지 않음
+    storageAvailable = false;
+    return false;
+  }
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
-    storageAvailable = true;
-    return true;
+    const text = JSON.stringify(plans);
+    localStorage.setItem(STORAGE_KEY, text);
+    const ok = (localStorage.getItem(STORAGE_KEY) === text);   // 다시 읽어서 비교
+    storageAvailable = ok;
+    return ok;
   } catch (e) {
     storageAvailable = false;
     return false;
@@ -255,6 +307,10 @@ function savePlans() {
 
 // 저장된 계획 불러오기: 결과 상태 문자열을 돌려준다
 function loadPlans() {
+  if (IN_PREVIEW_BOX) {
+    storageAvailable = false;
+    return "preview";
+  }
   let text;
   try {
     text = localStorage.getItem(STORAGE_KEY);
@@ -270,6 +326,9 @@ function loadPlans() {
     plans = data.filter(function (p) {
       return p && typeof p.id === "string" && typeof p.subject === "string" &&
         typeof p.task === "string" && Number.isInteger(p.minutes) && p.minutes >= 1;
+    }).map(function (p) {
+      // 예전 버전에서 저장한 계획에는 done이 없다 → "아직 안 함"으로 읽는다
+      return { id: p.id, subject: p.subject, task: p.task, minutes: p.minutes, done: p.done === true };
     });
     return "loaded";
   } catch (e) {
@@ -294,11 +353,25 @@ function groupBySubject(list) {
 // 변경 후 저장을 시도하고 결과를 안내
 function saveAndReport(actionText) {
   const ok = savePlans();
+  const time = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   if (ok) {
     showStorageStatus("ok", "저장 완료: " + actionText + " 이 브라우저에 저장했어요.");
+    showSaveBadge("ok", "✓ 저장 완료 " + time);
   } else {
-    showStorageStatus("warn", "저장 안 됨: " + actionText + " 하지만 이 환경에서는 저장할 수 없어서, 지금 화면에서만 보이고 페이지를 닫으면 사라질 수 있어요.");
+    showStorageStatus("warn", "저장 안 됨: " + actionText + " 하지만 지금 화면에서만 보이고 새로고침하면 사라질 수 있어요. " + whyNotSaved());
+    showSaveBadge("warn", "! 저장 안 됨 " + time);
   }
+}
+
+// 저장이 안 되는 이유를 환경에 맞게 설명
+function whyNotSaved() {
+  if (IN_PREVIEW_BOX) return "전시판 미리보기 안에서는 저장이 막혀 있어요. ‘새 탭 실행’으로 열면 저장돼요.";
+  return "이 브라우저에서는 저장 기능을 쓸 수 없어요.";
+}
+
+function showSaveBadge(kind, text) {
+  saveBadge.className = "save-badge " + kind;
+  saveBadge.textContent = text;
 }
 
 // ===== 화면 갱신 =====
@@ -402,6 +475,14 @@ function renderPlanItem(plan) {
   main.className = "plan-main";
   const text = document.createElement("div");
   text.className = "plan-text";
+  // 완료한 공부 목록은 과목별로 묶지 않으므로 과목 이름을 앞에 함께 보여 준다
+  if (plan.done) {
+    li.classList.add("done");
+    const subjectSpan = document.createElement("span");
+    subjectSpan.className = "plan-subject";
+    subjectSpan.textContent = "✓ " + plan.subject + " · ";
+    text.appendChild(subjectSpan);
+  }
   const taskSpan = document.createElement("span");
   taskSpan.className = "plan-task";
   taskSpan.textContent = plan.task;           // textContent라서 입력이 코드로 실행되지 않음
@@ -413,11 +494,16 @@ function renderPlanItem(plan) {
 
   const actions = document.createElement("div");
   actions.className = "plan-actions";
-  actions.appendChild(makeButton("수정", "btn-small", function () {
-    editingId = plan.id;
-    deletingId = null;
-    renderPlans();
-  }));
+  if (plan.done) {
+    actions.appendChild(makeButton("되돌리기", "btn-small", function () { setDone(plan.id, false); }));
+  } else {
+    actions.appendChild(makeButton("완료", "btn-small btn-done", function () { setDone(plan.id, true); }));
+    actions.appendChild(makeButton("수정", "btn-small", function () {
+      editingId = plan.id;
+      deletingId = null;
+      renderPlans();
+    }));
+  }
   actions.appendChild(makeButton("삭제", "btn-small btn-danger", function () {
     deletingId = plan.id;
     editingId = null;
@@ -452,6 +538,16 @@ function renderPlanItem(plan) {
 // 과목별 목록 전체 다시 그리기
 function renderPlans() {
   planList.textContent = "";
+  doneList.textContent = "";
+  // 한 계획은 done 값에 따라 둘 중 한 목록에만 들어간다 (중복 표시 없음)
+  const todoPlans = plans.filter(function (p) { return !p.done; });
+  const donePlans = plans.filter(function (p) { return p.done; });
+
+  // 완료한 공부 목록
+  doneArea.hidden = (donePlans.length === 0);
+  doneCount.textContent = donePlans.length + "개";
+  donePlans.forEach(function (plan) { doneList.appendChild(renderPlanItem(plan)); });
+
   if (plans.length === 0) {
     const empty = document.createElement("p");
     empty.className = "empty";
@@ -463,9 +559,16 @@ function renderPlans() {
   }
   resetButton.disabled = false;
 
-  totalText.textContent = "계획 " + plans.length + "개";
+  totalText.textContent = "남은 계획 " + todoPlans.length + "개 · 완료 " + donePlans.length + "개";
 
-  groupBySubject(plans).forEach(function (group) {
+  if (todoPlans.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = "남은 공부 계획이 없어요. 모두 완료했어요!";
+    planList.appendChild(empty);
+  }
+
+  groupBySubject(todoPlans).forEach(function (group) {
     const section = document.createElement("section");
     section.className = "group";
     const h3 = document.createElement("h3");
@@ -483,18 +586,40 @@ function renderPlans() {
   });
 }
 
-// 예시 버튼 그리기
-function renderExampleButtons() {
-  EXAMPLE_PLANS.forEach(function (ex) {
-    const label = "예시: " + ex.subject + " · " + ex.task + " · " + ex.minutes + "분";
-    exampleButtons.appendChild(makeButton(label, "example-btn btn-small", function () {
-      subjectInput.value = ex.subject;
-      taskInput.value = ex.task;
-      minutesInput.value = String(ex.minutes);
-      showErrors(addMessage, [], { subject: subjectInput, task: taskInput, minutes: minutesInput });
-      document.getElementById("addButton").focus();
-    }));
+// 예시 목록(체크 상자) 그리기
+function renderExampleList() {
+  EXAMPLE_PLANS.forEach(function (ex, index) {
+    const li = document.createElement("li");
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.value = String(index);              // 몇 번째 예시인지 기억
+    const text = document.createElement("span");
+    text.textContent = ex.subject + " · " + ex.task + " · " + ex.minutes + "분";
+    label.appendChild(box);
+    label.appendChild(text);
+    li.appendChild(label);
+    exampleList.appendChild(li);
   });
+}
+
+// 체크한 예시만 내 계획에 추가
+function addSelectedExamples() {
+  const checked = exampleList.querySelectorAll("input[type=checkbox]:checked");
+  if (checked.length === 0) {
+    exampleMessage.className = "msg msg-error";
+    exampleMessage.textContent = "선택 안내: 추가할 예시를 하나 이상 체크해 주세요.";
+    return;
+  }
+  checked.forEach(function (box) {
+    const ex = EXAMPLE_PLANS[Number(box.value)];
+    plans.push({ id: makeId(), subject: ex.subject, task: ex.task, minutes: ex.minutes, done: false });
+    box.checked = false;   // 체크를 풀어서 버튼을 또 눌러도 중복으로 들어가지 않게 함
+  });
+  exampleMessage.className = "msg msg-ok";
+  exampleMessage.textContent = "추가 완료: 고른 예시 " + checked.length + "개를 목록에 넣었어요.";
+  renderPlans();
+  saveAndReport("예시 계획 " + checked.length + "개를 추가했어요.");
 }
 
 // ===== 계획 추가·수정·삭제·초기화 =====
@@ -505,7 +630,7 @@ function addPlan() {
   showErrors(addMessage, result.errors, inputs);
   if (result.errors.length > 0) return;   // 잘못된 입력이면 추가하지 않음
 
-  plans.push({ id: makeId(), subject: result.subject, task: result.task, minutes: result.minutes });
+  plans.push({ id: makeId(), subject: result.subject, task: result.task, minutes: result.minutes, done: false });
   // 입력칸을 비워서 같은 버튼을 또 눌러도 똑같은 계획이 중복으로 들어가지 않게 함
   subjectInput.value = "";
   taskInput.value = "";
@@ -530,6 +655,17 @@ function updatePlan(id, subjectEdit, taskEdit, minutesEdit, msgBox) {
   editingId = null;
   renderPlans();
   saveAndReport("계획을 수정했어요.");
+}
+
+// 완료 처리(true) 또는 되돌리기(false): 과목·내용·목표 시간은 그대로 두고 done만 바꾼다
+function setDone(id, done) {
+  const plan = plans.find(function (p) { return p.id === id; });
+  if (!plan) return;
+  plan.done = done;
+  editingId = null;
+  deletingId = null;
+  renderPlans();
+  saveAndReport(done ? "‘" + plan.task + "’을(를) 완료한 공부로 옮겼어요." : "‘" + plan.task + "’을(를) 남은 계획으로 되돌렸어요.");
 }
 
 function deletePlan(id) {
@@ -578,11 +714,14 @@ resetNo.addEventListener("click", function () {
   resetButton.focus();
 });
 resetYes.addEventListener("click", resetAllPlans);
+exampleAddButton.addEventListener("click", addSelectedExamples);
 
 // ===== 시작 =====
 (function start() {
   const state = loadPlans();
-  if (state === "unavailable") {
+  if (state === "preview") {
+    showStorageStatus("warn", "저장 안 됨: 전시판 미리보기 안에서는 저장이 막혀 있어요. 계획을 넣어 볼 수는 있지만 새로고침하면 사라져요. 저장하려면 ‘새 탭 실행’으로 여세요.");
+  } else if (state === "unavailable") {
     showStorageStatus("warn", "저장 안 됨: 이 환경에서는 브라우저 저장 기능을 쓸 수 없어요. 계획을 추가하고 볼 수는 있지만, 페이지를 닫으면 사라질 수 있어요.");
   } else if (state === "broken") {
     plans = [];
@@ -592,7 +731,7 @@ resetYes.addEventListener("click", resetAllPlans);
   } else {
     showStorageStatus("ok", "저장 준비됨: 아직 저장된 계획이 없어요. 계획을 추가하면 이 브라우저에 자동으로 저장돼요.");
   }
-  renderExampleButtons();
+  renderExampleList();
   renderPlans();
 })();
 </script>
