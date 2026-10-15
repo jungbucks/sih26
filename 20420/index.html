@@ -6,7 +6,7 @@
 <title>응급실 환자 위급도별 대기 순서 관리기</title>
 <meta name="description" content="위급도와 도착 순서로 응급실 대기 환자를 자동 정렬하는 우선순위 큐 관리기">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="PRD">
+<meta name="status" content="1회 개선">
 
 <!-- ===== 스타일 ===== -->
 <style>
@@ -129,6 +129,18 @@
   .confirm-box p { margin: 0 0 8px; color: var(--danger); font-weight: 600; }
   .confirm-box .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .limit-note { color: var(--muted); font-size: 0.9rem; margin: 14px 0 0; }
+  /* 긴급/중증 외상 표시 */
+  .urgent-check { display: flex; gap: 8px; align-items: flex-start; font-weight: 600; margin: 0 0 14px; }
+  .urgent-check input { margin-top: 5px; }
+  .hint { color: var(--muted); font-size: 0.9rem; margin: 4px 0 0; }
+  .hint.found { color: var(--danger); font-weight: 600; }
+  .badge.urgent { color: #fff; background: var(--danger); border-color: var(--danger); }
+  .edit-box .urgent-check { margin: 0; flex-basis: 100%; font-weight: 400; }
+  /* 진료 완료 환자 영역 (접고 펼 수 있음) */
+  .done-area { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 12px; }
+  .done-area summary { cursor: pointer; font-weight: 700; color: var(--muted); padding: 4px 0; }
+  .done-area .patients { margin-top: 10px; }
+  .done-tools { margin-top: 10px; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -153,16 +165,21 @@
         </div>
         <div class="field">
           <label for="symptom-input">주요 증상</label>
-          <input type="text" id="symptom-input" maxlength="40" autocomplete="off" placeholder="예: 복통">
+          <input type="text" id="symptom-input" maxlength="40" autocomplete="off" placeholder="예: 복통" aria-describedby="keyword-hint">
+          <p class="hint" id="keyword-hint" aria-live="polite">교통사고·출혈·의식불명 같은 긴급 단어가 있으면 자동으로 긴급 환자로 표시됩니다.</p>
         </div>
         <fieldset>
           <legend>위급도 단계</legend>
           <div class="radios" id="priority-radios"></div>
         </fieldset>
+        <label class="urgent-check" for="urgent-input">
+          <input type="checkbox" id="urgent-input">
+          <span>긴급/중증 외상 환자 (같은 단계 안에서 먼저 진료)</span>
+        </label>
         <button type="submit" class="btn-primary" id="register-btn">환자 등록</button>
         <p class="msg" id="form-msg" role="alert" aria-live="assertive"></p>
       </form>
-      <p class="limit-note">최대 20명까지 등록할 수 있습니다.</p>
+      <p class="limit-note">진료를 기다리는 환자는 최대 20명까지 등록할 수 있습니다. (진료 완료 환자는 세지 않습니다)</p>
     </section>
 
     <!-- 대기 환자 목록 -->
@@ -171,9 +188,18 @@
         <h2 id="list-title">진료 대기 목록</h2>
         <span class="count" id="count-text"></span>
       </div>
-      <p class="sub" style="margin-bottom:12px">정렬 규칙: 위급도 1단계가 위, 같은 단계면 먼저 등록한 환자가 위</p>
-      <ol class="patients" id="patient-list" aria-label="정렬된 환자 목록"></ol>
+      <p class="sub" style="margin-bottom:12px">정렬 규칙: ① 위급도 1단계가 위 → ② 같은 단계면 긴급 환자가 위 → ③ 그다음 먼저 등록한 환자가 위</p>
+      <ol class="patients" id="patient-list" aria-label="진료 대기 중인 환자 목록"></ol>
       <p class="empty" id="empty-text">대기 중인 환자가 없습니다. 왼쪽(위쪽) 폼에서 환자를 등록하세요.</p>
+
+      <!-- 진료 완료 환자: 대기 목록과 분리해서 아래쪽 접히는 영역에 모음 -->
+      <details class="done-area" id="done-area" hidden>
+        <summary id="done-summary">진료 완료 환자</summary>
+        <ol class="patients" id="done-list" aria-label="진료 완료 환자 목록"></ol>
+        <div class="done-tools">
+          <button type="button" class="btn-danger" id="clear-done-btn">완료 환자 정리</button>
+        </div>
+      </details>
 
       <div class="bottom">
         <button type="button" id="sample-btn">예시 데이터 불러오기</button>
@@ -203,6 +229,9 @@ const PRIORITY_LABELS = {
   3: "3단계 (보통)",
   4: "4단계 (경증)"
 };
+// 긴급/중증 외상 키워드: 증상에 이 단어가 들어 있으면 자동으로 긴급 환자로 본다
+// (찰과상처럼 가벼운 상처는 넣지 않았다. 필요하면 등록 폼의 체크박스로 직접 표시)
+const URGENT_KEYWORDS = ["교통사고", "외상", "출혈", "심근경색", "뇌졸중", "의식불명", "의식 없음", "추락"];
 // 가상 예시 데이터 (실제 환자 아님)
 const SAMPLE_PATIENTS = [
   { name: "김철수", symptom: "두통", priority: 3 },
@@ -211,7 +240,7 @@ const SAMPLE_PATIENTS = [
 ];
 
 // ===== 데이터·상태 =====
-let patients = [];          // [{id, name, symptom, priority, time, status}]
+let patients = [];          // [{id, name, symptom, priority, time, status, urgent}]  urgent = 체크박스로 직접 표시한 긴급 여부
 let nextId = 1;             // 등록할 때마다 1씩 커지는 번호 (같은 시각 등록 시 순서 보장용)
 let storageOk = true;       // localStorage 사용 가능 여부
 let editingId = null;       // 위급도 수정 중인 환자 id
@@ -228,6 +257,8 @@ function loadPatients() {
     const data = JSON.parse(raw);
     if (Array.isArray(data)) {
       patients = data.filter(p => p && typeof p.name === "string" && [1, 2, 3, 4].includes(p.priority));
+      // 이전 버전에서 저장한 환자에는 urgent 칸이 없으므로 "직접 표시 안 함(false)"으로 채운다
+      patients.forEach(p => { p.urgent = p.urgent === true; });
       nextId = patients.reduce((m, p) => Math.max(m, p.id), 0) + 1;
     }
   } catch (e) {
@@ -254,31 +285,57 @@ function removeStoredPatients() {
   }
 }
 
+// 증상 글자 안에서 긴급 키워드를 찾는다. 찾으면 그 단어, 없으면 null
+function findUrgentKeyword(symptom) {
+  const text = String(symptom || "");
+  return URGENT_KEYWORDS.find(k => text.includes(k)) || null;
+}
+
+// 긴급 환자인가? (체크박스로 직접 표시했거나, 증상에 긴급 키워드가 있으면 긴급)
+function isUrgent(p) {
+  return p.urgent === true || findUrgentKeyword(p.symptom) !== null;
+}
+
 /*
   우선순위 큐(Priority Queue) 정렬 규칙
   - 일반 큐는 "먼저 온 사람이 먼저"(선착순)지만,
     응급실은 "더 위급한 사람이 먼저"여야 하므로 우선순위 큐 개념을 정렬로 표현한다.
   - sort(비교함수)는 비교함수가 음수를 돌려주면 a를 앞에, 양수면 b를 앞에 둔다.
-  1) 먼저 위급도(priority)를 비교한다. 숫자가 작을수록 위급하므로
+  0) 진료 상태를 먼저 본다. "대기" 환자는 항상 앞, "진료 완료" 환자는 항상 뒤
+     → 다음에 진료할 환자를 찾을 때 완료 환자를 건너뛸 필요가 없다
+  1) 위급도(priority)를 비교한다. 숫자가 작을수록 위급하므로
      a.priority - b.priority 가 음수면 a가 더 위급 → a가 앞으로 (오름차순 1→2→3→4)
-  2) 위급도가 같으면(차이가 0) 등록 시간(time)을 비교한다.
-     먼저 등록된 환자(time이 작은 쪽)가 앞으로 → 같은 단계 안에서는 선착순
-  3) 등록 시간까지 같으면(같은 순간에 등록) 등록 번호(id)가 작은 쪽을 앞으로
+  2) 위급도가 같으면 긴급 여부를 비교한다.
+     교통사고·출혈 같은 긴급/중증 외상 환자가 같은 단계 안에서 먼저
+  3) 긴급 여부까지 같으면 등록 시간(time)을 비교한다.
+     먼저 등록된 환자(time이 작은 쪽)가 앞으로 → 선착순
+  4) 등록 시간까지 같으면(같은 순간에 등록) 등록 번호(id)가 작은 쪽을 앞으로
 */
 function sortPatients(list) {
   return list.sort((a, b) => {
+    const aDone = a.status === "진료 완료" ? 1 : 0;
+    const bDone = b.status === "진료 완료" ? 1 : 0;
+    if (aDone !== bDone) return aDone - bDone;                     // 0) 대기 환자가 앞
     if (a.priority !== b.priority) return a.priority - b.priority; // 1) 위급도 비교
-    if (a.time !== b.time) return a.time - b.time;                 // 2) 등록 시간 비교
-    return a.id - b.id;                                            // 3) 등록 번호 비교
+    const aUrgent = isUrgent(a) ? 0 : 1;                           //    긴급이면 0, 아니면 1
+    const bUrgent = isUrgent(b) ? 0 : 1;
+    if (aUrgent !== bUrgent) return aUrgent - bUrgent;             // 2) 긴급 환자가 앞
+    if (a.time !== b.time) return a.time - b.time;                 // 3) 등록 시간 비교
+    return a.id - b.id;                                            // 4) 등록 번호 비교
   });
 }
 
+// 진료를 기다리는 환자 수 (20명 제한은 이 숫자로 센다)
+function countWaiting() {
+  return patients.filter(p => p.status !== "진료 완료").length;
+}
+
 // 입력값을 검사하고 환자를 등록한다. 성공하면 null, 실패하면 안내 문장을 돌려준다.
-function addPatient(name, symptom, priority) {
+function addPatient(name, symptom, priority, urgent) {
   if (name.trim() === "") return "환자 이름을 입력해 주세요.";
   if (![1, 2, 3, 4].includes(priority)) return "위급도 단계를 선택해 주세요.";
-  if (patients.length >= MAX_PATIENTS) {
-    return "최대 " + MAX_PATIENTS + "명까지만 등록할 수 있습니다. 진료가 끝난 환자를 삭제한 뒤 등록해 주세요.";
+  if (countWaiting() >= MAX_PATIENTS) {
+    return "대기 환자가 이미 " + MAX_PATIENTS + "명입니다. 진료가 끝난 환자를 [진료 완료]로 바꾸거나 잘못 등록한 환자를 삭제한 뒤 등록해 주세요.";
   }
   patients.push({
     id: nextId++,
@@ -286,7 +343,8 @@ function addPatient(name, symptom, priority) {
     symptom: symptom.trim() === "" ? "(증상 미입력)" : symptom.trim(),
     priority: priority,
     time: Date.now(),
-    status: "대기"
+    status: "대기",
+    urgent: urgent === true
   });
   sortPatients(patients);
   savePatients();
@@ -302,14 +360,16 @@ function completePatient(id) {
   const p = findPatient(id);
   if (!p) return;
   p.status = "진료 완료";
+  sortPatients(patients);   // 완료 환자는 아래쪽으로 이동
   savePatients();
 }
 
-// 위급도 수정 후 다시 정렬
-function changePriority(id, newPriority) {
+// 위급도(와 긴급 표시) 수정 후 다시 정렬
+function changePriority(id, newPriority, newUrgent) {
   const p = findPatient(id);
   if (!p || ![1, 2, 3, 4].includes(newPriority)) return;
   p.priority = newPriority;
+  if (typeof newUrgent === "boolean") p.urgent = newUrgent;
   sortPatients(patients);
   savePatients();
 }
@@ -329,10 +389,19 @@ function loadSampleData() {
     symptom: s.symptom,
     priority: s.priority,
     time: base + i * 1000,
-    status: "대기"
+    status: "대기",
+    urgent: false
   }));
   sortPatients(patients);
   savePatients();
+}
+
+// 진료 완료 환자만 한꺼번에 지우기. 지운 인원 수를 돌려준다
+function clearDonePatients() {
+  const before = patients.length;
+  patients = patients.filter(p => p.status !== "진료 완료");
+  savePatients();
+  return before - patients.length;
 }
 
 // 전체 초기화
@@ -355,6 +424,12 @@ const els = {
   form: document.getElementById("patient-form"),
   name: document.getElementById("name-input"),
   symptom: document.getElementById("symptom-input"),
+  urgent: document.getElementById("urgent-input"),
+  keywordHint: document.getElementById("keyword-hint"),
+  doneArea: document.getElementById("done-area"),
+  doneSummary: document.getElementById("done-summary"),
+  doneList: document.getElementById("done-list"),
+  clearDoneBtn: document.getElementById("clear-done-btn"),
   radios: document.getElementById("priority-radios"),
   formMsg: document.getElementById("form-msg"),
   list: document.getElementById("patient-list"),
@@ -415,7 +490,7 @@ function renderPatient(p, rank) {
   const rankEl = document.createElement("div");
   rankEl.className = "rank";
   rankEl.textContent = rank + "";
-  rankEl.setAttribute("aria-label", "순위 " + rank);
+  rankEl.setAttribute("aria-label", typeof rank === "number" ? "순위 " + rank : "진료 완료");
 
   const main = document.createElement("div");
   main.className = "p-main";
@@ -426,6 +501,14 @@ function renderPatient(p, rank) {
   badge.className = "badge lv" + p.priority;
   badge.textContent = PRIORITY_LABELS[p.priority];
   main.append(nameEl, badge);
+  // 긴급 환자 표시 (왜 긴급인지 함께 보여 줌)
+  if (isUrgent(p)) {
+    const ub = document.createElement("span");
+    ub.className = "badge urgent";
+    const kw = findUrgentKeyword(p.symptom);
+    ub.textContent = kw ? "긴급 · " + kw : "긴급 · 직접 표시";
+    main.appendChild(ub);
+  }
 
   const symptomEl = document.createElement("div");
   symptomEl.className = "p-symptom";
@@ -459,19 +542,36 @@ function renderPatient(p, rank) {
       if (lv === p.priority) opt.selected = true;
       sel.appendChild(opt);
     }
+    // 긴급/중증 외상 체크 (증상 키워드로 이미 긴급이면 그 사실도 알려 줌)
+    const ulabel = document.createElement("label");
+    ulabel.className = "urgent-check";
+    const ucheck = document.createElement("input");
+    ucheck.type = "checkbox";
+    ucheck.checked = p.urgent === true;
+    const utext = document.createElement("span");
+    const kw = findUrgentKeyword(p.symptom);
+    utext.textContent = kw
+      ? "긴급/중증 외상 직접 표시 (증상의 '" + kw + "' 때문에 이미 긴급으로 정렬됨)"
+      : "긴급/중증 외상 환자로 표시";
+    ulabel.append(ucheck, utext);
     box.append(
       sel,
       makeButton("변경 적용", "", () => {
         const before = p.priority;
         const after = Number(sel.value);
-        changePriority(p.id, after);
+        const urgentBefore = isUrgent(p);
+        changePriority(p.id, after, ucheck.checked);
+        const urgentAfter = isUrgent(p);
         editingId = null;
         render();
-        showListMsg(before === after
+        let text = before === after
           ? p.name + " 환자의 위급도는 그대로입니다."
-          : p.name + " 환자의 위급도를 " + before + "단계에서 " + after + "단계로 바꾸고 순서를 다시 정렬했습니다.", "info");
+          : p.name + " 환자의 위급도를 " + before + "단계에서 " + after + "단계로 바꾸고 순서를 다시 정렬했습니다.";
+        if (urgentBefore !== urgentAfter) text += urgentAfter ? " 긴급 환자로 표시했습니다." : " 긴급 표시를 해제했습니다.";
+        showListMsg(text, "info");
       }),
-      makeButton("취소", "", () => { editingId = null; render(); })
+      makeButton("취소", "", () => { editingId = null; render(); }),
+      ulabel
     );
     body.appendChild(box);
   } else if (deletingId === p.id) {
@@ -520,11 +620,22 @@ function focusEdit(id) {
 
 // 전체 화면 다시 그리기
 function render() {
+  sortPatients(patients);
+  const waitingList = patients.filter(p => p.status !== "진료 완료");
+  const doneList = patients.filter(p => p.status === "진료 완료");
+  // 대기 환자: 순위 1, 2, 3 … (진료 완료 환자는 순위에서 빠짐)
   els.list.textContent = "";
-  patients.forEach((p, i) => els.list.appendChild(renderPatient(p, i + 1)));
-  const waiting = patients.filter(p => p.status !== "진료 완료").length;
-  els.count.textContent = "전체 " + patients.length + "명 / 대기 " + waiting + "명 (최대 " + MAX_PATIENTS + "명)";
-  els.empty.hidden = patients.length > 0;
+  waitingList.forEach((p, i) => els.list.appendChild(renderPatient(p, i + 1)));
+  // 진료 완료 환자: 아래쪽 접히는 영역에 따로 모음, 순위 대신 "완료" 표시
+  els.doneList.textContent = "";
+  doneList.forEach(p => els.doneList.appendChild(renderPatient(p, "완료")));
+  els.doneArea.hidden = doneList.length === 0;
+  els.doneSummary.textContent = "진료 완료 환자 " + doneList.length + "명 (눌러서 펼치기/접기)";
+  els.count.textContent = "대기 " + waitingList.length + "명 / 최대 " + MAX_PATIENTS + "명 · 진료 완료 " + doneList.length + "명";
+  els.empty.hidden = waitingList.length > 0;
+  els.empty.textContent = patients.length === 0
+    ? "대기 중인 환자가 없습니다. 왼쪽(위쪽) 폼에서 환자를 등록하세요."
+    : "지금 진료를 기다리는 환자가 없습니다.";
   if (!storageOk) {
     els.storageMsg.hidden = false;
     els.storageMsg.textContent = "이 환경에서는 브라우저 저장이 막혀 있어 목록이 저장되지 않습니다. 새로고침하면 목록이 사라집니다.";
@@ -552,7 +663,7 @@ els.form.addEventListener("submit", (e) => {
   const checked = els.form.querySelector('input[name="priority"]:checked');
   const priority = checked ? Number(checked.value) : 0;
   const name = els.name.value;
-  const error = addPatient(name, els.symptom.value, priority);
+  const error = addPatient(name, els.symptom.value, priority, els.urgent.checked);
   if (error) {
     showFormMsg(error);
     if (name.trim() === "") els.name.focus();
@@ -564,7 +675,31 @@ els.form.addEventListener("submit", (e) => {
   els.name.value = "";
   els.symptom.value = "";
   checked.checked = false;
+  els.urgent.checked = false;
+  updateKeywordHint();
   els.name.focus();
+});
+
+// 증상을 입력하는 동안 긴급 키워드를 찾으면 바로 알려 준다
+function updateKeywordHint() {
+  const kw = findUrgentKeyword(els.symptom.value);
+  els.keywordHint.textContent = kw
+    ? "긴급 단어 '" + kw + "' 감지 → 같은 단계 안에서 먼저 진료하도록 정렬됩니다."
+    : "교통사고·출혈·의식불명 같은 긴급 단어가 있으면 자동으로 긴급 환자로 표시됩니다.";
+  els.keywordHint.className = kw ? "hint found" : "hint";
+}
+els.symptom.addEventListener("input", updateKeywordHint);
+
+// 진료 완료 환자만 정리 (페이지 안 확인창으로 한 번 더 묻기)
+els.clearDoneBtn.addEventListener("click", () => {
+  const n = patients.length - countWaiting();
+  if (n === 0) { showListMsg("정리할 진료 완료 환자가 없습니다.", "info"); return; }
+  openConfirm("진료 완료 환자 " + n + "명을 목록에서 지울까요? 대기 환자는 그대로 남습니다.", () => {
+    const removed = clearDonePatients();
+    deletingId = null;
+    render();
+    showListMsg("진료 완료 환자 " + removed + "명을 정리했습니다.", "info");
+  });
 });
 
 els.name.addEventListener("input", () => {

@@ -6,7 +6,7 @@
 <title>수행평가 D-Day 챙기미</title>
 <meta name="description" content="수행평가 마감일을 D-Day순으로 정렬해 급한 것부터 보여 주고, 완료한 항목을 따로 관리하는 개인 정리 도구">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="PRD">
+<meta name="status" content="1회 개선">
 <style>
   :root {
     --bg: #f6f7f9;
@@ -118,6 +118,11 @@
   .inline-confirm { font-weight: 600; color: var(--warn); }
   .save-state { font-size: 0.9rem; color: var(--muted); margin: 0 0 4px; }
   .save-state.warn { color: var(--warn); font-weight: 600; }
+  /* 카드 안 수정 칸 */
+  .edit-box { grid-column: 1 / -1; display: grid; gap: 10px; margin-top: 4px; }
+  .edit-box .field { margin-bottom: 0; }
+  .edit-box label { font-size: 0.95rem; }
+  .card.is-editing { border-color: var(--accent); }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -203,6 +208,8 @@ function makeExampleData() {
 let assignments = [];      // 모든 수행평가 (진행 중 + 완료)
 let canSave = true;        // 브라우저 저장이 가능한지
 let pendingDeleteId = null; // 삭제 확인 중인 항목의 id
+let editingId = null;       // 수정 중인 항목의 id (한 번에 하나만)
+let editDraft = null;       // 수정 칸에 입력 중인 값 (저장 전까지는 여기에만 둔다)
 
 // ===== 처리 함수 =====
 
@@ -249,13 +256,18 @@ function sortByDday(list) {
   });
 }
 
+// 전시판 미리보기(sandbox iframe) 안인지 확인: 여기서는 브라우저 저장이 아예 막혀 있다
+const IN_PREVIEW = window.origin === "null" && location.protocol !== "file:";
+
 // 저장하기: 배열을 JSON 글자로 바꿔 localStorage에 넣는다
+// 넣은 뒤 다시 꺼내 읽어 보고, 똑같을 때만 "저장됨"으로 인정한다
 function saveData() {
+  const text = JSON.stringify(assignments);
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(assignments));
-    canSave = true;
+    localStorage.setItem(STORAGE_KEY, text);
+    canSave = localStorage.getItem(STORAGE_KEY) === text;
   } catch (e) {
-    canSave = false; // 저장이 막힌 환경 (사생활 보호 모드, 전시판 등)
+    canSave = false; // 저장이 막힌 환경 (사생활 보호 모드, 전시판 미리보기 등)
   }
   showSaveState();
 }
@@ -323,6 +335,28 @@ function deleteAssignment(id) {
   saveData();
 }
 
+// 수정 저장: 필수 3가지가 채워졌을 때만 바꾸고 저장한다
+// (목록은 render()에서 D-Day를 다시 계산해 새로 정렬된다)
+function updateAssignment(id, f) {
+  const item = assignments.find(function (a) { return a.id === id; });
+  if (!item || !isFormComplete(f)) return false;
+  item.subject = f.subject;
+  item.title = f.title;
+  item.due = f.due;
+  item.memo = f.memo;
+  saveData();
+  return true;
+}
+
+// 수정 칸에서 비어 있는 필수 항목 이름 모으기
+function missingFields(f) {
+  const missing = [];
+  if (f.subject === "") missing.push("과목명");
+  if (f.title === "") missing.push("제목");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(f.due)) missing.push("마감일");
+  return missing;
+}
+
 // 전체 초기화: 저장을 지우고 예시 데이터로 되돌린다
 function resetAll() {
   try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* 저장이 막혀 있어도 화면은 초기화 */ }
@@ -337,6 +371,10 @@ function showSaveState() {
   if (canSave) {
     el.textContent = "입력한 내용은 이 브라우저에 자동 저장됩니다.";
     el.className = "save-state";
+  } else if (IN_PREVIEW) {
+    // 전시판 미리보기 칸은 보안 때문에 저장을 막는다 → 새 탭에서 열어야 저장된다
+    el.textContent = "주의: 전시판 미리보기에서는 저장이 막혀 새로고침하면 예시로 돌아가요. 저장하려면 '새 탭 실행'으로 여세요.";
+    el.className = "save-state warn";
   } else {
     el.textContent = "주의: 이 환경에서는 저장되지 않습니다. 새로고침하면 내용이 사라져요.";
     el.className = "save-state warn";
@@ -399,6 +437,14 @@ function makeCard(item) {
     meta.appendChild(memo);
   }
 
+  // 수정 중인 카드: 내용 자리에 입력 칸을 보여 주고 [저장]·[취소]만 둔다
+  if (editingId === item.id && editDraft) {
+    li.className += " is-editing";
+    head.replaceChildren(subject, title);
+    li.append(badge, head, makeEditBox(item));
+    return li;
+  }
+
   const actions = document.createElement("div");
   actions.className = "actions";
   if (pendingDeleteId === item.id) {
@@ -411,14 +457,86 @@ function makeCard(item) {
       makeButton("취소", "cancel-delete", item.id, ""));
   } else if (item.done) {
     actions.append(makeButton("복원", "restore", item.id, ""),
+                   makeButton("수정", "edit", item.id, ""),
                    makeButton("삭제", "delete", item.id, "danger"));
   } else {
     actions.append(makeButton("완료", "done", item.id, "primary"),
+                   makeButton("수정", "edit", item.id, ""),
                    makeButton("삭제", "delete", item.id, "danger"));
   }
 
   li.append(badge, head, meta, actions);
   return li;
+}
+
+// 카드 안 수정 칸 만들기 (값은 editDraft에서 가져온다)
+function makeEditBox(item) {
+  const box = document.createElement("div");
+  box.className = "edit-box";
+  box.append(
+    makeEditField("editSubject", "과목명", "(필수)", "text", "subject", 20),
+    makeEditField("editTitle", "수행평가 제목", "(필수)", "text", "title", 40),
+    makeEditField("editDue", "제출 마감일", "(필수)", "date", "due", 0),
+    makeEditField("editMemo", "메모 / 준비물", "(선택)", "text", "memo", 60)
+  );
+
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  const saveBtn = makeButton("저장", "save-edit", item.id, "primary");
+  saveBtn.id = "editSave";
+  actions.append(saveBtn, makeButton("취소", "cancel-edit", item.id, ""));
+
+  const hint = document.createElement("p");
+  hint.className = "hint";
+  hint.id = "editHint";
+  hint.setAttribute("aria-live", "polite");
+
+  box.append(actions, hint);
+  updateEditState(box);
+  return box;
+}
+
+function makeEditField(inputId, labelText, tag, type, key, maxLen) {
+  const wrap = document.createElement("div");
+  wrap.className = "field";
+  const label = document.createElement("label");
+  label.htmlFor = inputId;
+  label.textContent = labelText + " ";
+  const span = document.createElement("span");
+  span.className = tag === "(필수)" ? "req" : "opt";
+  span.textContent = tag;
+  label.appendChild(span);
+  const input = document.createElement("input");
+  input.type = type;
+  input.id = inputId;
+  input.dataset.key = key;          // editDraft의 어느 칸인지
+  input.value = editDraft[key] || "";
+  if (maxLen) input.maxLength = maxLen;
+  input.autocomplete = "off";
+  wrap.append(label, input);
+  return wrap;
+}
+
+// 수정 칸의 값 읽기 (앞뒤 공백 제거)
+function readDraft() {
+  return {
+    subject: (editDraft.subject || "").trim(),
+    title: (editDraft.title || "").trim(),
+    due: editDraft.due || "",
+    memo: (editDraft.memo || "").trim()
+  };
+}
+
+// 수정 칸의 [저장] 버튼 켜기/끄기와 안내 문구 (등록 폼과 같은 규칙)
+function updateEditState(root) {
+  const saveBtn = root.querySelector("#editSave");
+  const hint = root.querySelector("#editHint");
+  if (!saveBtn || !hint || !editDraft) return;
+  const missing = missingFields(readDraft());
+  saveBtn.disabled = missing.length > 0;
+  hint.textContent = missing.length > 0
+    ? "아직 입력하지 않은 필수 항목: " + missing.join(", ")
+    : "고친 뒤 '저장'을 누르면 D-Day와 순서가 다시 계산됩니다.";
 }
 
 function makeButton(text, action, id, cls) {
@@ -470,14 +588,70 @@ function handleListClick(e) {
   const id = Number(b.dataset.id);
   const action = b.dataset.action;
   pendingDeleteId = null; // 다른 버튼을 누르면 삭제 확인은 닫는다
+  let focusAfter = null;  // 다시 그린 뒤 포커스를 둘 버튼
   if (action === "done") setDone(id, true);
   else if (action === "restore") setDone(id, false);
   else if (action === "delete") pendingDeleteId = id;
-  else if (action === "confirm-delete") deleteAssignment(id);
+  else if (action === "confirm-delete") {
+    deleteAssignment(id);
+    if (editingId === id) { editingId = null; editDraft = null; }
+  }
+  else if (action === "edit") startEdit(id);
+  else if (action === "cancel-edit") { editingId = null; editDraft = null; focusAfter = id; }
+  else if (action === "save-edit") {
+    if (!updateAssignment(id, readDraft())) return; // 필수 항목이 비면 저장하지 않음
+    editingId = null; editDraft = null; focusAfter = id;
+  }
   render();
+  if (action === "edit") {
+    const first = document.getElementById("editSubject");
+    if (first) first.focus();
+  } else if (focusAfter !== null) {
+    // 저장/취소 후에는 그 카드의 [수정] 버튼으로 돌아온다 (정렬로 자리가 바뀌어도 찾아감)
+    const again = document.querySelector('button[data-action="edit"][data-id="' + String(focusAfter) + '"]');
+    if (again) again.focus();
+  }
 }
-document.getElementById("activeList").addEventListener("click", handleListClick);
-document.getElementById("doneList").addEventListener("click", handleListClick);
+
+// [수정]을 누르면 지금 값을 복사해 수정 칸에 채운다 (다른 카드 수정 중이었다면 그건 닫힘)
+function startEdit(id) {
+  const item = assignments.find(function (a) { return a.id === id; });
+  if (!item) return;
+  editingId = id;
+  editDraft = { subject: item.subject, title: item.title, due: item.due, memo: item.memo || "" };
+}
+
+// 수정 칸에 입력할 때: 값만 기억하고 버튼 상태만 바꾼다 (다시 그리면 입력 중 커서가 사라지므로)
+function handleEditInput(e) {
+  const input = e.target;
+  if (!editDraft || !input.dataset || !input.dataset.key) return;
+  editDraft[input.dataset.key] = input.value;
+  const box = input.closest(".edit-box");
+  if (box) updateEditState(box);
+}
+
+// 수정 칸에서 Enter = 저장, Esc = 취소
+function handleEditKey(e) {
+  if (!editDraft || !e.target.closest(".edit-box")) return;
+  const box = e.target.closest(".edit-box");
+  if (e.key === "Enter" && e.target.tagName === "INPUT") {
+    e.preventDefault();
+    const saveBtn = box.querySelector("#editSave");
+    if (saveBtn && !saveBtn.disabled) saveBtn.click();
+  } else if (e.key === "Escape") {
+    e.preventDefault();
+    const cancelBtn = box.querySelector('button[data-action="cancel-edit"]');
+    if (cancelBtn) cancelBtn.click();
+  }
+}
+
+["activeList", "doneList"].forEach(function (listId) {
+  const list = document.getElementById(listId);
+  list.addEventListener("click", handleListClick);
+  list.addEventListener("input", handleEditInput);
+  list.addEventListener("change", handleEditInput);
+  list.addEventListener("keydown", handleEditKey);
+});
 
 // 전체 초기화 (화면 안 확인 상자)
 document.getElementById("resetButton").addEventListener("click", function () {
@@ -492,6 +666,7 @@ document.getElementById("resetNo").addEventListener("click", function () {
 document.getElementById("resetYes").addEventListener("click", function () {
   resetAll();
   pendingDeleteId = null;
+  editingId = null; editDraft = null;
   document.getElementById("resetConfirm").hidden = true;
   render();
   document.getElementById("resetHint").textContent = "초기화했어요. 예시 데이터 2개로 다시 시작합니다.";

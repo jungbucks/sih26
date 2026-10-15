@@ -6,7 +6,7 @@
 <title>수행평가 관리 플래너</title>
 <meta name="description" content="여러 과목의 수행평가를 마감일·우선순위와 함께 적어 두고, 완료한 과제는 취소선과 함께 아래로 정리해 주는 플래너">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="PRD">
+<meta name="status" content="1회 개선">
 <style>
   /* ===== 색과 기본 글꼴 ===== */
   :root {
@@ -135,6 +135,21 @@
   .badge.p-low { color: var(--muted); }
   .late { color: var(--warn); font-weight: 700; }
   .card button { flex-shrink: 0; }
+  /* 카드 오른쪽 버튼 묶음 (완료 + 삭제) */
+  .actions { display: flex; gap: 6px; flex-shrink: 0; }
+  /* 카드 안 삭제 확인 상자 */
+  .card-confirm {
+    flex-basis: 100%;
+    margin-top: 4px;
+    padding: 10px 12px;
+    border: 1px solid #e2b7ac;
+    background: var(--warn-soft);
+    border-radius: 8px;
+  }
+  .card-confirm p { margin: 0 0 8px; color: var(--text); text-decoration: none; }
+  .card-confirm .row { margin-top: 0; }
+  .card-confirm button { white-space: nowrap; }
+  .card { flex-wrap: wrap; }
   /* 완료된 카드: 흐리게 + 취소선 */
   .card.done { background: #f1f2f4; border-left-color: var(--done); }
   .card.done .subject, .card.done .task { text-decoration: line-through; color: var(--done); }
@@ -149,10 +164,40 @@
   }
   .storage { margin-top: 18px; color: var(--muted); font-size: 0.93rem; }
 
+  /* ===== 예시 보기 팝업 ===== */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 24, 30, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 10;
+  }
+  .modal {
+    background: var(--card);
+    border-radius: 14px;
+    width: 100%;
+    max-width: 30rem;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    padding: 18px 16px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    animation: pop 0.15s ease-out;
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .modal { animation: none; } }
+  .modal ol { margin: 0 0 12px; padding-left: 1.3em; }
+  .modal .cards { margin-bottom: 8px; }
+  .modal .note { color: var(--muted); font-size: 0.93rem; margin: 0 0 12px; }
+
   @media (max-width: 480px) {
     .grid { grid-template-columns: 1fr; }
-    .card { flex-direction: column; }
-    .card button { width: 100%; }
+    .card { flex-direction: column; flex-wrap: nowrap; }
+    .card .actions { width: 100%; }
+    .card button { flex: 1; }
+    .card-confirm { width: 100%; }
   }
 </style>
 </head>
@@ -212,7 +257,7 @@
     <p class="empty" id="empty-box">등록된 수행평가가 없습니다. 새로운 과제를 추가해 보세요!</p>
 
     <div class="row">
-      <button type="button" id="btn-sample">예시 데이터 불러오기</button>
+      <button type="button" id="btn-sample" aria-haspopup="dialog">예시 보기</button>
       <button type="button" class="danger" id="btn-reset">전체 초기화</button>
     </div>
     <div class="confirm" id="confirm-box" hidden>
@@ -226,6 +271,24 @@
     <p class="storage" id="storage-msg"></p>
   </section>
 </main>
+
+<!-- 예시 보기 팝업: 내 목록에는 아무것도 더하지 않고 보여 주기만 한다 -->
+<div class="overlay" id="sample-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sample-title">
+    <h2 id="sample-title">이렇게 사용해요</h2>
+    <ol>
+      <li>위 입력칸에 과목명, 과제 내용, 마감 날짜, 소요 시간, 우선순위를 적고 '추가'를 눌러요.</li>
+      <li>목록은 마감일이 빠른 과제가 위로, 마감일이 같으면 우선순위가 높은 과제가 위로 와요.</li>
+      <li>다 끝낸 과제는 '완료'를 누르면 취소선이 그어지고 아래로 내려가요.</li>
+      <li>잘못 넣은 과제는 '삭제'로 하나만 지울 수 있어요.</li>
+    </ol>
+    <p class="note">아래는 예시 화면이에요. 내 목록에는 추가되지 않아요.</p>
+    <ul class="cards" id="sample-list"></ul>
+    <div class="row">
+      <button type="button" class="primary" id="btn-sample-close">닫기</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ===== 예시 데이터·설정 =====
@@ -243,6 +306,7 @@ const SAMPLE_TASKS = [
 // ===== 데이터·상태 =====
 let tasks = [];          // 수행평가 객체 배열
 let canSave = true;      // localStorage를 쓸 수 있는지
+let pendingDeleteId = null; // '삭제' 확인 상자를 띄운 과제의 id (없으면 null)
 
 // ===== 처리 함수 =====
 
@@ -283,8 +347,10 @@ function loadTasks() {
 // 현재 목록을 JSON으로 저장
 function saveTasks() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-    canSave = true;
+    const text = JSON.stringify(tasks);
+    localStorage.setItem(STORAGE_KEY, text);
+    // 정말 저장됐는지 다시 읽어서 확인한다
+    canSave = localStorage.getItem(STORAGE_KEY) === text;
   } catch (e) {
     canSave = false;
   }
@@ -309,15 +375,17 @@ function makeTask(subject, task, due, minutes, priority) {
 }
 
 // 정렬 규칙: 미완료가 위, 완료가 아래.
-// 같은 그룹 안에서는 우선순위(높음→낮음), 그다음 마감일이 빠른 순.
-function sortedTasks() {
-  return tasks.slice().sort(function (a, b) {
+// 같은 그룹 안에서는 마감일이 빠른 순, 마감일이 같으면 우선순위(높음→낮음) 순.
+// (마감일은 "2026-10-14" 꼴 문자열이라 글자 크기 비교만으로 날짜 순서가 된다)
+function sortTasks(list) {
+  return list.slice().sort(function (a, b) {
     if (a.done !== b.done) return a.done ? 1 : -1;
-    if (PRIORITY_RANK[a.priority] !== PRIORITY_RANK[b.priority]) {
-      return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
-    }
-    return a.due < b.due ? -1 : a.due > b.due ? 1 : 0;
+    if (a.due !== b.due) return a.due < b.due ? -1 : 1;
+    return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
   });
+}
+function sortedTasks() {
+  return sortTasks(tasks);
 }
 
 // 폼 입력 검사: 빠진 항목 이름 목록과 오류 문장을 돌려준다
@@ -357,7 +425,8 @@ function showMessage(el, text, kind) {
 }
 
 // 카드 하나 만들기 (사용자 입력은 textContent로만 넣어 안전하게)
-function buildCard(t) {
+// preview가 true면 예시 팝업용: 버튼 없이 모양만 보여 준다
+function buildCard(t, preview) {
   const li = document.createElement("li");
   li.className = "card p-" + t.priority + (t.done ? " done" : "");
 
@@ -396,15 +465,55 @@ function buildCard(t) {
     meta.append(doneLabel);
   }
   body.append(subject, task, meta);
+  li.append(body);
+  if (preview) return li;
+
+  // 오른쪽 버튼 묶음: 완료(토글) + 삭제
+  const actions = document.createElement("div");
+  actions.className = "actions";
 
   const btn = document.createElement("button");
   btn.type = "button";
   btn.dataset.id = t.id;
+  btn.dataset.act = "toggle";
   btn.className = t.done ? "" : "primary";
   btn.textContent = t.done ? "완료 취소" : "완료";
   btn.setAttribute("aria-label", t.subject + " " + t.task + (t.done ? " 완료 취소" : " 완료"));
 
-  li.append(body, btn);
+  const del = document.createElement("button");
+  del.type = "button";
+  del.dataset.id = t.id;
+  del.dataset.act = "ask-delete";
+  del.className = "danger";
+  del.textContent = "삭제";
+  del.setAttribute("aria-label", t.subject + " " + t.task + " 삭제");
+
+  actions.append(btn, del);
+  li.append(actions);
+
+  // 이 카드의 '삭제'를 눌렀다면 카드 안에 확인 상자를 보여 준다
+  if (pendingDeleteId === t.id) {
+    const box = document.createElement("div");
+    box.className = "card-confirm";
+    const q = document.createElement("p");
+    q.textContent = "이 과제를 삭제할까요? 지운 과제는 되돌릴 수 없습니다.";
+    const row = document.createElement("div");
+    row.className = "row";
+    const yes = document.createElement("button");
+    yes.type = "button";
+    yes.className = "danger-fill";
+    yes.dataset.id = t.id;
+    yes.dataset.act = "delete-yes";
+    yes.textContent = "네, 삭제합니다";
+    const no = document.createElement("button");
+    no.type = "button";
+    no.dataset.id = t.id;
+    no.dataset.act = "delete-no";
+    no.textContent = "취소";
+    row.append(yes, no);
+    box.append(q, row);
+    li.append(box);
+  }
   return li;
 }
 
@@ -421,9 +530,13 @@ function render() {
   countEl.textContent = tasks.length === 0 ? "" :
     "전체 " + tasks.length + "개 / 남은 과제 " + (tasks.length - doneCount) + "개 (최대 " + MAX_TASKS + "개)";
 
+  // 전시판 미리보기(샌드박스 안)에서는 브라우저가 저장을 막는다
+  const inPreview = window.origin === "null" && location.protocol !== "file:";
   storageMsg.textContent = canSave
     ? "이 브라우저에 자동 저장됩니다."
-    : "이 환경에서는 저장되지 않습니다. 새로고침하면 목록이 사라져요.";
+    : inPreview
+      ? "전시판 미리보기에서는 저장이 막혀 있어 새로고침하면 목록이 사라져요. 저장하려면 '새 탭 실행'으로 열어 주세요."
+      : "이 환경에서는 저장되지 않습니다. 새로고침하면 목록이 사라져요.";
 }
 
 // ===== 이벤트 연결 =====
@@ -445,7 +558,7 @@ document.getElementById("task-form").addEventListener("submit", function (e) {
   });
 
   if (tasks.length >= MAX_TASKS) {
-    showMessage(formMsg, "최대 " + MAX_TASKS + "개까지만 등록할 수 있어요. 전체 초기화 후 다시 추가해 주세요.", "error");
+    showMessage(formMsg, "최대 " + MAX_TASKS + "개까지만 등록할 수 있어요. 필요 없는 과제를 삭제한 뒤 다시 추가해 주세요.", "error");
     return;
   }
 
@@ -465,29 +578,73 @@ document.getElementById("task-form").addEventListener("submit", function (e) {
   render();
 });
 
-// 카드의 '완료' / '완료 취소' 버튼 (목록 전체에 한 번만 연결)
+// 다시 그린 뒤 같은 id·같은 역할의 버튼으로 키보드 초점을 옮긴다
+function focusButton(id, act) {
+  const b = Array.prototype.find.call(listEl.querySelectorAll("button[data-id]"), function (x) {
+    return x.dataset.id === id && x.dataset.act === act;
+  });
+  if (b) b.focus();
+}
+
+// 카드의 버튼들 (목록 전체에 한 번만 연결)
+// toggle=완료/완료 취소, ask-delete=삭제 확인 열기, delete-yes=정말 삭제, delete-no=취소
 listEl.addEventListener("click", function (e) {
   const btn = e.target.closest("button[data-id]");
   if (!btn) return;
-  const t = tasks.find(function (x) { return x.id === btn.dataset.id; });
+  const id = btn.dataset.id;
+  const act = btn.dataset.act;
+  const t = tasks.find(function (x) { return x.id === id; });
   if (!t) return;
-  t.done = !t.done;   // 다시 누르면 원래대로 (토글)
-  saveTasks();
-  render();
+
+  if (act === "toggle") {
+    t.done = !t.done;   // 다시 누르면 원래대로 (토글)
+    saveTasks();
+    render();
+    focusButton(id, "toggle");
+  } else if (act === "ask-delete") {
+    pendingDeleteId = id;  // 확인 상자는 한 번에 하나만
+    render();
+    focusButton(id, "delete-no");
+  } else if (act === "delete-no") {
+    pendingDeleteId = null;
+    render();
+    focusButton(id, "ask-delete");
+  } else if (act === "delete-yes") {
+    // 해당 id의 과제만 배열에서 빼고 저장
+    tasks = tasks.filter(function (x) { return x.id !== id; });
+    pendingDeleteId = null;
+    saveTasks();
+    showMessage(listMsg, "'" + t.subject + "' 과제를 삭제했어요.", "ok");
+    render();
+  }
 });
 
-// '예시 데이터 불러오기'
-document.getElementById("btn-sample").addEventListener("click", function () {
-  let added = 0;
-  SAMPLE_TASKS.forEach(function (s) {
-    if (tasks.length < MAX_TASKS) {
-      tasks.push(makeTask(s.subject, s.task, dateAfter(s.daysLater), s.minutes, s.priority));
-      added++;
-    }
+// '예시 보기' → 팝업 열기 (내 목록에는 아무것도 더하지 않음)
+const sampleOverlay = document.getElementById("sample-overlay");
+const sampleList = document.getElementById("sample-list");
+
+function openSample() {
+  // 예시 과제를 오늘 기준 날짜로 만들어 실제 목록과 같은 규칙으로 정렬해 보여 준다
+  const samples = SAMPLE_TASKS.map(function (s) {
+    return makeTask(s.subject, s.task, dateAfter(s.daysLater), s.minutes, s.priority);
   });
-  saveTasks();
-  showMessage(listMsg, added > 0 ? "예시 과제 " + added + "개를 불러왔어요." : "목록이 가득 차서 예시를 더 넣을 수 없어요.", added > 0 ? "ok" : "error");
-  render();
+  sampleList.replaceChildren();
+  sortTasks(samples).forEach(function (t) { sampleList.append(buildCard(t, true)); });
+  sampleOverlay.hidden = false;
+  document.getElementById("btn-sample-close").focus();
+}
+function closeSample() {
+  sampleOverlay.hidden = true;
+  document.getElementById("btn-sample").focus();
+}
+document.getElementById("btn-sample").addEventListener("click", openSample);
+document.getElementById("btn-sample-close").addEventListener("click", closeSample);
+// 어두운 바깥 부분을 누르거나 Esc 키를 눌러도 닫힌다
+sampleOverlay.addEventListener("click", function (e) {
+  if (e.target === sampleOverlay) closeSample();
+});
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape" && !sampleOverlay.hidden) closeSample();
 });
 
 // '전체 초기화' → 페이지 안 확인 상자 열기
@@ -501,6 +658,7 @@ document.getElementById("btn-reset-no").addEventListener("click", function () {
 });
 document.getElementById("btn-reset-yes").addEventListener("click", function () {
   tasks = [];
+  pendingDeleteId = null;
   removeSaved();
   confirmBox.hidden = true;
   showMessage(listMsg, "모든 수행평가를 지웠어요.", "ok");

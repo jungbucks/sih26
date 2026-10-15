@@ -6,22 +6,28 @@
 <title>스택 기반 게임 플레이 최근 기록기</title>
 <meta name="description" content="게임 플레이 기록을 스택(후입선출)으로 쌓고, 가장 최근 기록부터 되돌리는 기록기">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="PRD">
+<meta name="status" content="1회 개선">
 <style>
+  /* 다크 모드 색: 배경·카드는 어둡게, 글씨·테두리는 밝게.
+     푸른 강조색과 성공(초록)/실패(빨강)/진행 중(노랑) 구분 색은 그대로 유지해요. */
   :root {
-    --bg: #f6f7f8;
-    --surface: #ffffff;
-    --line: #dde1e5;
-    --text: #1f2328;
-    --muted: #5b636b;
-    --accent: #1f6f8b;
-    --accent-weak: #e6f1f5;
-    --ok: #1e7a46;
-    --ok-weak: #e7f5ec;
-    --fail: #a33a2b;
-    --fail-weak: #fbecea;
-    --going: #8a5a00;
-    --going-weak: #fdf3dd;
+    color-scheme: dark;
+    --bg: #0e1013;
+    --surface: #171a1f;
+    --field: #0f1216;       /* 입력칸 바탕 */
+    --line: #2e343c;
+    --line-strong: #4a525c; /* 입력칸·버튼 테두리 */
+    --text: #e8eaed;
+    --muted: #a3abb4;
+    --accent: #1f6f8b;      /* 버튼 바탕 (기존 푸른색) */
+    --accent-text: #6cc3e0; /* 어두운 바탕 위 푸른 글씨 */
+    --accent-weak: #13303b;
+    --ok: #5fd08f;
+    --ok-weak: #15301f;
+    --fail: #ff8a78;
+    --fail-weak: #3a1a16;
+    --going: #f0c25a;
+    --going-weak: #3a2d0e;
   }
   * { box-sizing: border-box; }
   body {
@@ -60,13 +66,14 @@
     width: 100%;
     font: inherit;
     padding: 10px 12px;
-    border: 1px solid #b9c0c7;
+    border: 1px solid var(--line-strong);
     border-radius: 8px;
-    background: #fff;
+    background: var(--field);
     color: var(--text);
   }
+  input[type="text"]::placeholder { color: #7b848e; }
   input[type="text"]:focus-visible, button:focus-visible, .radio input:focus-visible + span {
-    outline: 3px solid #8fc3d6; outline-offset: 2px;
+    outline: 3px solid var(--accent-text); outline-offset: 2px;
   }
   .hint { font-size: 0.9rem; color: var(--muted); margin-top: 4px; }
   .radios { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -75,9 +82,9 @@
   .radio span {
     display: inline-block;
     padding: 6px 14px;
-    border: 1px solid #b9c0c7;
+    border: 1px solid var(--line-strong);
     border-radius: 999px;
-    background: #fff;
+    background: var(--field);
     cursor: pointer;
   }
   .radio input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -93,15 +100,15 @@
     cursor: pointer;
     min-height: 44px;
   }
-  button.secondary { background: #fff; color: var(--accent); }
-  button.danger { background: #fff; color: var(--fail); border-color: var(--fail); }
-  button:disabled { background: #eceef0; color: #8a9097; border-color: #d3d7db; cursor: not-allowed; }
+  button.secondary { background: transparent; color: var(--accent-text); border-color: var(--accent-text); }
+  button.danger { background: transparent; color: var(--fail); border-color: var(--fail); }
+  button:disabled { background: #22262c; color: #6f7780; border-color: #343a42; cursor: not-allowed; }
   #addBtn { width: 100%; margin-top: 18px; }
 
   .msg { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; font-size: 0.95rem; }
   .msg:empty { display: none; }
-  .msg.error { background: var(--fail-weak); color: var(--fail); border: 1px solid #efc4bd; }
-  .msg.info { background: var(--accent-weak); color: #164f63; border: 1px solid #c3dde7; }
+  .msg.error { background: var(--fail-weak); color: var(--fail); border: 1px solid #6b2c24; }
+  .msg.info { background: var(--accent-weak); color: var(--accent-text); border: 1px solid #23566a; }
 
   /* 스택 그림: 위가 열린 통 모양, 맨 위 = 가장 최근 */
   .stack-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
@@ -110,8 +117,8 @@
     list-style: none;
     margin: 8px 0 0;
     padding: 10px;
-    border: 2px solid #c6ccd2;
-    border-top: 2px dashed #c6ccd2;
+    border: 2px solid var(--line-strong);
+    border-top: 2px dashed var(--line-strong);
     border-radius: 0 0 12px 12px;
     min-height: 140px;
     display: flex;
@@ -123,15 +130,16 @@
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 4px 10px;
     align-items: center;
-    background: #fff;
+    background: #1e2228;
     border: 1px solid var(--line);
     border-radius: 8px;
     padding: 10px 12px;
   }
-  .card.top { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .card.top { border-color: var(--accent-text); box-shadow: 0 0 0 1px var(--accent-text); }
   .card .title { font-weight: 600; }
+  .card .detail { grid-column: 1 / -1; font-size: 0.92rem; color: var(--going); }
   .card .time { grid-column: 1 / -1; font-size: 0.88rem; color: var(--muted); }
-  .top-mark { font-size: 0.8rem; font-weight: 700; color: var(--accent); margin-right: 6px; }
+  .top-mark { font-size: 0.8rem; font-weight: 700; color: var(--accent-text); margin-right: 6px; }
   .tag { font-size: 0.88rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
   .tag.ok { background: var(--ok-weak); color: var(--ok); }
   .tag.fail { background: var(--fail-weak); color: var(--fail); }
@@ -148,15 +156,17 @@
   .confirm {
     margin-top: 12px;
     padding: 14px;
-    border: 1px solid #efc4bd;
+    border: 1px solid #6b2c24;
     background: var(--fail-weak);
     border-radius: 10px;
   }
   .confirm p { margin: 0 0 10px; font-weight: 600; }
   .confirm .row { display: flex; flex-wrap: wrap; gap: 8px; }
-  .cheer { margin: 14px 0 0; padding: 12px 14px; border-left: 4px solid var(--accent); background: var(--accent-weak); border-radius: 0 8px 8px 0; }
+  .cheer { margin: 14px 0 0; padding: 12px 14px; border-left: 4px solid var(--accent-text); background: var(--accent-weak); border-radius: 0 8px 8px 0; }
   .summary { margin: 10px 0 0; color: var(--muted); font-size: 0.95rem; }
   .save-note { margin: 8px 0 0; font-size: 0.9rem; color: var(--muted); }
+  #detailWrap { margin-top: 14px; }
+  #detailWrap[hidden] { display: none; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 </head>
@@ -185,6 +195,13 @@
             <label class="radio"><input type="radio" name="gameResult" value="진행 중"><span>진행 중</span></label>
           </div>
         </fieldset>
+
+        <!-- '진행 중'을 고르면 나타나는 세부 내용 입력란 (선택 사항) -->
+        <div id="detailWrap" hidden>
+          <label for="gameDetail">진행 중인 내용 (선택, 30자 이내)</label>
+          <input type="text" id="gameDetail" maxlength="30" autocomplete="off" placeholder="예: 3장 보스 직전" aria-describedby="detailHint">
+          <div class="hint" id="detailHint"><span id="detailCount">0</span> / 30자 · 비워 두어도 괜찮아요</div>
+        </div>
 
         <button type="submit" id="addBtn">기록 추가</button>
         <p class="msg" id="formMsg" role="alert"></p>
@@ -229,12 +246,13 @@
 const STORAGE_KEY = "sih26:20805:stack"; // localStorage 저장 이름 (이 작품 전용)
 const MAX_RECORDS = 30;   // 최대 기록 수
 const MAX_TITLE = 20;     // 게임명 최대 글자 수
+const MAX_DETAIL = 30;    // '진행 중' 세부 내용 최대 글자 수
 const RESULTS = ["성공", "실패", "진행 중"];
 
 // 처음 열었을 때 보여 줄 가상 예시 기록 (배열의 끝 = 스택의 맨 위)
 const SAMPLE_RECORDS = [
   { title: "리그 오브 레전드", result: "성공", time: "2026-10-12T19:30:00" },
-  { title: "원신 퀘스트", result: "진행 중", time: "2026-10-12T21:10:00" }
+  { title: "원신 퀘스트", result: "진행 중", detail: "", time: "2026-10-12T21:10:00" }
 ];
 
 // 응원 문구: 결과를 평가하지 않고 다음 도전을 응원해요
@@ -266,12 +284,26 @@ function loadStack() {
     const data = JSON.parse(saved);
     if (!Array.isArray(data)) return SAMPLE_RECORDS.slice();
     // 형식이 맞는 기록만 남겨요
-    return data.filter(r => r && typeof r.title === "string" && RESULTS.includes(r.result)).slice(-MAX_RECORDS);
+    // 이전 버전 기록에는 detail(세부 내용)이 없어요 → 빈 글자로 채워서 그대로 살려요
+    return data
+      .filter(r => r && typeof r.title === "string" && RESULTS.includes(r.result))
+      .map(r => ({
+        title: r.title,
+        result: r.result,
+        detail: (r.result === "진행 중" && typeof r.detail === "string") ? cutText(r.detail, MAX_DETAIL) : "",
+        time: r.time
+      }))
+      .slice(-MAX_RECORDS);
   } catch (e) {
     canSave = false;
     return SAMPLE_RECORDS.slice();
   }
 }
+
+// 글자 수 세기: 이모지처럼 두 칸짜리 문자도 한 글자로 세요
+function countChars(text) { return Array.from(text).length; }
+// 글자 수 자르기: max 글자까지만 남겨요
+function cutText(text, max) { return Array.from(text).slice(0, max).join(""); }
 
 // 현재 스택을 저장하기 (실패해도 프로그램은 계속 작동)
 function saveStack() {
@@ -290,15 +322,18 @@ function saveStack() {
     나중에 넣은 기록이 맨 위에 놓이고 가장 먼저 꺼내져요.
   - 성공하면 null, 문제가 있으면 안내 문구를 돌려줘요.
 */
-function pushRecord(title, result) {
+function pushRecord(title, result, detail) {
   const clean = title.trim();
   if (clean === "") return "게임명을 입력해 주세요.";
-  if (clean.length > MAX_TITLE) return "게임명은 20자 이내로 입력해 주세요.";
+  if (countChars(clean) > MAX_TITLE) return "게임명은 20자 이내로 입력해 주세요.";
   if (!RESULTS.includes(result)) return "플레이 결과를 선택해 주세요.";
   if (stack.length >= MAX_RECORDS) {
     return "기록은 최대 30개까지 저장돼요. '최근 기록 삭제'나 '전체 초기화'로 자리를 만든 뒤 추가해 주세요.";
   }
-  stack.push({ title: clean, result: result, time: new Date().toISOString() });
+  // 세부 내용은 '진행 중'일 때만 남겨요 (선택 사항이라 비어 있어도 괜찮아요)
+  const cleanDetail = result === "진행 중" ? (detail || "").trim() : "";
+  if (countChars(cleanDetail) > MAX_DETAIL) return "진행 중인 내용은 30자 이내로 입력해 주세요.";
+  stack.push({ title: clean, result: result, detail: cleanDetail, time: new Date().toISOString() });
   saveStack();
   return null;
 }
@@ -340,6 +375,9 @@ const els = {
   form: document.getElementById("recordForm"),
   title: document.getElementById("gameTitle"),
   charCount: document.getElementById("charCount"),
+  detailWrap: document.getElementById("detailWrap"),
+  detail: document.getElementById("gameDetail"),
+  detailCount: document.getElementById("detailCount"),
   formMsg: document.getElementById("formMsg"),
   list: document.getElementById("stackList"),
   count: document.getElementById("countText"),
@@ -391,7 +429,15 @@ function renderStack() {
     time.className = "time";
     time.textContent = formatTime(rec.time);
 
-    li.append(title, tag, time);
+    li.append(title, tag);
+    // '진행 중' 기록에 세부 내용이 있으면 게임명 아래에 보여 줘요
+    if (rec.detail) {
+      const detail = document.createElement("span");
+      detail.className = "detail";
+      detail.textContent = "▶ " + rec.detail; // 입력값은 글자로만 넣어요
+      li.appendChild(detail);
+    }
+    li.appendChild(time);
     els.list.appendChild(li);
   }
   justPushed = false;
@@ -429,10 +475,36 @@ function closeConfirm() {
   els.confirmBox.hidden = true;
 }
 
+// 입력칸 글자 수를 max까지로 딱 맞추고, 글자 수 표시를 갱신해요.
+// 한글은 조합 중(ㄱ→가→각)에는 자르지 않고, 조합이 끝난 뒤에 잘라요.
+// (조합 중에 제한을 넘어 한 글자가 더 들어가던 문제를 막아요)
+function limitInput(input, max, counter) {
+  if (countChars(input.value) > max) input.value = cutText(input.value, max);
+  counter.textContent = countChars(input.value);
+}
+
+// '진행 중'을 골랐을 때만 세부 내용 입력란을 보여 줘요
+function updateDetailVisible() {
+  const checked = els.form.querySelector("input[name='gameResult']:checked");
+  els.detailWrap.hidden = !(checked && checked.value === "진행 중");
+}
+
 // ===== 이벤트 연결 =====
-els.title.addEventListener("input", function () {
-  els.charCount.textContent = els.title.value.length;
+els.title.addEventListener("input", function (e) {
+  if (!e.isComposing) limitInput(els.title, MAX_TITLE, els.charCount);
+  else els.charCount.textContent = Math.min(countChars(els.title.value), MAX_TITLE);
   if (els.formMsg.classList.contains("error")) showFormMsg("", "");
+});
+els.title.addEventListener("compositionend", function () { limitInput(els.title, MAX_TITLE, els.charCount); });
+
+els.detail.addEventListener("input", function (e) {
+  if (!e.isComposing) limitInput(els.detail, MAX_DETAIL, els.detailCount);
+  else els.detailCount.textContent = Math.min(countChars(els.detail.value), MAX_DETAIL);
+});
+els.detail.addEventListener("compositionend", function () { limitInput(els.detail, MAX_DETAIL, els.detailCount); });
+
+els.form.querySelectorAll("input[name='gameResult']").forEach(function (radio) {
+  radio.addEventListener("change", updateDetailVisible);
 });
 
 // 기록 추가 (Push)
@@ -440,7 +512,10 @@ els.form.addEventListener("submit", function (e) {
   e.preventDefault();
   const checked = els.form.querySelector("input[name='gameResult']:checked");
   const result = checked ? checked.value : "";
-  const error = pushRecord(els.title.value, result);
+  // 혹시 조합 중에 바로 눌렀어도 글자 수를 먼저 맞춰요
+  limitInput(els.title, MAX_TITLE, els.charCount);
+  limitInput(els.detail, MAX_DETAIL, els.detailCount);
+  const error = pushRecord(els.title.value, result, els.detail.value);
   if (error) {
     showFormMsg(error, "error");
     els.title.focus();
@@ -451,6 +526,8 @@ els.form.addEventListener("submit", function (e) {
   els.cheer.textContent = pickCheer(result);
   els.title.value = "";
   els.charCount.textContent = "0";
+  els.detail.value = "";
+  els.detailCount.textContent = "0";
   closeConfirm();
   justPushed = true;
   renderStack();
@@ -475,6 +552,7 @@ els.confirmYes.addEventListener("click", function () {
 
 // 처음 시작
 stack = loadStack();
+updateDetailVisible();
 renderStack();
 </script>
 </body>

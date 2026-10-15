@@ -7,7 +7,7 @@
 <title>당장 할 일 알리미</title>
 <meta name="description" content="가장 최근에 추가한 할 일을 맨 위에 보여 주는 스택(후입선출) 방식 할 일 목록">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="PRD">
+<meta name="status" content="1회 개선">
 
 <!-- ===== 스타일 ===== -->
 <style>
@@ -86,7 +86,26 @@
   /* 입력 오류 안내 (alert 대신 화면 안에 표시) */
   .error-msg { margin: 8px 0 0; color: var(--danger); font-weight: 600; }
   .error-msg[hidden] { display: none; }
+  /* 오류가 나타날 때: 서서히 나타나며(fade-in) 좌우로 가볍게 흔들림(shake) */
+  .error-msg.shake { animation: errorFade 0.25s ease-out, errorShake 0.4s ease-in-out; }
+  @keyframes errorFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes errorShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+  /* 움직임 줄이기 설정을 켠 사람에게는 흔들지 않고 살짝 나타나기만 */
+  @media (prefers-reduced-motion: reduce) {
+    .error-msg.shake { animation: errorFade 0.2s ease-out; }
+  }
 
+  .tool-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
   .tools { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   .count { color: var(--muted); font-size: 1rem; }
 
@@ -143,7 +162,20 @@
   .todo-item.done .todo-text { color: #9aa0a6; text-decoration: line-through; }
   .todo-item.done .newest-tag { color: #9aa0a6; border-color: #c4c8cc; }
   .done-label { color: var(--muted); font-size: 0.95rem; white-space: nowrap; }
-  .empty { color: var(--muted); margin: 0; }
+  /* 빈 화면 안내: 아이콘 + 큰 글씨 + 부드러운 배경으로 눈에 띄게 */
+  .empty {
+    margin: 0;
+    padding: 24px 16px;
+    text-align: center;
+    background: #eef4fc;
+    border: 2px dashed #9dbbe6;
+    border-radius: 12px;
+    color: var(--text);
+  }
+  .empty[hidden] { display: none; }
+  .empty-icon { display: block; font-size: 2.6rem; line-height: 1.2; margin-bottom: 6px; }
+  .empty-title { display: block; font-size: 1.3rem; font-weight: 700; margin-bottom: 4px; }
+  .empty-hint { display: block; color: var(--muted); font-size: 1rem; }
 </style>
 </head>
 <body>
@@ -167,7 +199,10 @@
 
     <div class="tools">
       <span class="count" id="countText"></span>
-      <button type="button" class="btn-danger" id="clearAllBtn">모두 지우기</button>
+      <div class="tool-buttons">
+        <button type="button" id="clearDoneBtn">완료된 일 지우기</button>
+        <button type="button" class="btn-danger" id="clearAllBtn">모두 지우기</button>
+      </div>
     </div>
 
     <div class="confirm-box" id="confirmBox" hidden>
@@ -184,7 +219,11 @@
   <section class="panel" aria-label="할 일 목록">
     <p class="storage-note" id="storageNote" hidden>이 화면에서는 저장 기능을 쓸 수 없어요. 새로고침하면 목록이 처음 상태로 돌아가요(저장되지 않음).</p>
     <ul class="todo-list" id="todoList"></ul>
-    <p class="empty" id="emptyText" hidden>할 일이 없어요. 위에서 새로 추가해 보세요.</p>
+    <p class="empty" id="emptyText" hidden>
+      <span class="empty-icon" aria-hidden="true">📝</span>
+      <span class="empty-title">할 일이 없어요</span>
+      <span class="empty-hint">위 입력칸에 할 일을 쓰고 '추가'를 눌러 보세요.</span>
+    </p>
   </section>
 </main>
 
@@ -259,6 +298,15 @@ function clearAllTodos() {
   }
 }
 
+// 완료된 일 지우기: done이 true인 항목만 빼고, 남은 항목(순서 그대로)만 다시 저장
+// 반환값 = 지운 개수
+function clearDoneTodos() {
+  const before = stack.length;
+  stack = stack.filter(item => !item.done);
+  saveTodos();
+  return before - stack.length;
+}
+
 // ===== 화면 갱신 =====
 const todoInput = document.getElementById("todoInput");
 const inputError = document.getElementById("inputError");
@@ -268,16 +316,22 @@ const allDoneMsg = document.getElementById("allDoneMsg");
 const countText = document.getElementById("countText");
 const confirmBox = document.getElementById("confirmBox");
 const storageNote = document.getElementById("storageNote");
+const clearDoneBtn = document.getElementById("clearDoneBtn");
 
 function showError(message) {
   inputError.textContent = message;
   inputError.hidden = false;
   todoInput.setAttribute("aria-invalid", "true");
+  // 흔들림 애니메이션을 처음부터 다시 재생 (연속으로 눌러도 매번 흔들리게)
+  inputError.classList.remove("shake");
+  void inputError.offsetWidth; // 브라우저가 한 번 다시 계산하게 해서 애니메이션을 리셋
+  inputError.classList.add("shake");
 }
 
 function hideError() {
   inputError.textContent = "";
   inputError.hidden = true;
+  inputError.classList.remove("shake");
   todoInput.removeAttribute("aria-invalid");
 }
 
@@ -327,6 +381,8 @@ function render() {
   countText.textContent = total === 0 ? "할 일 0개" : "할 일 " + total + "개 중 " + doneCount + "개 완료";
   // 할 일이 1개 이상이고 전부 완료면 축하 메시지
   allDoneMsg.hidden = !(total > 0 && doneCount === total);
+  // 완료된 일이 하나도 없으면 '완료된 일 지우기' 버튼은 누를 수 없게
+  clearDoneBtn.disabled = doneCount === 0;
   storageNote.hidden = canSave;
 }
 
@@ -359,6 +415,13 @@ todoList.addEventListener("click", function (event) {
   if (!btn) return;
   completeTodo(Number(btn.dataset.index));
   render();
+});
+
+// 완료된 일 지우기 → 완료(done) 항목만 삭제하고 다시 그리기
+clearDoneBtn.addEventListener("click", function () {
+  clearDoneTodos();
+  render();
+  todoInput.focus();
 });
 
 // 모두 지우기 → 화면 안 확인 상자 열기

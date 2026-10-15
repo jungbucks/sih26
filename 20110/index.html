@@ -6,7 +6,7 @@
 <title>등교 준비물 체크리스트</title>
 <meta name="description" content="날짜와 과목별로 준비물을 적고, 챙긴 것을 체크해 빠뜨림을 줄이는 체크리스트">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="PRD">
+<meta name="status" content="1회 개선">
 <style>
   /* ===== 색과 기본 글꼴 ===== */
   :root {
@@ -99,23 +99,37 @@
   .subject-name { font-weight: 700; font-size: 1.08rem; }
   .btns { display: flex; gap: 6px; flex-wrap: wrap; }
   ul.items { list-style: none; margin: 8px 0 0; padding: 0; }
+  /* 준비물 한 줄: 아직 안 챙긴 것 = 주황 테두리, 챙긴 것 = 초록 바탕 (색 + 기호 + 글자 3가지로 구분) */
   ul.items li {
     display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-    padding: 8px 0; border-bottom: 1px dashed var(--line);
+    padding: 8px 10px; margin-bottom: 6px;
+    border: 1px solid #ecd9a0; border-left: 6px solid #d99a1e;
+    border-radius: 10px; background: #fffdf5;
   }
-  ul.items li:last-child { border-bottom: 0; }
-  .check { display: flex; align-items: center; gap: 10px; flex: 1 1 160px; min-width: 0; font-weight: 400; margin: 0; cursor: pointer; }
+  ul.items li.done { border-color: #b7d9cd; border-left-color: var(--accent); background: var(--accent-soft); }
+  ul.items li.empty { border: 1px dashed var(--line); background: transparent; }
+  ul.items li.target { outline: 3px solid var(--danger); outline-offset: 1px; }
+  .check { display: flex; align-items: center; gap: 10px; flex: 1 1 160px; min-width: 0; font-weight: 600; margin: 0; cursor: pointer; }
   .check input { width: 24px; height: 24px; flex: none; accent-color: var(--accent); }
   .state-tag {
-    font-size: 14px; padding: 1px 8px; border-radius: 999px; flex: none;
-    border: 1px solid var(--line); color: var(--muted);
+    font-size: 14px; font-weight: 700; padding: 1px 10px; border-radius: 999px; flex: none;
+    border: 1px solid #d99a1e; color: #7a5200; background: #fff;
   }
-  li.done .state-tag { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-  li.done .item-name { color: var(--muted); text-decoration: line-through; }
+  li.done .state-tag { border-color: var(--accent); color: #fff; background: var(--accent); }
+  li.done .item-name { color: var(--muted); font-weight: 400; text-decoration: line-through; }
   .empty { color: var(--muted); padding: 8px 0; }
   .inline-box { width: 100%; margin-top: 6px; padding: 10px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); }
   .inline-box.confirm { background: var(--danger-soft); border-color: #e7b9b5; }
   .inline-box p { margin-bottom: 8px; }
+  /* 삭제 확인 창의 "무엇을 지우나" 표 */
+  .del-what { margin: 0 0 8px; padding: 8px 10px; background: #fff; border: 1px solid #e7b9b5; border-radius: 8px; }
+  .del-what div { display: flex; gap: 8px; }
+  .del-what dt { flex: none; width: 4.5em; color: var(--muted); font-weight: 600; }
+  .del-what dd { margin: 0; font-weight: 700; min-width: 0; }
+  .subject.target > .subject-head { outline: 3px solid var(--danger); outline-offset: 2px; border-radius: 6px; }
+  /* 저장된 날짜 바로가기 */
+  .saved-dates { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .saved-dates button.now { background: var(--accent); color: #fff; }
   .danger-zone .btns { margin-top: 8px; }
 </style>
 </head>
@@ -135,6 +149,10 @@
       <input type="date" id="date-input">
     </div>
     <div class="msg" id="date-msg" role="status"></div>
+    <div class="field">
+      <p class="hint" id="saved-dates-label">저장된 목록이 있는 날짜</p>
+      <div class="saved-dates" id="saved-dates" aria-labelledby="saved-dates-label"></div>
+    </div>
     <div class="btns">
       <button type="button" class="ghost small" id="sample-btn">가상 예시 불러오기 (2026-10-14)</button>
     </div>
@@ -222,6 +240,8 @@ let currentDate = "";
 let storageWorks = true;   // 저장소를 쓸 수 있는지
 let pending = null;        // 지금 열려 있는 수정/삭제 확인 창 {type, id}
 let nextId = 1;
+let lastSavedAt = null;    // 마지막으로 저장에 성공한 시각
+const LAST_DATE_KEY = "sih26:20110:lastDate"; // 마지막으로 보던 날짜
 
 /* ===== 처리 함수 ===== */
 
@@ -281,15 +301,42 @@ function tidyDate(date) {
 
 /* --- 저장과 불러오기 --- */
 // 저장: 성공하면 true, 실패하면 false. 실패를 성공이라고 표시하지 않아요.
+// 써 넣은 뒤 다시 읽어서 똑같이 들어갔는지까지 확인해요.
 function saveData() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
-    storageWorks = true;
-    return true;
+    const text = JSON.stringify(allData);
+    localStorage.setItem(STORAGE_KEY, text);
+    const ok = localStorage.getItem(STORAGE_KEY) === text;
+    storageWorks = ok;
+    if (ok) lastSavedAt = new Date();
+    return ok;
   } catch (e) {
     storageWorks = false;
     return false;
   }
+}
+
+// 마지막으로 보던 날짜도 따로 기억해요. 다시 열면 그 날짜 목록이 바로 보이게 하려고요.
+// (예전 버전 데이터에는 이 값이 없으니, 없으면 오늘 날짜를 써요.)
+function saveLastDate(date) {
+  try { localStorage.setItem(LAST_DATE_KEY, date || ""); } catch (e) { /* 저장 못 해도 기능은 계속 */ }
+}
+function loadLastDate() {
+  try {
+    const d = localStorage.getItem(LAST_DATE_KEY);
+    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "";
+  } catch (e) { return ""; }
+}
+
+// 전시판 미리보기(샌드박스 iframe)에서는 브라우저 저장이 막혀 있어요.
+function inSandboxPreview() {
+  return window.origin === "null" && location.protocol !== "file:";
+}
+
+// 시각을 "오후 7:05" 모양으로
+function timeText(d) {
+  const h = d.getHours(), m = String(d.getMinutes()).padStart(2, "0");
+  return (h < 12 ? "오전 " : "오후 ") + ((h % 12) || 12) + ":" + m;
 }
 
 // 불러오기: 저장된 게 없거나 망가져 있어도 빈 목록으로 시작해요.
@@ -436,8 +483,12 @@ function clearMsgs() {
 function showSaveState(saved, okText) {
   const el = $("save-state");
   if (saved) {
-    el.textContent = "저장 상태: 저장됨 — " + (okText || "이 브라우저에 저장했어요.");
+    el.textContent = "저장 상태: ✓ 자동 저장됨" + (lastSavedAt ? "(" + timeText(lastSavedAt) + ")" : "") +
+      " — " + (okText || "이 브라우저에 저장했어요.") + " 브라우저를 닫았다 열어도 남아 있어요.";
     el.style.color = "var(--accent)";
+  } else if (inSandboxPreview()) {
+    el.textContent = "저장 상태: 저장되지 않음 — 전시판 미리보기 화면에서는 브라우저 저장이 막혀 있어요. 목록을 남기려면 '새 탭 실행'으로 열어 주세요.";
+    el.style.color = "var(--danger)";
   } else {
     el.textContent = "저장 상태: 저장되지 않음 — 이 환경에서는 브라우저 저장을 쓸 수 없어요. 지금 화면에서는 계속 쓸 수 있지만, 닫으면 목록이 사라져요.";
     el.style.color = "var(--danger)";
@@ -501,18 +552,39 @@ function makeEditBox(kind, id, oldName) {
 }
 
 // 삭제 확인 창: 무엇이 지워지는지 글로 보여 주고 한 번 더 확인
-function makeConfirmBox(text, yesText, onYes) {
+// rows = [["날짜", "2026년 10월 14일"], ["과목", "수학"], ...] → 지울 대상을 한 줄씩 표로 보여 줘요.
+// 실수로 Enter를 눌러도 바로 지워지지 않도록, 처음 초점은 "취소" 버튼에 둬요.
+function makeConfirmBox(text, yesText, onYes, rows, onCancel) {
   const box = document.createElement("div");
   box.className = "inline-box confirm";
+  box.setAttribute("role", "alertdialog");
   const p = document.createElement("p");
   p.textContent = text;
+  box.appendChild(p);
+  if (rows && rows.length) {
+    const dl = document.createElement("dl");
+    dl.className = "del-what";
+    rows.forEach(function (r) {
+      const line = document.createElement("div");
+      const dt = document.createElement("dt");
+      dt.textContent = r[0];
+      const dd = document.createElement("dd");
+      dd.textContent = r[1];
+      line.append(dt, dd);
+      dl.appendChild(line);
+    });
+    box.appendChild(dl);
+  }
+  const warn = document.createElement("p");
+  warn.className = "hint";
+  warn.textContent = "지우면 되돌릴 수 없어요.";
   const btns = document.createElement("div");
   btns.className = "btns";
-  const yes = makeButton(yesText, "danger solid small", onYes);
-  btns.appendChild(yes);
-  btns.appendChild(makeButton("취소", "ghost small", function () { pending = null; render(); }));
-  box.append(p, btns);
-  setTimeout(function () { yes.focus(); }, 0);
+  const cancel = makeButton("취소", "ghost small", onCancel || function () { pending = null; render(); });
+  btns.appendChild(cancel);
+  btns.appendChild(makeButton(yesText, "danger solid small", onYes));
+  box.append(warn, btns);
+  setTimeout(function () { cancel.focus(); }, 0);
   return box;
 }
 
@@ -600,15 +672,19 @@ function renderList() {
       wrap.appendChild(makeEditBox("subject", s.id, s.name));
     }
     if (pending && pending.id === s.id && pending.type === "del-subject") {
+      wrap.classList.add("target"); // 지울 과목을 빨간 테두리로 표시
       wrap.appendChild(makeConfirmBox(
-        "'" + s.name + "' 과목을 삭제할까요? 이 과목에 속한 준비물 " + s.items.length + "개도 함께 삭제돼요.",
-        "과목과 준비물 삭제",
+        "이 과목을 삭제할까요? 과목 안의 준비물 " + s.items.length + "개도 함께 삭제돼요.",
+        "과목과 준비물 " + s.items.length + "개 삭제",
         function () {
           const removed = deleteSubject(s.id);
           pending = null;
           if (removed) commit("'" + s.name + "' 과목을 삭제했어요.");
           else render();
-        }));
+        },
+        [["날짜", formatDate(currentDate)], ["과목", s.name],
+         ["준비물", s.items.length ? s.items.map(function (it) { return it.name; }).join(", ") : "(없음)"]]
+      ));
     }
 
     const ul = document.createElement("ul");
@@ -639,7 +715,7 @@ function renderList() {
       // 색만이 아니라 글자로도 상태 표시
       const tag = document.createElement("span");
       tag.className = "state-tag";
-      tag.textContent = it.done ? "✓ 챙김" : "아직";
+      tag.textContent = it.done ? "✓ 챙김" : "○ 아직 안 챙김";
 
       const btns2 = document.createElement("div");
       btns2.className = "btns";
@@ -656,15 +732,19 @@ function renderList() {
         li.appendChild(makeEditBox("item", it.id, it.name));
       }
       if (pending && pending.id === it.id && pending.type === "del-item") {
+        li.classList.add("target"); // 지울 준비물을 빨간 테두리로 표시
         li.appendChild(makeConfirmBox(
-          "'" + s.name + "' 과목의 준비물 '" + it.name + "'을(를) 삭제할까요?",
+          "이 준비물 하나를 삭제할까요?",
           "준비물 삭제",
           function () {
             const removed = deleteItem(it.id);
             pending = null;
             if (removed) commit("'" + it.name + "'을(를) 삭제했어요.");
             else render(); // 이미 지워졌으면 화면만 새로 그림
-          }));
+          },
+          [["날짜", formatDate(currentDate)], ["과목", s.name], ["준비물", it.name],
+           ["상태", it.done ? "✓ 챙김" : "○ 아직 안 챙김"]]
+        ));
       }
       ul.appendChild(li);
     });
@@ -673,7 +753,32 @@ function renderList() {
   });
 }
 
+// 저장된 목록이 있는 날짜를 버튼으로 보여 줘요. 누르면 그 날짜로 바로 이동해요.
+function renderSavedDates() {
+  const box = $("saved-dates");
+  box.textContent = "";
+  const dates = Object.keys(allData).sort();
+  if (dates.length === 0) {
+    const p = document.createElement("span");
+    p.className = "hint";
+    p.textContent = "아직 없어요.";
+    box.appendChild(p);
+    return;
+  }
+  dates.forEach(function (d) {
+    const c = countItems(d);
+    const b = makeButton(formatDate(d) + " (" + c.done + "/" + c.total + ")",
+      "ghost small" + (d === currentDate ? " now" : ""),
+      function () { $("date-input").value = d; changeDate(d); },
+      formatDate(d) + " 목록 열기, 준비물 " + c.total + "개 중 " + c.done + "개 챙김");
+    if (d === currentDate) b.setAttribute("aria-current", "date");
+    box.appendChild(b);
+  });
+}
+
 function render() {
+  if (currentDate) saveLastDate(currentDate); // 다시 열 때 이 날짜부터 보여 주려고 기억
+  renderSavedDates();
   renderSubjectSelect();
   renderList();
   renderSummary();
@@ -734,15 +839,17 @@ function askReset(kind) {
   setMsg("reset-msg", "");
   const area = $("reset-confirm");
   area.textContent = "";
-  let text, yesText, action;
+  let text, yesText, action, rows;
   if (kind === "day") {
     if (!currentDate || getSubjects(currentDate).length === 0) {
       setMsg("reset-msg", "지울 목록이 없어요. 이 날짜에는 저장된 준비물이 없어요.", "info");
       return;
     }
     const c = countItems(currentDate);
-    text = formatDate(currentDate) + "의 과목 " + getSubjects(currentDate).length + "개와 준비물 " + c.total +
-      "개를 모두 지울까요? 다른 날짜의 목록은 그대로 남아요. 지우면 되돌릴 수 없어요.";
+    text = "이 날짜의 목록을 모두 지울까요? 다른 날짜의 목록은 그대로 남아요.";
+    rows = [["날짜", formatDate(currentDate)],
+      ["과목", getSubjects(currentDate).length + "개 (" + getSubjects(currentDate).map(function (s) { return s.name; }).join(", ") + ")"],
+      ["준비물", c.total + "개 (챙김 " + c.done + "개)"]];
     yesText = "이 날짜 목록 지우기";
     action = function () {
       delete allData[currentDate];
@@ -752,12 +859,14 @@ function askReset(kind) {
     };
   } else {
     const days = Object.keys(allData).length;
-    text = "이 프로그램에 저장된 모든 날짜(" + days + "일치)의 목록과 체크 상태가 삭제돼요. 지우면 되돌릴 수 없어요. 다른 사이트의 데이터는 건드리지 않아요.";
+    text = "이 프로그램에 저장된 모든 날짜의 목록과 체크 상태가 삭제돼요. 다른 사이트의 데이터는 건드리지 않아요.";
+    rows = [["범위", "모든 날짜 (" + days + "일치)"],
+      ["날짜", days ? Object.keys(allData).sort().map(formatDate).join(", ") : "(저장된 목록 없음)"]];
     yesText = "전체 데이터 삭제";
     action = function () {
       allData = {};
       let ok = true;
-      try { localStorage.removeItem(STORAGE_KEY); } catch (e) { ok = false; }
+      try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(LAST_DATE_KEY); } catch (e) { ok = false; }
       area.textContent = "";
       pending = null;
       render();
@@ -771,7 +880,8 @@ function askReset(kind) {
       }
     };
   }
-  area.appendChild(makeConfirmBox(text, yesText, action));
+  // 취소하면 확인 창을 닫아요.
+  area.appendChild(makeConfirmBox(text, yesText, action, rows, function () { area.textContent = ""; }));
 }
 
 $("clear-day-btn").addEventListener("click", function () { askReset("day"); });
@@ -780,7 +890,9 @@ $("clear-all-btn").addEventListener("click", function () { askReset("all"); });
 // 처음 시작: 저장된 목록 불러오고 오늘 날짜를 골라 둠
 function start() {
   allData = loadData();
-  currentDate = todayString();
+  // 지난번에 보던 날짜에 목록이 남아 있으면 그 날짜부터, 아니면 오늘 날짜로 시작
+  const last = loadLastDate();
+  currentDate = (last && allData[last]) ? last : todayString();
   $("date-input").value = currentDate;
   if (storageWorks) {
     // 실제로 써 보면서 저장 가능한지 확인
@@ -789,8 +901,11 @@ function start() {
       localStorage.removeItem(STORAGE_KEY + ":test");
     } catch (e) { storageWorks = false; }
   }
+  const days = Object.keys(allData).length;
   if (storageWorks) {
-    $("save-state").textContent = "저장 상태: 바꿀 때마다 이 브라우저에 자동으로 저장돼요.";
+    $("save-state").textContent = days > 0
+      ? "저장 상태: 지난번에 저장한 목록 " + days + "일치를 불러왔어요. 바꿀 때마다 자동으로 저장돼요."
+      : "저장 상태: 바꿀 때마다 이 브라우저에 자동으로 저장돼요. 브라우저를 닫았다 열어도 남아 있어요.";
     $("save-state").style.color = "var(--muted)";
   } else {
     showSaveState(false);

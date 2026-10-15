@@ -6,7 +6,7 @@
 <title>무작위 도전 과제 뽑기</title>
 <meta name="description" content="게임·취미를 새롭게 즐기도록 무작위 도전 과제를 뽑고, 성공 기록을 스택에 쌓아 최근 성공부터 되돌릴 수 있는 프로그램">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="PRD">
+<meta name="status" content="1회 개선">
 <style>
   :root {
     --bg: #f6f7f9;
@@ -96,6 +96,17 @@
   }
   ul.tasks { margin: 12px 0 0; padding-left: 1.2em; color: var(--muted); }
   .hint { color: var(--muted); font-size: 0.95rem; margin: 6px 0 0; }
+  /* 성공·실패·성공률 요약 */
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 12px 0 0; }
+  .stat { border: 1px solid var(--line); border-radius: 8px; padding: 8px 6px; text-align: center; }
+  .stat dt { font-size: 0.85rem; color: var(--muted); }
+  .stat dd { margin: 0; font-size: 1.25rem; font-weight: 700; }
+  .stat.ok dd { color: var(--accent); }
+  .stat.bad dd { color: var(--warn); }
+  .rate-bar { height: 10px; margin-top: 10px; border-radius: 5px; background: var(--warn-weak); overflow: hidden; }
+  .rate-bar span { display: block; height: 100%; width: 0; background: var(--accent); }
+  .rate-bar.none { background: #eceff2; }
+  .formula { color: var(--muted); font-size: 0.95rem; margin: 6px 0 0; }
   .confirm { margin-top: 12px; padding: 12px; border: 1px solid var(--warn); border-radius: 8px; background: var(--warn-weak); }
   .confirm p { margin: 0 0 8px; }
   [hidden] { display: none !important; }
@@ -124,8 +135,16 @@
       <button type="button" id="btn-success" class="primary" disabled>성공</button>
       <button type="button" id="btn-fail" disabled>실패</button>
     </div>
-    <p class="hint">과제 하나당 성공·실패는 한 번만 기록돼요. 다음 과제는 다시 뽑아 주세요.</p>
-    <p class="count">누적 성공 횟수: <strong id="success-count">0</strong>회</p>
+    <p class="hint">과제 하나당 성공·실패는 한 번만 기록돼요. 기록하면 버튼이 잠기고, 새 과제를 뽑으면 다시 눌러져요.</p>
+    <!-- 성공·실패·총 시도·성공률을 한눈에 -->
+    <dl class="stats" aria-label="도전 기록 요약">
+      <div class="stat ok"><dt>성공</dt><dd><span id="success-count">0</span>회</dd></div>
+      <div class="stat bad"><dt>실패</dt><dd><span id="fail-count">0</span>회</dd></div>
+      <div class="stat"><dt>총 시도</dt><dd><span id="try-count">0</span>회</dd></div>
+      <div class="stat ok"><dt>성공률</dt><dd id="success-rate">-</dd></div>
+    </dl>
+    <div id="rate-bar" class="rate-bar none" aria-hidden="true"><span id="rate-fill"></span></div>
+    <p id="rate-formula" class="formula">아직 시도한 기록이 없어요.</p>
     <p id="msg-result" class="msg" role="status"></p>
   </section>
 
@@ -158,7 +177,7 @@
   <!-- 전체 초기화 (페이지 안 확인창) -->
   <section aria-labelledby="h-reset">
     <h2 id="h-reset">전체 초기화</h2>
-    <p class="hint">성공 횟수·성공 기록과 직접 추가한 도전 과제를 모두 지우고 처음 상태로 되돌려요.</p>
+    <p class="hint">성공·실패 횟수, 성공 기록과 직접 추가한 도전 과제를 모두 지우고 처음 상태로 되돌려요. 기록은 이 화면(메모리)에만 있어서 새로고침해도 처음으로 돌아가요.</p>
     <div class="row" style="margin-top:8px">
       <button type="button" id="btn-reset" class="danger">전체 초기화</button>
     </div>
@@ -188,6 +207,7 @@ const MAX_CUSTOM = 20; // 사용자가 추가할 수 있는 도전 과제 최대
 let tasks = [];          // 등록된 도전 과제 배열
 let customCount = 0;     // 사용자가 직접 추가한 개수
 let successStack = [];   // 성공 스택: { task, time } 객체를 push/pop
+let failCount = 0;       // 실패 횟수 (실패는 취소 대상이 아니라 숫자만 셈)
 let currentTask = null;  // 지금 뽑힌 도전 과제
 let resolved = true;     // 현재 과제의 성공/실패가 이미 기록됐는지 (중복 클릭 방지)
 
@@ -198,6 +218,7 @@ function resetAll() {
   tasks = DEFAULT_TASKS.slice();
   customCount = 0;
   successStack = [];
+  failCount = 0;
   currentTask = null;
   resolved = true;
 }
@@ -235,6 +256,14 @@ function addTask(text) {
   return { ok: true, message: "‘" + value + "’ 도전 과제를 추가했어요." };
 }
 
+// 성공률(%) 계산 — 시도가 0번이면 null (0으로 나누지 않게)
+// 성공 = 스택에 남은 기록 수, 총 시도 = 성공 + 실패
+function successRate() {
+  const tries = successStack.length + failCount;
+  if (tries === 0) return null;
+  return Math.round(successStack.length / tries * 1000) / 10; // 소수 첫째 자리까지
+}
+
 function formatTime(date) {
   const p = function (n) { return String(n).padStart(2, "0"); };
   return p(date.getHours()) + ":" + p(date.getMinutes()) + ":" + p(date.getSeconds());
@@ -268,6 +297,21 @@ function render() {
 
   // 성공 카운트 = 스택에 쌓인 기록 수 (둘이 어긋나지 않도록 한 곳에서 계산)
   $("success-count").textContent = successStack.length;
+  $("fail-count").textContent = failCount;
+  const tries = successStack.length + failCount;
+  $("try-count").textContent = tries;
+  const rate = successRate();
+  if (rate === null) {
+    $("success-rate").textContent = "-";
+    $("rate-bar").classList.add("none");
+    $("rate-fill").style.width = "0";
+    $("rate-formula").textContent = "아직 시도한 기록이 없어요.";
+  } else {
+    $("success-rate").textContent = rate + "%";
+    $("rate-bar").classList.remove("none");
+    $("rate-fill").style.width = rate + "%";
+    $("rate-formula").textContent = "성공률 = 성공 " + successStack.length + " ÷ 총 시도 " + tries + " × 100 = " + rate + "%";
+  }
 
   // 스택 목록: 맨 위(가장 최근)부터 보여 주기
   const list = $("stack-list");
@@ -332,8 +376,9 @@ $("btn-success").addEventListener("click", function () {
 $("btn-fail").addEventListener("click", function () {
   if (!currentTask || resolved) return;
   resolved = true;
+  failCount++; // 실패 횟수 바로 1 늘리기
   clearMsgs();
-  showMsg("msg-result", "실패로 처리했어요. 성공 기록에는 넣지 않았어요.");
+  showMsg("msg-result", "실패로 기록했어요. 실패 횟수와 성공률이 바뀌었어요.");
   render();
 });
 
@@ -343,7 +388,7 @@ $("btn-undo").addEventListener("click", function () {
   if (removed === null) {
     showMsg("msg-undo", "취소할 성공 기록이 없습니다.", true);
   } else {
-    showMsg("msg-undo", "‘" + removed.task + "’ 성공 기록을 취소했어요.");
+    showMsg("msg-undo", "‘" + removed.task + "’ 성공 기록을 취소했어요. 총 시도에서도 빠져요.");
   }
   render();
 });
