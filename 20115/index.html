@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오늘의 공부 체크리스트</title>
+<meta name="description" content="과목, 공부할 내용, 마감일을 적어 두면 마감일이 빠른 순서로 보여 주고 마감 상태와 완료 여부를 관리해 주는 공부 체크리스트">
+<meta name="class" content="M반 (2-8)">
+<meta name="status" content="PRD">
+<style>
+  :root {
+    --bg: #f5f7f6;
+    --card: #ffffff;
+    --text: #1d2321;
+    --muted: #57615d;
+    --line: #d5dcd9;
+    --accent: #0f6b5c;
+    --accent-weak: #e4f2ef;
+    --ok: #1a7f37;
+    --ok-weak: #e9f6ec;
+    --err: #b42318;
+    --err-weak: #fdecea;
+    --warn: #8a5a00;
+    --warn-weak: #fff4d6;
+    --calm: #1f5fbf;
+    --calm-weak: #e8f0fc;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .wrap { max-width: 42rem; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; line-height: 1.3; }
+  h2 { font-size: 1.15rem; margin: 0; }
+  .intro { color: var(--muted); margin: 0 0 8px; }
+  .privacy { font-size: 0.95rem; color: var(--muted); margin: 0 0 12px; }
+  .summary {
+    display: inline-block; margin: 0 0 16px; padding: 4px 14px; border-radius: 999px;
+    background: var(--accent-weak); color: var(--accent); font-weight: 700;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 16px;
+    margin-bottom: 20px;
+  }
+  .card > h2, .list-head { margin-bottom: 12px; }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  .field:first-child label { margin-top: 0; }
+  .hint { display: block; font-size: 0.9rem; color: var(--muted); font-weight: 400; }
+  input[type="text"], input[type="date"] {
+    width: 100%;
+    max-width: 100%;
+    font: inherit;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+  }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  input[aria-invalid="true"] { border-color: var(--err); border-width: 2px; }
+  button {
+    font: inherit;
+    font-size: 1rem;
+    min-height: 44px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+  }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn-ok { border-color: var(--ok); color: var(--ok); font-weight: 600; }
+  .btn-danger { border-color: var(--err); color: var(--err); }
+  .btn-danger-solid { background: var(--err); border-color: var(--err); color: #fff; font-weight: 600; }
+  .btn-small { min-height: 40px; padding: 6px 12px; font-size: 0.95rem; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+
+  /* 안내 메시지: 색 + 글자 머리말로 함께 구분 */
+  .msg { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 0.95rem; }
+  .msg:empty { display: none; }
+  .msg-error { background: var(--err-weak); color: var(--err); border-left: 4px solid var(--err); }
+  .msg-ok { background: var(--ok-weak); color: var(--ok); border-left: 4px solid var(--ok); }
+  .msg-warn { background: var(--warn-weak); color: var(--warn); border-left: 4px solid var(--warn); }
+  .msg ul { margin: 4px 0 0; padding-left: 20px; }
+  #storageStatus { margin: 0 0 20px; }
+
+  .list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .count { color: var(--muted); font-size: 0.95rem; }
+  .empty { color: var(--muted); padding: 12px 0; margin: 0; }
+  .items { list-style: none; margin: 0; padding: 0; }
+  .item { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .item:last-child { border-bottom: none; }
+  .item-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .subject { font-weight: 700; }
+  .task { margin: 2px 0; }
+  .due { color: var(--muted); font-size: 0.95rem; }
+  .item.done .task { text-decoration: line-through; text-decoration-color: var(--muted); color: var(--muted); }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+  /* 배지: 색만이 아니라 글자로도 뜻을 알 수 있게 */
+  .tag { font-size: 0.85rem; font-weight: 700; padding: 1px 10px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; }
+  .tag-late { background: var(--err-weak); color: var(--err); border-color: var(--err); }
+  .tag-soon { background: var(--warn-weak); color: var(--warn); border-color: var(--warn); }
+  .tag-free { background: var(--calm-weak); color: var(--calm); }
+  .tag-done { background: var(--ok-weak); color: var(--ok); }
+  .tag-example { background: #eef0ef; color: var(--muted); border: 1px dashed var(--muted); }
+
+  .confirm-box { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--err-weak); }
+  .confirm-box p { margin: 0 0 8px; color: var(--err); font-size: 0.95rem; }
+  .confirm-box .row { margin-top: 0; }
+  .edit-box { margin-top: 8px; padding: 12px; border-radius: 8px; background: var(--accent-weak); }
+  .edit-box .row { margin-top: 12px; }
+
+  .tools p { margin: 0 0 8px; font-size: 0.95rem; color: var(--muted); }
+  .tools .row { margin-top: 8px; }
+  .tools + .tools { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<!-- ===== 화면 구조 ===== -->
+<main class="wrap">
+  <header>
+    <h1>오늘의 공부 체크리스트</h1>
+    <p class="intro">숙제, 수행평가, 시험공부를 적어 두면 마감일이 빠른 순서로 보여 줘요. 다 끝낸 공부는 <strong>완료</strong>를 눌러 완료 목록으로 옮기세요.</p>
+    <p class="privacy">저장되는 것은 과목명, 공부할 내용, 마감일, 완료 여부뿐이고, 서버로 보내지 않고 이 기기의 이 브라우저에만 저장돼요. 같은 브라우저를 쓰는 다른 사람이 볼 수 있으니 이름이나 연락처 같은 개인정보는 적지 마세요. 마감 상태는 이 기기의 날짜를 기준으로 계산하므로, 기기 날짜가 틀리면 상태도 틀릴 수 있어요.</p>
+    <p class="summary" id="summaryText" aria-live="polite">남은 공부 0개</p>
+  </header>
+
+  <!-- 저장 상태 안내 -->
+  <div id="storageStatus" class="msg" role="status" aria-live="polite"></div>
+
+  <section class="card" aria-labelledby="addTitle">
+    <h2 id="addTitle">공부 추가</h2>
+    <form id="addForm" novalidate>
+      <div class="field">
+        <label for="subjectInput">과목명 <span class="hint">예: 수학</span></label>
+        <input type="text" id="subjectInput" autocomplete="off" maxlength="30" placeholder="과목명을 입력하세요">
+      </div>
+      <div class="field">
+        <label for="taskInput">공부할 내용 <span class="hint">예: 문제집 10문제 풀기</span></label>
+        <input type="text" id="taskInput" autocomplete="off" maxlength="100" placeholder="무엇을 공부할지 입력하세요">
+      </div>
+      <div class="field">
+        <label for="dueInput">마감일 <span class="hint">연도·월·일을 모두 고르세요</span></label>
+        <input type="date" id="dueInput" min="2000-01-01" max="2099-12-31">
+      </div>
+      <div class="row">
+        <button type="submit" class="btn-primary" id="addButton">공부 추가</button>
+      </div>
+      <div id="addMessage" class="msg" role="alert"></div>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="todoTitle">
+    <div class="list-head">
+      <h2 id="todoTitle">해야 할 공부</h2>
+      <span class="count" id="todoCount"></span>
+    </div>
+    <ul class="items" id="todoList"></ul>
+    <p class="empty" id="todoEmpty">아직 해야 할 공부가 없어요. 위에서 공부를 추가해 보세요.</p>
+  </section>
+
+  <section class="card" aria-labelledby="doneTitle">
+    <div class="list-head">
+      <h2 id="doneTitle">완료한 공부</h2>
+      <span class="count" id="doneCount"></span>
+    </div>
+    <ul class="items" id="doneList"></ul>
+    <p class="empty" id="doneEmpty">아직 완료한 공부가 없어요.</p>
+  </section>
+
+  <section class="card" aria-labelledby="toolTitle">
+    <h2 id="toolTitle">예시와 초기화</h2>
+    <div class="tools">
+      <p>가상의 예시 공부 3개를 내 목록에 더해요. 내가 입력한 항목은 그대로 남고, 예시에는 <span class="tag tag-example">예시</span> 표시가 붙어요. 이미 있는 예시는 다시 넣지 않아요.</p>
+      <div class="row">
+        <button type="button" id="exampleButton">예시 불러오기</button>
+      </div>
+      <div id="exampleMessage" class="msg" role="status"></div>
+    </div>
+    <div class="tools">
+      <p>이 프로그램에 등록한 공부만 모두 지워요. 다른 웹사이트의 데이터는 지우지 않아요.</p>
+      <div class="row">
+        <button type="button" class="btn-danger" id="resetButton">전체 초기화</button>
+      </div>
+      <div id="resetConfirm" class="confirm-box" hidden>
+        <p>등록한 공부 <span id="resetCount">0</span>개(완료한 공부 포함)를 모두 삭제해요. 삭제하면 되돌릴 수 없어요. 정말 초기화할까요?</p>
+        <div class="row">
+          <button type="button" class="btn-danger-solid" id="resetYes">네, 모두 삭제</button>
+          <button type="button" id="resetNo">취소</button>
+        </div>
+      </div>
+      <div id="resetMessage" class="msg" role="status"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+// ===== 설정 =====
+const STORAGE_KEY = "sih26:20115:items";   // 이 프로그램만 쓰는 저장 키 (접두사로 다른 데이터와 구분)
+const MAX_ITEMS = 100;                      // 완료한 항목까지 합쳐서 최대 100개
+
+// 예시 데이터 (가상의 내용). key로 "이미 불러온 예시인지" 알아본다.
+const EXAMPLES = [
+  { key: "ex1", subject: "수학", task: "문제집 10문제 풀기", due: "2026-10-17" },
+  { key: "ex2", subject: "영어", task: "단어 30개 외우기", due: "2026-10-19" },
+  { key: "ex3", subject: "국어", task: "작품 해설 읽기", due: "2026-10-20" }
+];
+
+// ===== 데이터·상태 =====
+// 공부 항목 배열: { id, order, subject, task, due("YYYY-MM-DD"), done, example(예시 key 또는 null) }
+// order = 추가한 순서 번호. 마감일이 같을 때 먼저 추가한 것을 위에 두려고 쓴다.
+let items = [];
+let nextOrder = 1;
+let editingId = null;    // 지금 수정 중인 항목 id
+let deletingId = null;   // 삭제 확인을 띄운 항목 id
+
+// 전시판 미리보기처럼 "주소(출처)가 없는" 상자 안에서는 origin이 "null"이 된다.
+// 이런 곳에서는 저장한 것처럼 보여도 새로고침하면 사라지므로 저장을 쓰지 않는다.
+// (내려받은 파일을 직접 연 file://도 origin이 "null"이지만 저장은 되므로 제외)
+const IN_PREVIEW_BOX = (window.origin === "null" && location.protocol !== "file:");
+
+// 화면 요소
+const $ = function (id) { return document.getElementById(id); };
+const subjectInput = $("subjectInput"), taskInput = $("taskInput"), dueInput = $("dueInput");
+const addForm = $("addForm"), addMessage = $("addMessage");
+const storageStatus = $("storageStatus"), summaryText = $("summaryText");
+const todoList = $("todoList"), todoEmpty = $("todoEmpty"), todoCount = $("todoCount");
+const doneList = $("doneList"), doneEmpty = $("doneEmpty"), doneCount = $("doneCount");
+const exampleButton = $("exampleButton"), exampleMessage = $("exampleMessage");
+const resetButton = $("resetButton"), resetConfirm = $("resetConfirm"), resetCount = $("resetCount");
+const resetYes = $("resetYes"), resetNo = $("resetNo"), resetMessage = $("resetMessage");
+
+// ===== 날짜 처리 =====
+
+// "YYYY-MM-DD" 글자를 실제로 있는 날짜인지 확인하고, 그 날 0시(기기 시간 기준) Date로 바꾼다.
+// 2026-02-30처럼 없는 날짜는 Date가 3월로 넘겨 버리므로, 다시 꺼낸 연·월·일이 같은지 비교한다.
+function parseDate(text) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (!m) return null;
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  const date = new Date(y, mo - 1, d);
+  if (date.getFullYear() !== y || date.getMonth() !== mo - 1 || date.getDate() !== d) return null;
+  return date;
+}
+
+// 오늘 날짜(기기 기준) 0시
+function today() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+// 마감일까지 남은 날 수 (오늘 마감 = 0, 어제 마감 = -1)
+// 시각은 버리고 날짜만 비교한다. 서머타임으로 하루가 23·25시간이 되어도 반올림으로 맞춘다.
+function daysLeft(due) {
+  return Math.round((parseDate(due) - today()) / 86400000);
+}
+
+// 마감 상태: 지남(0일 미만) / 임박(오늘~2일 뒤) / 여유(3일 이상)
+function dueStatus(due) {
+  const days = daysLeft(due);
+  if (days < 0) return { cls: "tag-late", text: "기한 지남 · " + (-days) + "일 지남" };
+  if (days === 0) return { cls: "tag-soon", text: "마감 임박 · 오늘 마감" };
+  if (days <= 2) return { cls: "tag-soon", text: "마감 임박 · " + days + "일 남음" };
+  return { cls: "tag-free", text: "여유 있음 · " + days + "일 남음" };
+}
+
+// 화면에 보일 날짜: 2026년 10월 17일 (토)
+function formatDate(due) {
+  const d = parseDate(due);
+  const week = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+  return d.getFullYear() + "년 " + (d.getMonth() + 1) + "월 " + d.getDate() + "일 (" + week + ")";
+}
+
+// ===== 입력 검사 =====
+// 문제가 있으면 errors에 담고, 없으면 정리된 값을 돌려준다.
+// dateEl은 날짜 입력칸: 연·월·일 중 일부만 채우면 value가 ""가 되므로 badInput으로 따로 알아낸다.
+function validate(subjectRaw, taskRaw, dateEl) {
+  const subject = subjectRaw.trim();   // 공백만 입력하면 빈 칸이 되어 거부된다
+  const task = taskRaw.trim();
+  const due = dateEl.value;
+  const errors = [];
+  if (subject === "") errors.push({ field: "subject", text: "과목명을 입력해 주세요. (공백만으로는 안 돼요)" });
+  if (task === "") errors.push({ field: "task", text: "공부할 내용을 입력해 주세요. (공백만으로는 안 돼요)" });
+  if (due === "") {
+    if (dateEl.validity && dateEl.validity.badInput) {
+      errors.push({ field: "due", text: "마감일이 올바른 날짜가 아니에요. 연도·월·일을 다시 입력해 주세요." });
+    } else {
+      errors.push({ field: "due", text: "마감일을 입력해 주세요." });
+    }
+  } else {
+    const d = parseDate(due);
+    if (!d) {
+      errors.push({ field: "due", text: "마감일이 올바른 날짜가 아니에요. 다시 입력해 주세요." });
+    } else if (d.getFullYear() < 2000 || d.getFullYear() > 2099) {
+      errors.push({ field: "due", text: "마감일의 연도가 너무 이르거나 늦어요. 2000년~2099년 사이로 다시 입력해 주세요." });
+    }
+  }
+  return { errors: errors, subject: subject, task: task, due: due };
+}
+
+// 오류가 난 입력칸을 빨갛게 표시하고, 안내 문장을 목록으로 보여 준다
+function showErrors(box, fields, errors) {
+  Object.keys(fields).forEach(function (k) {
+    const bad = errors.some(function (e) { return e.field === k; });
+    fields[k].setAttribute("aria-invalid", bad ? "true" : "false");
+  });
+  box.className = "msg msg-error";
+  box.innerHTML = "";
+  box.appendChild(document.createTextNode("입력을 확인해 주세요."));
+  const ul = document.createElement("ul");
+  errors.forEach(function (e) {
+    const li = document.createElement("li");
+    li.textContent = e.text;
+    ul.appendChild(li);
+  });
+  box.appendChild(ul);
+  const first = fields[errors[0].field];
+  if (first) first.focus();
+}
+
+// ===== 정렬 =====
+// 마감일이 빠른 순서. "YYYY-MM-DD"는 글자 순서가 곧 날짜 순서라서 그대로 비교할 수 있다.
+// 마감일이 같으면 추가한 순서(order)가 작은 것, 즉 먼저 추가한 것이 위로 온다.
+function byDueThenOrder(a, b) {
+  if (a.due < b.due) return -1;
+  if (a.due > b.due) return 1;
+  return a.order - b.order;
+}
+
+// ===== 저장 =====
+// "저장 명령을 내렸다"가 아니라 "다시 읽어 봤더니 똑같이 들어 있다"까지 확인해야 성공으로 친다.
+function save() {
+  if (IN_PREVIEW_BOX) return false;
+  try {
+    const text = JSON.stringify(items);
+    localStorage.setItem(STORAGE_KEY, text);
+    return localStorage.getItem(STORAGE_KEY) === text;
+  } catch (e) {
+    return false;   // 저장이 막혔거나 저장 공간이 꽉 찬 경우
+  }
+}
+
+// 저장된 목록 불러오기. 상태 문자열을 돌려준다.
+function load() {
+  if (IN_PREVIEW_BOX) return "preview";
+  let text;
+  try {
+    text = localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    return "unavailable";
+  }
+  if (text === null) return "none";
+  try {
+    const data = JSON.parse(text);
+    if (!Array.isArray(data)) return "broken";
+    // 모양이 올바른 항목만 쓴다 (망가진 항목 때문에 화면 전체가 멈추지 않게)
+    items = data.filter(function (it) {
+      return it && typeof it.id === "string" && typeof it.subject === "string" && it.subject.trim() !== "" &&
+        typeof it.task === "string" && it.task.trim() !== "" && typeof it.due === "string" &&
+        parseDate(it.due) !== null && Number.isFinite(it.order);
+    }).slice(0, MAX_ITEMS).map(function (it) {
+      return { id: it.id, order: it.order, subject: it.subject, task: it.task, due: it.due,
+        done: it.done === true, example: typeof it.example === "string" ? it.example : null };
+    });
+    items.forEach(function (it) { if (it.order >= nextOrder) nextOrder = it.order + 1; });
+    return "loaded";
+  } catch (e) {
+    return "broken";
+  }
+}
+
+// 바뀐 내용을 저장해 보고 결과를 위쪽 안내에 보여 준다
+function saveAndReport(actionText) {
+  if (save()) {
+    showStatus("ok", "저장됨: " + actionText + " 이 브라우저에 저장했어요.");
+  } else {
+    showStatus("warn", "저장 안 됨: " + actionText + " 하지만 지금 화면에서만 보이고, 새로고침하거나 브라우저를 닫으면 사라질 수 있어요. " + whyNotSaved());
+  }
+}
+
+function whyNotSaved() {
+  if (IN_PREVIEW_BOX) return "전시판 미리보기 안에서는 저장할 수 없어요. ‘새 탭 실행’으로 열면 저장돼요.";
+  return "이 브라우저에서 저장 기능을 쓸 수 없거나 저장 공간이 부족해요.";
+}
+
+function showStatus(kind, text) {
+  storageStatus.className = "msg msg-" + kind;
+  storageStatus.textContent = text;
+}
+
+function makeId() {
+  return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+}
+
+function clearMsg(box) { box.className = "msg"; box.textContent = ""; }
+
+// ===== 기능 1: 공부 추가 =====
+addForm.addEventListener("submit", function (ev) {
+  ev.preventDefault();
+  clearMsg(addMessage);
+  // 100개 제한은 완료한 항목까지 합쳐서 센다
+  if (items.length >= MAX_ITEMS) {
+    addMessage.className = "msg msg-error";
+    addMessage.textContent = "항목이 이미 " + MAX_ITEMS + "개(완료한 공부 포함)라서 더 추가할 수 없어요. 필요 없는 항목을 삭제하거나 기존 항목을 수정해 주세요.";
+    return;
+  }
+  const r = validate(subjectInput.value, taskInput.value, dueInput);
+  if (r.errors.length > 0) {
+    showErrors(addMessage, { subject: subjectInput, task: taskInput, due: dueInput }, r.errors);
+    return;
+  }
+  [subjectInput, taskInput, dueInput].forEach(function (el) { el.setAttribute("aria-invalid", "false"); });
+  items.push({ id: makeId(), order: nextOrder++, subject: r.subject, task: r.task, due: r.due, done: false, example: null });
+  addMessage.className = "msg msg-ok";
+  addMessage.textContent = "추가했어요: " + r.subject + " - " + r.task;
+  // 과목명은 이어서 같은 과목을 넣기 쉽게 남기고, 내용만 비운다
+  taskInput.value = "";
+  taskInput.focus();
+  render();
+  saveAndReport("공부를 추가했어요.");
+});
+
+// ===== 기능 2: 완료 / 되돌리기 =====
+// 버튼을 여러 번 눌러도 "뒤집기"가 아니라 "완료로 만들기"라서 두 번 처리되지 않는다.
+// 또, 완료하면 목록이 당겨져 다음 항목의 완료 버튼이 같은 자리에 온다.
+// 빠르게 두 번 누르면 엉뚱한 항목까지 완료되므로, 바뀐 직후 잠깐(0.6초)은 다음 누름을 무시한다.
+let doneLockUntil = 0;
+function setDone(id, done) {
+  if (Date.now() < doneLockUntil) return;
+  const it = items.find(function (x) { return x.id === id; });
+  if (!it || it.done === done) return;   // 이미 그 상태면 아무것도 안 함
+  doneLockUntil = Date.now() + 600;
+  it.done = done;
+  editingId = null; deletingId = null;
+  render();
+  saveAndReport(done ? "완료 목록으로 옮겼어요." : "해야 할 공부로 되돌렸어요.");
+}
+
+// ===== 기능 3: 수정 / 삭제 =====
+function saveEdit(id, box, fields) {
+  const it = items.find(function (x) { return x.id === id; });
+  if (!it) return;
+  const r = validate(fields.subject.value, fields.task.value, fields.due);   // 추가할 때와 같은 규칙으로 다시 검사
+  if (r.errors.length > 0) { showErrors(box, fields, r.errors); return; }
+  it.subject = r.subject; it.task = r.task; it.due = r.due;
+  editingId = null;
+  render();   // 마감일이 바뀌었을 수 있으니 다시 정렬해서 그린다
+  saveAndReport("수정한 내용을 반영했어요.");
+}
+
+function removeItem(id) {
+  items = items.filter(function (x) { return x.id !== id; });
+  deletingId = null;
+  render();
+  saveAndReport("항목을 삭제했어요.");
+}
+
+// ===== 화면 그리기 =====
+function button(text, cls, onClick) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = text;
+  b.className = "btn-small" + (cls ? " " + cls : "");
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+function tag(cls, text) {
+  const s = document.createElement("span");
+  s.className = "tag " + cls;
+  s.textContent = text;
+  return s;
+}
+
+function renderItem(it) {
+  const li = document.createElement("li");
+  li.className = "item" + (it.done ? " done" : "");
+  const label = it.subject + " - " + it.task;
+
+  const top = document.createElement("div");
+  top.className = "item-top";
+  const subj = document.createElement("span");
+  subj.className = "subject";
+  subj.textContent = it.subject;
+  top.appendChild(subj);
+  // 완료한 항목은 마감 경고 대신 "완료"만 보여 준다
+  if (it.done) {
+    top.appendChild(tag("tag-done", "✓ 완료"));
+  } else {
+    const st = dueStatus(it.due);
+    top.appendChild(tag(st.cls, st.text));
+  }
+  if (it.example) top.appendChild(tag("tag-example", "예시"));
+  li.appendChild(top);
+
+  const task = document.createElement("p");
+  task.className = "task";
+  task.textContent = it.task;
+  li.appendChild(task);
+
+  const due = document.createElement("div");
+  due.className = "due";
+  due.textContent = "마감일: " + formatDate(it.due);
+  li.appendChild(due);
+
+  if (editingId === it.id) {
+    li.appendChild(renderEditBox(it));
+    return li;
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  if (it.done) {
+    const undo = button("미완료로 되돌리기", "", function () { setDone(it.id, false); });
+    undo.setAttribute("aria-label", label + " 미완료로 되돌리기");
+    actions.appendChild(undo);
+  } else {
+    const done = button("완료", "btn-ok", function () { setDone(it.id, true); });
+    done.setAttribute("aria-label", label + " 완료");
+    actions.appendChild(done);
+  }
+  const edit = button("수정", "", function () { editingId = it.id; deletingId = null; render(); focusEdit(); });
+  edit.setAttribute("aria-label", label + " 수정");
+  const del = button("삭제", "btn-danger", function () { deletingId = it.id; editingId = null; render(); focusConfirm(); });
+  del.setAttribute("aria-label", label + " 삭제");
+  actions.appendChild(edit);
+  actions.appendChild(del);
+  li.appendChild(actions);
+
+  // 삭제 전에 화면 안에서 한 번 더 묻는다 (팝업 확인창은 전시판에서 막혀 있어서 쓰지 않음)
+  if (deletingId === it.id) {
+    const box = document.createElement("div");
+    box.className = "confirm-box";
+    const p = document.createElement("p");
+    p.textContent = "‘" + label + "’ 항목을 삭제할까요? 삭제하면 되돌릴 수 없어요.";
+    const row = document.createElement("div");
+    row.className = "row";
+    const yes = button("삭제", "btn-danger-solid", function () { removeItem(it.id); });
+    yes.classList.add("confirm-yes");
+    const no = button("취소", "", function () { deletingId = null; render(); });
+    no.classList.add("confirm-no");
+    row.appendChild(yes); row.appendChild(no);
+    box.appendChild(p); box.appendChild(row);
+    li.appendChild(box);
+  }
+  return li;
+}
+
+function renderEditBox(it) {
+  const box = document.createElement("div");
+  box.className = "edit-box";
+  const id = it.id;
+  function field(labelText, type, value, max) {
+    const wrap = document.createElement("div");
+    wrap.className = "field";
+    const lb = document.createElement("label");
+    lb.textContent = labelText;
+    const input = document.createElement("input");
+    input.type = type;
+    input.value = value;
+    input.id = "edit-" + labelText.replace(/\s/g, "") + "-" + id;
+    lb.htmlFor = input.id;
+    if (max) input.maxLength = max;
+    if (type === "date") { input.min = "2000-01-01"; input.max = "2099-12-31"; }
+    wrap.appendChild(lb); wrap.appendChild(input);
+    box.appendChild(wrap);
+    return input;
+  }
+  const fields = {
+    subject: field("과목명", "text", it.subject, 30),
+    task: field("공부할 내용", "text", it.task, 100),
+    due: field("마감일", "date", it.due)
+  };
+  const msg = document.createElement("div");
+  msg.className = "msg";
+  msg.setAttribute("role", "alert");
+  const row = document.createElement("div");
+  row.className = "row";
+  row.appendChild(button("수정 저장", "btn-primary", function () { saveEdit(id, msg, fields); }));
+  row.appendChild(button("취소", "", function () { editingId = null; render(); }));
+  box.appendChild(row);
+  box.appendChild(msg);
+  // 수정칸에서 Enter를 누르면 저장
+  box.addEventListener("keydown", function (ev) {
+    if (ev.key === "Enter" && ev.target.tagName === "INPUT") { ev.preventDefault(); saveEdit(id, msg, fields); }
+  });
+  return box;
+}
+
+function focusEdit() { const el = document.querySelector(".edit-box input"); if (el) el.focus(); }
+function focusConfirm() { const el = document.querySelector(".confirm-box .confirm-no"); if (el) el.focus(); }
+
+function render() {
+  // 완료 여부로 두 목록을 나누고, 각각 마감일 순으로 정렬한다
+  const todo = items.filter(function (x) { return !x.done; }).sort(byDueThenOrder);
+  const done = items.filter(function (x) { return x.done; }).sort(byDueThenOrder);
+
+  todoList.innerHTML = "";
+  todo.forEach(function (it) { todoList.appendChild(renderItem(it)); });
+  doneList.innerHTML = "";
+  done.forEach(function (it) { doneList.appendChild(renderItem(it)); });
+
+  todoEmpty.hidden = todo.length > 0;
+  doneEmpty.hidden = done.length > 0;
+  todoEmpty.textContent = items.length === 0
+    ? "아직 등록한 공부가 없어요. 위에서 공부를 추가하거나 아래 ‘예시 불러오기’를 눌러 보세요."
+    : "해야 할 공부가 없어요. 모두 끝냈어요!";
+  todoCount.textContent = todo.length + "개";
+  doneCount.textContent = done.length + "개";
+  summaryText.textContent = "남은 공부 " + todo.length + "개 · 전체 " + items.length + "/" + MAX_ITEMS + "개";
+}
+
+// ===== 예시 불러오기 =====
+// 내가 입력한 항목은 그대로 두고, 아직 목록에 없는 예시만 더한다 (중복 방지)
+exampleButton.addEventListener("click", function () {
+  const missing = EXAMPLES.filter(function (ex) {
+    return !items.some(function (it) { return it.example === ex.key; });
+  });
+  if (missing.length === 0) {
+    exampleMessage.className = "msg msg-warn";
+    exampleMessage.textContent = "예시 3개가 이미 목록에 있어요. 중복해서 넣지 않았어요.";
+    return;
+  }
+  if (items.length + missing.length > MAX_ITEMS) {
+    exampleMessage.className = "msg msg-error";
+    exampleMessage.textContent = "항목 수 제한(" + MAX_ITEMS + "개) 때문에 예시를 넣을 수 없어요. 남은 자리: " + (MAX_ITEMS - items.length) + "개, 필요한 자리: " + missing.length + "개.";
+    return;
+  }
+  missing.forEach(function (ex) {
+    items.push({ id: makeId(), order: nextOrder++, subject: ex.subject, task: ex.task, due: ex.due, done: false, example: ex.key });
+  });
+  exampleMessage.className = "msg msg-ok";
+  exampleMessage.textContent = "예시 " + missing.length + "개를 넣었어요. ‘예시’ 표시가 붙은 항목이에요. 마감 상태는 오늘 날짜에 따라 달라져요.";
+  render();
+  saveAndReport("예시를 불러왔어요.");
+});
+
+// ===== 전체 초기화 =====
+resetButton.addEventListener("click", function () {
+  clearMsg(resetMessage);
+  if (items.length === 0) {
+    resetMessage.className = "msg msg-warn";
+    resetMessage.textContent = "지울 항목이 없어요.";
+    return;
+  }
+  resetCount.textContent = items.length;
+  resetConfirm.hidden = false;
+  resetNo.focus();
+});
+resetNo.addEventListener("click", function () { resetConfirm.hidden = true; resetButton.focus(); });
+resetYes.addEventListener("click", function () {
+  items = [];
+  editingId = null; deletingId = null;
+  resetConfirm.hidden = true;
+  // 이 프로그램의 키 하나만 지운다 (localStorage.clear()는 다른 데이터까지 지우므로 쓰지 않음)
+  let removed = false;
+  if (!IN_PREVIEW_BOX) {
+    try { localStorage.removeItem(STORAGE_KEY); removed = localStorage.getItem(STORAGE_KEY) === null; } catch (e) { removed = false; }
+  }
+  render();
+  resetMessage.className = "msg msg-ok";
+  resetMessage.textContent = "모든 항목을 지웠어요.";
+  if (removed) showStatus("ok", "저장됨: 이 브라우저에 저장했던 목록도 지웠어요.");
+  else showStatus("warn", "화면의 목록은 지웠어요. 저장 기능을 쓸 수 없는 상태라 저장소는 건드리지 않았어요. " + whyNotSaved());
+});
+
+// ===== 시작 =====
+const loadState = load();
+if (loadState === "preview" || loadState === "unavailable") {
+  showStatus("warn", "저장 안 됨: 지금은 이 화면에서만 목록을 관리할 수 있고, 새로고침하면 사라져요. " + whyNotSaved());
+} else if (loadState === "broken") {
+  showStatus("warn", "저장된 목록을 읽을 수 없어 빈 목록으로 시작해요. 새로 추가하면 그 내용으로 다시 저장돼요.");
+} else if (loadState === "loaded" && items.length > 0) {
+  showStatus("ok", "이 브라우저에 저장해 둔 공부 " + items.length + "개를 불러왔어요.");
+}
+render();
+</script>
+</body>
+</html>

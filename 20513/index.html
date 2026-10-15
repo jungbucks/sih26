@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>급식실 대기 시간 예측기</title>
+<meta name="description" content="학년·반과 급식실 도착 예정 시간을 고르면 미리 정한 시간대 기준표로 예상 대기 시간과 혼잡도를 알려 주는 프로그램">
+<meta name="class" content="M반 (2-8)">
+<meta name="status" content="PRD">
+<style>
+  :root {
+    --bg: #f5f7f6;
+    --card: #ffffff;
+    --text: #1f2328;
+    --muted: #57606a;
+    --line: #d5dbd8;
+    --accent: #1d6b52;
+    --accent-weak: #e6f2ed;
+    --busy: #a1260d;
+    --busy-weak: #fdece8;
+    --mid: #7a5600;
+    --mid-weak: #fff5dc;
+    --ok: #1a7f37;
+    --ok-weak: #e9f6ec;
+    --err: #b42318;
+    --err-weak: #fdecea;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .wrap { max-width: 42rem; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; line-height: 1.3; }
+  h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  .intro { color: var(--muted); margin: 0 0 20px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 16px;
+    margin-bottom: 20px;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  label { display: block; font-weight: 600; margin: 0 0 4px; }
+  .field { margin-bottom: 16px; }
+  .hint { display: block; font-size: 0.9rem; color: var(--muted); font-weight: 400; }
+  select {
+    width: 100%;
+    font: inherit;
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+  }
+  select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  select[aria-invalid="true"] { border-color: var(--err); border-width: 2px; }
+  button {
+    font: inherit;
+    font-size: 1rem;
+    min-height: 44px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+  }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn-danger { border-color: var(--err); color: var(--err); }
+  .btn-small { min-height: 40px; padding: 6px 12px; font-size: 0.95rem; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  /* 결과 상자 */
+  .result-box { min-height: 96px; }
+  .result-empty { color: var(--muted); margin: 0; }
+  .result-who { margin: 0 0 4px; color: var(--muted); }
+  .result-main { margin: 0; font-size: 1.3rem; font-weight: 700; line-height: 1.5; }
+  .result-band { margin: 4px 0 0; }
+  /* 혼잡도: 색만이 아니라 글자(혼잡/보통/원활)로도 함께 보여 준다 */
+  .level { border-left: 6px solid; padding: 12px 14px; border-radius: 8px; }
+  .level-busy { border-color: var(--busy); background: var(--busy-weak); }
+  .level-mid { border-color: var(--mid); background: var(--mid-weak); }
+  .level-ok { border-color: var(--ok); background: var(--ok-weak); }
+  .msg { padding: 10px 12px; border-radius: 8px; background: var(--err-weak); color: var(--err); border-left: 4px solid var(--err); margin: 0; }
+
+  /* 기준표 */
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+  th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  .note { font-size: 0.9rem; color: var(--muted); margin: 10px 0 0; }
+
+  /* 최근 조회 기록 */
+  .list-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .list-head h2 { margin: 0; }
+  .history { list-style: none; margin: 0; padding: 0; }
+  .history li { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 0.95rem; }
+  .history li:last-child { border-bottom: none; }
+  .empty { color: var(--muted); margin: 0; font-size: 0.95rem; }
+  .storage-note { font-size: 0.9rem; color: var(--muted); margin: 8px 0 0; }
+
+  /* 하단 질서 유지 안내: 항상 보이게 고정 */
+  .fair {
+    position: sticky; bottom: 0;
+    background: #fffbe6;
+    border-top: 2px solid var(--mid);
+    padding: 10px 16px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>급식실 대기 시간 예측기</h1>
+  <p class="intro">급식실로 가기 전에, 도착 예정 시간에 따라 줄이 얼마나 길지 미리 짐작해 보세요.</p>
+
+  <!-- 입력 영역 -->
+  <section class="card" aria-labelledby="inputTitle">
+    <h2 id="inputTitle">1. 학년·반과 도착 예정 시간 고르기</h2>
+    <div class="grid field">
+      <div>
+        <label for="grade">학년</label>
+        <select id="grade" aria-describedby="formMsg">
+          <option value="">학년 선택</option>
+        </select>
+      </div>
+      <div>
+        <label for="klass">반</label>
+        <select id="klass" aria-describedby="formMsg">
+          <option value="">반 선택</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label for="arrive">도착 예정 시간 <span class="hint">점심시간 12:00 ~ 13:30, 5분 단위</span></label>
+      <select id="arrive" aria-describedby="formMsg">
+        <option value="">시간을 선택하세요</option>
+      </select>
+    </div>
+    <div class="row">
+      <button type="button" id="checkBtn" class="btn-primary">대기 시간 확인</button>
+      <button type="button" id="resetBtn">초기화</button>
+    </div>
+  </section>
+
+  <!-- 결과 영역 -->
+  <section class="card" aria-labelledby="resultTitle">
+    <h2 id="resultTitle">2. 결과</h2>
+    <div id="result" class="result-box" aria-live="polite">
+      <p class="result-empty">학년·반과 시간을 고른 뒤 [대기 시간 확인]을 눌러 주세요.</p>
+    </div>
+  </section>
+
+  <!-- 기준표 -->
+  <section class="card" aria-labelledby="tableTitle">
+    <h2 id="tableTitle">시간대별 기준표</h2>
+    <table>
+      <thead><tr><th scope="col">도착 시간</th><th scope="col">예상 대기</th><th scope="col">혼잡도</th></tr></thead>
+      <tbody id="bandTable"></tbody>
+    </table>
+    <p class="note">이 기준표는 미리 정해 둔 <strong>예시 값</strong>이에요. 실제 급식실 줄을 실시간으로 보고 계산하는 것이 아니에요.</p>
+  </section>
+
+  <!-- 최근 조회 기록 -->
+  <section class="card" aria-labelledby="historyTitle">
+    <div class="list-head">
+      <h2 id="historyTitle">최근 조회 기록 (최대 5개)</h2>
+      <button type="button" id="clearHistoryBtn" class="btn-danger btn-small">내 조회 기록 지우기</button>
+    </div>
+    <ul id="historyList" class="history"></ul>
+    <p id="storageNote" class="storage-note"></p>
+  </section>
+</main>
+
+<!-- 하단 질서 유지 안내 (항상 표시) -->
+<footer class="fair" role="note">
+  본 프로그램의 안내는 예상치이며, 학교 및 학년별 공식 급식 순서 지침을 먼저 준수해 주세요.
+</footer>
+
+<script>
+// ===============================================================
+// 학교 점심시간 설정 — 우리 학교 규정에 맞게 여기 값만 고치면 된다
+// ===============================================================
+const LUNCH_START = "12:00";   // 점심시간 시작 시각
+const LAST_ARRIVAL = "13:30";  // 고를 수 있는 마지막 도착 시각
+const STEP_MINUTES = 5;        // 시간 선택 간격(분)
+const GRADE_COUNT = 3;         // 학년 수
+const CLASS_COUNT = 12;        // 한 학년의 반 수
+
+// 시간대별 기준표 (미리 정해 둔 예시 데이터)
+// fromMin = 점심 시작 후 몇 분부터 이 구간인지 (이 값 "이상"이면 해당)
+// 다음 구간의 fromMin "미만"까지가 이 구간이다. 예: 12:10은 두 번째 구간.
+const BANDS = [
+  { fromMin: 0,  wait: 15, level: "혼잡", css: "level-busy" },
+  { fromMin: 10, wait: 10, level: "보통", css: "level-mid" },
+  { fromMin: 25, wait: 5,  level: "원활", css: "level-ok" }
+];
+
+// ---------------- 저장(최근 조회 기록) 설정 ----------------
+const STORAGE_KEY = "sih26:20513:history";
+const HISTORY_MAX = 5;
+// 전시판 미리보기처럼 주소(출처)가 없는 상자 안에서는 origin이 "null"이 된다.
+// 이때는 저장이 되지 않으므로 기록을 남기지 않는다.
+// (내려받은 파일을 직접 연 file:// 도 origin이 "null"이지만 저장은 되므로 제외)
+const IN_PREVIEW_BOX = (window.origin === "null" && location.protocol !== "file:");
+
+// 화면 요소 가져오기
+const gradeSel = document.getElementById("grade");
+const klassSel = document.getElementById("klass");
+const arriveSel = document.getElementById("arrive");
+const resultBox = document.getElementById("result");
+const historyList = document.getElementById("historyList");
+const storageNote = document.getElementById("storageNote");
+
+// "12:05" 같은 글자를 하루 중 몇 분째인지 숫자로 바꾼다 (12:05 → 725)
+function toMinutes(text) {
+  const parts = text.split(":");
+  return Number(parts[0]) * 60 + Number(parts[1]);
+}
+// 반대로 숫자(분)를 "12:05" 모양 글자로 바꾼다
+function toClock(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h + ":" + String(m).padStart(2, "0");
+}
+
+// 선택 상자에 항목 채우기
+function fillSelects() {
+  for (let g = 1; g <= GRADE_COUNT; g++) {
+    gradeSel.add(new Option(g + "학년", String(g)));
+  }
+  for (let c = 1; c <= CLASS_COUNT; c++) {
+    klassSel.add(new Option(c + "반", String(c)));
+  }
+  // 점심 시작부터 마지막 도착 시각까지 5분 간격으로 만든다
+  for (let t = toMinutes(LUNCH_START); t <= toMinutes(LAST_ARRIVAL); t += STEP_MINUTES) {
+    const clock = toClock(t);
+    arriveSel.add(new Option(clock, clock));
+  }
+}
+
+// 구간 설명 글자 만들기 (예: "점심 시작 0~10분 후", "점심 시작 25분 이후")
+function bandText(index) {
+  const from = BANDS[index].fromMin;
+  if (index + 1 < BANDS.length) {
+    return "점심 시작 " + from + "~" + BANDS[index + 1].fromMin + "분 후";
+  }
+  return "점심 시작 " + from + "분 이후";
+}
+
+// 도착 시각(분)이 몇 번째 구간인지 찾는다
+function findBand(arriveMin) {
+  const after = arriveMin - toMinutes(LUNCH_START); // 점심 시작 후 몇 분인지
+  let found = 0;
+  // 구간을 앞에서부터 보면서, 시작 분을 넘었으면 그 구간으로 바꿔 둔다
+  for (let i = 0; i < BANDS.length; i++) {
+    if (after >= BANDS[i].fromMin) {
+      found = i;
+    }
+  }
+  return found;
+}
+
+// 기준표 화면에 그리기
+function drawTable() {
+  const body = document.getElementById("bandTable");
+  BANDS.forEach(function (b, i) {
+    const start = toMinutes(LUNCH_START) + b.fromMin;
+    const range = (i + 1 < BANDS.length)
+      ? toClock(start) + " ~ " + toClock(toMinutes(LUNCH_START) + BANDS[i + 1].fromMin) + " 전"
+      : toClock(start) + " 이후";
+    const tr = document.createElement("tr");
+    [range, "약 " + b.wait + "분", b.level].forEach(function (text) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+
+// 경고 문구 보여 주기
+function showWarning(text) {
+  resultBox.innerHTML = "";
+  const p = document.createElement("p");
+  p.className = "msg";
+  p.setAttribute("role", "alert");
+  p.textContent = text;
+  resultBox.appendChild(p);
+}
+
+// [대기 시간 확인] 버튼을 눌렀을 때
+function onCheck() {
+  // 먼저 빨간 테두리 표시를 지운다
+  [gradeSel, klassSel, arriveSel].forEach(function (s) { s.removeAttribute("aria-invalid"); });
+
+  // 시간을 안 골랐으면 계산하지 않고 경고만 보여 준다
+  if (arriveSel.value === "") {
+    arriveSel.setAttribute("aria-invalid", "true");
+    showWarning("시간을 선택해 주세요.");
+    arriveSel.focus();
+    return;
+  }
+  // 학년이나 반을 안 골랐을 때도 경고
+  if (gradeSel.value === "" || klassSel.value === "") {
+    if (gradeSel.value === "") gradeSel.setAttribute("aria-invalid", "true");
+    if (klassSel.value === "") klassSel.setAttribute("aria-invalid", "true");
+    showWarning("학년과 반을 선택해 주세요.");
+    (gradeSel.value === "" ? gradeSel : klassSel).focus();
+    return;
+  }
+
+  // 기준표에서 구간을 찾아 결과를 만든다 (학년·반은 결과 숫자에 영향을 주지 않음)
+  const index = findBand(toMinutes(arriveSel.value));
+  const band = BANDS[index];
+  const who = gradeSel.value + "학년 " + klassSel.value + "반";
+  const mainText = "예상 대기 시간: 약 " + band.wait + "분 (" + band.level + " 구간)";
+
+  resultBox.innerHTML = "";
+  const box = document.createElement("div");
+  box.className = "level " + band.css;
+  const p1 = document.createElement("p");
+  p1.className = "result-who";
+  p1.textContent = who + " · " + arriveSel.value + " 도착 예정";
+  const p2 = document.createElement("p");
+  p2.className = "result-main";
+  p2.textContent = mainText;
+  const p3 = document.createElement("p");
+  p3.className = "result-band";
+  p3.textContent = "구간: " + bandText(index);
+  box.appendChild(p1);
+  box.appendChild(p2);
+  box.appendChild(p3);
+  resultBox.appendChild(box);
+
+  // 최근 조회 기록에 추가
+  addHistory(who + " · " + arriveSel.value + " → 약 " + band.wait + "분 (" + band.level + ")");
+}
+
+// [초기화] 버튼: 입력값과 결과창만 비운다 (조회 기록은 그대로)
+function onReset() {
+  [gradeSel, klassSel, arriveSel].forEach(function (s) {
+    s.value = "";
+    s.removeAttribute("aria-invalid");
+  });
+  resultBox.innerHTML = '<p class="result-empty">학년·반과 시간을 고른 뒤 [대기 시간 확인]을 눌러 주세요.</p>';
+  gradeSel.focus();
+}
+
+// ---------------- 최근 조회 기록 (저장이 안 돼도 프로그램은 작동) ----------------
+let history = [];
+let canSave = !IN_PREVIEW_BOX;
+
+// 저장된 기록 읽기
+function loadHistory() {
+  if (!canSave) return;
+  try {
+    const text = localStorage.getItem(STORAGE_KEY);
+    const data = text ? JSON.parse(text) : [];
+    if (Array.isArray(data)) {
+      history = data.filter(function (x) { return typeof x === "string"; }).slice(0, HISTORY_MAX);
+    }
+  } catch (e) {
+    canSave = false; // 읽기 실패 → 저장 기능 끄고 화면 기록만 사용
+  }
+}
+
+// 기록 저장하기
+function saveHistory() {
+  if (!canSave) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  } catch (e) {
+    canSave = false;
+  }
+}
+
+// 새 기록을 맨 앞에 넣고, 5개가 넘으면 오래된 것부터 버린다
+function addHistory(line) {
+  history.unshift(line);
+  if (history.length > HISTORY_MAX) history = history.slice(0, HISTORY_MAX);
+  saveHistory();
+  drawHistory();
+}
+
+// 기록 목록 화면에 그리기
+function drawHistory() {
+  historyList.innerHTML = "";
+  if (history.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "아직 조회한 기록이 없어요.";
+    historyList.appendChild(li);
+  } else {
+    history.forEach(function (line) {
+      const li = document.createElement("li");
+      li.textContent = line;
+      historyList.appendChild(li);
+    });
+  }
+  if (IN_PREVIEW_BOX) {
+    storageNote.textContent = "이 미리보기 화면에서는 기록이 저장되지 않아요. 새로고침하면 사라져요.";
+  } else if (!canSave) {
+    storageNote.textContent = "이 브라우저에서는 저장이 막혀 있어서, 기록은 지금 화면에서만 보여요.";
+  } else {
+    storageNote.textContent = "기록은 이 브라우저에만 저장돼요. [내 조회 기록 지우기]는 이 프로그램의 조회 기록만 지우고 다른 데이터는 건드리지 않아요.";
+  }
+}
+
+// [내 조회 기록 지우기] 버튼: 이 프로그램의 키 하나만 지운다
+function onClearHistory() {
+  history = [];
+  if (canSave) {
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { canSave = false; }
+  }
+  drawHistory();
+}
+
+// 버튼과 기능 연결 (이벤트 리스너)
+document.getElementById("checkBtn").addEventListener("click", onCheck);
+document.getElementById("resetBtn").addEventListener("click", onReset);
+document.getElementById("clearHistoryBtn").addEventListener("click", onClearHistory);
+
+// 처음 열었을 때 준비
+fillSelects();
+drawTable();
+loadHistory();
+drawHistory();
+</script>
+</body>
+</html>
