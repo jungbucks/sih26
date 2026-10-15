@@ -7,7 +7,7 @@
 <title>학교 분실물 단계별 찾기</title>
 <meta name="description" content="질문 세 개를 차례로 고르면 내 분실물이 접수됐는지, 어디에 언제부터 보관 중인지 바로 알려 주는 분실물 안내판 (테스트용 가상 데이터)">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="PRD">
+  <meta name="status" content="1회 개선">
 
 <!-- ===== 2. 스타일 ===== -->
 <style>
@@ -135,6 +135,51 @@
   .item-card dt { color: var(--muted); }
   .item-card dd { margin: 0; }
   .status-ok { color: var(--ok-text); font-weight: 700; }
+
+  /* 상태 배지: 색 + 글자로 함께 구분 */
+  .badge {
+    display: inline-block;
+    padding: 1px 10px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .badge-keep { background: #e6f3ea; color: var(--ok-text); }
+  .badge-returned { background: #e4e6ea; color: #4a5260; border: 1px dashed #8a93a2; }
+  /* 이미 주인이 찾아간 물건: 회색조로 흐리게 */
+  .item-card.returned { background: #f1f2f4; border-style: dashed; color: #5f6876; }
+  .item-card.returned h3 { color: #5f6876; text-decoration: line-through; text-decoration-color: #9aa1ad; }
+  .returned-note { margin: 8px 0 0; font-size: 16px; color: #4a5260; }
+  tr.returned td { color: #7a8392; background: #f4f5f7; }
+
+  /* 관리자 모드 입력 폼 */
+  .admin-note { margin: 0 0 16px; padding: 10px 12px; border-radius: 10px; background: var(--warn-bg); color: var(--warn-text); font-size: 16px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field label { display: block; font-weight: 700; margin-bottom: 4px; font-size: 16px; }
+  .field .sub { font-weight: 400; color: var(--muted); font-size: 15px; }
+  .field input, .field select {
+    width: 100%;
+    font: inherit;
+    padding: 9px 10px;
+    border: 1px solid #b9c0ca;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+  }
+  .field input[aria-invalid="true"], .field select[aria-invalid="true"] { border: 2px solid var(--warn-text); }
+  .field input:focus-visible, .field select:focus-visible { outline: 3px solid #f0a020; outline-offset: 1px; }
+  .form-msg { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; font-size: 16px; }
+  .form-msg:empty { display: none; }
+  .form-msg.err { background: var(--warn-bg); color: var(--warn-text); border-left: 4px solid var(--warn-text); }
+  .form-msg.ok { background: #e6f3ea; color: var(--ok-text); border-left: 4px solid var(--ok-text); }
+  .admin-list { list-style: none; margin: 0; padding: 0; }
+  .admin-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .admin-list .info { flex: 1 1 14rem; min-width: 0; }
+  .admin-list .meta { display: block; color: var(--muted); font-size: 15px; }
+  .admin-list li.editing { background: var(--accent-soft); }
+  .admin-sub { font-size: 1.1rem; margin: 24px 0 8px; }
+  .btn.small { padding: 6px 14px; font-size: 16px; }
   .status-none { color: var(--warn-text); font-weight: 700; }
   .empty {
     border: 1px dashed var(--warn-text);
@@ -162,6 +207,8 @@
     .wrap { padding: 16px 16px 40px; }
     .panel { padding: 16px; }
     .options { grid-template-columns: 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .tab { padding: 10px 6px; }
     thead { display: none; }
     table, tbody, tr, td { display: block; width: 100%; }
     tr { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
@@ -187,6 +234,7 @@
   <div class="tabs" role="tablist" aria-label="메인 메뉴">
     <button type="button" class="tab" id="tab-search" role="tab" aria-selected="true" aria-controls="view-search">단계별 찾기</button>
     <button type="button" class="tab" id="tab-list" role="tab" aria-selected="false" aria-controls="view-list">전체 목록 보기</button>
+    <button type="button" class="tab" id="tab-admin" role="tab" aria-selected="false" aria-controls="view-admin">관리자 모드</button>
   </div>
 
   <!-- 화면 A: 단계별 찾기 -->
@@ -222,16 +270,62 @@
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th scope="col">종류</th><th scope="col">카테고리</th><th scope="col">물건</th><th scope="col">보관 장소</th><th scope="col">등록 날짜</th></tr>
+          <tr><th scope="col">상태</th><th scope="col">종류</th><th scope="col">카테고리</th><th scope="col">물건</th><th scope="col">보관 장소</th><th scope="col">등록 날짜</th></tr>
         </thead>
         <tbody id="list-body"></tbody>
       </table>
     </div>
   </section>
 
+  <!-- 화면 C: 관리자 모드 (가상 데이터 등록·수정) -->
+  <section id="view-admin" class="panel" role="tabpanel" aria-labelledby="tab-admin" hidden>
+    <h2 class="result-title" id="admin-title">가상 분실물 등록</h2>
+    <p class="admin-note">연습용 관리자 화면이에요. 로그인 확인이 없어 누구나 열 수 있고, 여기서 바꾼 내용은 <strong>이 화면에서만</strong> 보이며 새로고침하면 처음 가상 데이터로 돌아가요.</p>
+    <form id="admin-form" novalidate>
+      <div class="form-grid">
+        <div class="field">
+          <label for="f-type">종류</label>
+          <select id="f-type"></select>
+        </div>
+        <div class="field">
+          <label for="f-category">카테고리</label>
+          <select id="f-category"></select>
+        </div>
+        <div class="field">
+          <label for="f-name">물품명(세부 특징) <span class="sub">예: 빨간색 필통</span></label>
+          <input type="text" id="f-name" list="f-name-list" maxlength="30" autocomplete="off" placeholder="목록에서 고르거나 새로 입력">
+          <datalist id="f-name-list"></datalist>
+        </div>
+        <div class="field">
+          <label for="f-place">보관 장소 <span class="sub">예: 1층 학생부</span></label>
+          <input type="text" id="f-place" maxlength="30" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="f-date">등록 날짜</label>
+          <input type="date" id="f-date">
+        </div>
+        <div class="field">
+          <label for="f-status">상태</label>
+          <select id="f-status">
+            <option value="keep">보관 중</option>
+            <option value="returned">주인에게 반환됨</option>
+          </select>
+        </div>
+      </div>
+      <div class="nav">
+        <button type="button" class="btn" id="btn-cancel-edit" hidden>수정 취소</button>
+        <button type="submit" class="btn primary" id="btn-save">분실물 등록</button>
+      </div>
+      <p class="form-msg" id="form-msg" role="status" aria-live="polite"></p>
+    </form>
+
+    <h3 class="admin-sub">등록된 가상 분실물 (수정하려면 [수정])</h3>
+    <ul class="admin-list" id="admin-list"></ul>
+  </section>
+
   <footer>
     <p>이 안내판은 실제 분실물 데이터베이스와 연결되어 있지 않습니다. 진짜 분실물은 담당 선생님께 꼭 확인하세요.</p>
-    <p>분실물 등록·수정·삭제와 다른 학생과의 실시간 공유는 서버가 필요해서 이 버전에는 없습니다. 모든 데이터는 이 페이지 안에만 들어 있습니다.</p>
+    <p>관리자 모드의 등록·수정은 이 브라우저 화면 안에서만 반영돼요. 다른 학생과의 실시간 공유와 실제 관리자 확인은 서버가 필요해서 이 버전에는 없습니다.</p>
   </footer>
 </div>
 
@@ -287,6 +381,7 @@ const QUESTION_TREE = {
 
 // [가상 분실물 목록] — 실제 물건이 아닌 테스트용 데이터 (개인정보 없음)
 // path 배열 = 트리에서 고른 경로 [종류, 카테고리, 세부 특징]
+// status = "keep"(보관 중) 또는 "returned"(주인에게 반환됨)
 const LOST_ITEMS = [
   { path: ["학용품", "필통", "파란색 헝겊 필통"],      place: "2층 교무실",       date: "2026-10-10" },
   { path: ["학용품", "필통", "투명 비닐 필통"],        place: "1층 학생부",       date: "2026-10-06" },
@@ -297,12 +392,22 @@ const LOST_ITEMS = [
   { path: ["전자기기", "충전기", "C타입 케이블"],      place: "3층 방송실",       date: "2026-10-09" },
   { path: ["의류", "아우터", "검정색 패딩"],           place: "3층 방송실",       date: "2026-10-12" },
   { path: ["의류", "아우터", "남색 체육복 상의"],      place: "1층 체육 교과실",  date: "2026-10-05" },
-  { path: ["의류", "모자", "검정색 볼캡"],             place: "1층 체육 교과실",  date: "2026-10-03" },
+  { path: ["의류", "모자", "검정색 볼캡"],             place: "1층 체육 교과실",  date: "2026-10-03", status: "returned" },
   { path: ["생활용품", "텀블러", "은색 스테인리스 텀블러"], place: "2층 중앙교무실", date: "2026-10-08" },
-  { path: ["생활용품", "우산", "투명 비닐우산"],       place: "1층 현관 우산꽂이", date: "2026-10-01" },
+  { path: ["생활용품", "우산", "투명 비닐우산"],       place: "1층 현관 우산꽂이", date: "2026-10-01", status: "returned" },
   { path: ["생활용품", "우산", "투명 비닐우산"],       place: "1층 현관 우산꽂이", date: "2026-10-04" },
   { path: ["생활용품", "우산", "검정색 장우산"],       place: "1층 학생부",       date: "2026-10-10" }
 ];
+
+// 상태를 적지 않은 물건은 "보관 중"으로 보고, 수정할 때 구분하도록 번호(id)를 붙인다
+LOST_ITEMS.forEach(function (item, i) {
+  item.id = i + 1;
+  if (!item.status) item.status = "keep";
+});
+let nextId = LOST_ITEMS.length + 1;
+
+// 상태 값 → 화면에 보일 이름
+const STATUS_TEXT = { keep: "보관 중", returned: "주인에게 반환됨" };
 
 const TOTAL_STEPS = 3; // 질문 개수
 
@@ -382,30 +487,46 @@ function makeOptionButton(label) {
 }
 
 // 결과 카드 하나를 만든다
+// 상태 배지 하나를 만든다 (보관 중 = 초록, 반환됨 = 회색 점선)
+function makeBadge(status) {
+  const span = document.createElement("span");
+  span.className = "badge " + (status === "returned" ? "badge-returned" : "badge-keep");
+  span.textContent = STATUS_TEXT[status];
+  return span;
+}
+
 function makeItemCard(item, index, total) {
+  const returned = item.status === "returned";
   const card = document.createElement("article");
-  card.className = "item-card";
+  card.className = "item-card" + (returned ? " returned" : "");
   const h3 = document.createElement("h3");
   h3.textContent = item.path[2] + (total > 1 ? " (" + (index + 1) + "번째)" : "");
   card.appendChild(h3);
 
   const dl = document.createElement("dl");
   const rows = [
-    ["등록 여부", "보관 중", "status-ok"],
-    ["보관 장소", item.place, ""],
-    ["보관 날짜", item.date, ""],
-    ["분류", item.path.join(" > "), ""]
+    ["등록 여부", null],           // null 자리에는 상태 배지를 넣는다
+    ["보관 장소", item.place],
+    ["보관 날짜", item.date],
+    ["분류", item.path.join(" > ")]
   ];
   rows.forEach(function (row) {
     const dt = document.createElement("dt");
     dt.textContent = row[0];
     const dd = document.createElement("dd");
-    dd.textContent = row[1];
-    if (row[2]) dd.className = row[2];
+    if (row[1] === null) dd.appendChild(makeBadge(item.status));
+    else dd.textContent = row[1];
     dl.appendChild(dt);
     dl.appendChild(dd);
   });
   card.appendChild(dl);
+
+  if (returned) {
+    const note = document.createElement("p");
+    note.className = "returned-note";
+    note.textContent = "이미 주인이 찾아간 물건이라 지금은 보관 장소에 없어요. 내 물건이 맞다면 담당 선생님께 확인하세요.";
+    card.appendChild(note);
+  }
   return card;
 }
 
@@ -442,7 +563,16 @@ function renderSearch() {
       box.appendChild(p2);
       cards.appendChild(box);
     } else {
-      title.textContent = "등록된 분실물 " + found.length + "건을 찾았어요";
+      // 보관 중인 물건을 먼저, 이미 반환된 물건은 뒤에 보여 준다
+      found.sort(function (a, b) { return (a.status === "returned") - (b.status === "returned"); });
+      const keepCount = found.filter(function (item) { return item.status === "keep"; }).length;
+      if (keepCount === 0) {
+        title.textContent = "이미 주인에게 반환된 물건만 " + found.length + "건 있어요";
+      } else if (keepCount === found.length) {
+        title.textContent = "보관 중인 분실물 " + found.length + "건을 찾았어요";
+      } else {
+        title.textContent = "분실물 " + found.length + "건 (보관 중 " + keepCount + " · 반환됨 " + (found.length - keepCount) + ")";
+      }
       found.forEach(function (item, i) { cards.appendChild(makeItemCard(item, i, found.length)); });
     }
     return;
@@ -480,6 +610,11 @@ function renderList() {
   const sorted = LOST_ITEMS.slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
   sorted.forEach(function (item) {
     const tr = document.createElement("tr");
+    if (item.status === "returned") tr.className = "returned";
+    const statusTd = document.createElement("td");
+    statusTd.setAttribute("data-label", "상태");
+    statusTd.appendChild(makeBadge(item.status));
+    tr.appendChild(statusTd);
     const cells = [
       ["종류", item.path[0]], ["카테고리", item.path[1]], ["물건", item.path[2]],
       ["보관 장소", item.place], ["등록 날짜", item.date]
@@ -492,24 +627,201 @@ function renderList() {
     });
     body.appendChild(tr);
   });
+  const keepCount = LOST_ITEMS.filter(function (item) { return item.status === "keep"; }).length;
   document.getElementById("list-count").textContent =
-    "모두 " + LOST_ITEMS.length + "건이 보관 중입니다. (최근 등록 순)";
+    "모두 " + LOST_ITEMS.length + "건 — 보관 중 " + keepCount + "건 · 주인에게 반환됨 " +
+    (LOST_ITEMS.length - keepCount) + "건 (최근 등록 순)";
 }
 
-// 탭 전환: "search" 또는 "list"
+// ===== 관리자 모드: 가상 분실물 등록·수정 =====
+
+let editingItemId = null; // 지금 수정 중인 물건의 id (새로 등록할 때는 null)
+
+// 트리에서 이름(label)이 같은 자식 노드 찾기
+function findChild(node, label) {
+  return node.children.find(function (child) { return child.label === label; });
+}
+
+// 종류 선택칸 채우기 (트리의 1단계)
+function fillTypeSelect() {
+  const select = document.getElementById("f-type");
+  select.innerHTML = "";
+  QUESTION_TREE.children.forEach(function (node) { select.add(new Option(node.label, node.label)); });
+}
+
+// 고른 종류에 맞게 카테고리 선택칸 채우기 (트리의 2단계)
+function fillCategorySelect() {
+  const typeNode = findChild(QUESTION_TREE, document.getElementById("f-type").value);
+  const select = document.getElementById("f-category");
+  select.innerHTML = "";
+  typeNode.children.forEach(function (node) { select.add(new Option(node.label, node.label)); });
+  fillNameSuggestions();
+}
+
+// 고른 카테고리의 세부 특징을 입력 추천 목록으로 (트리의 3단계)
+function fillNameSuggestions() {
+  const typeNode = findChild(QUESTION_TREE, document.getElementById("f-type").value);
+  const catNode = findChild(typeNode, document.getElementById("f-category").value);
+  const list = document.getElementById("f-name-list");
+  list.innerHTML = "";
+  catNode.children.forEach(function (leaf) { list.appendChild(new Option(leaf.label)); });
+}
+
+// 오늘 날짜를 YYYY-MM-DD로
+function todayText() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+// 폼을 비우고 "새로 등록" 상태로
+function clearForm() {
+  editingItemId = null;
+  document.getElementById("f-name").value = "";
+  document.getElementById("f-place").value = "";
+  document.getElementById("f-date").value = todayText();
+  document.getElementById("f-status").value = "keep";
+  document.getElementById("admin-title").textContent = "가상 분실물 등록";
+  document.getElementById("btn-save").textContent = "분실물 등록";
+  document.getElementById("btn-cancel-edit").hidden = true;
+  ["f-name", "f-place", "f-date"].forEach(function (id) { document.getElementById(id).removeAttribute("aria-invalid"); });
+}
+
+// [수정] 버튼: 그 물건의 값을 폼에 채운다
+function startEdit(id) {
+  const item = LOST_ITEMS.find(function (x) { return x.id === id; });
+  if (!item) return;
+  editingItemId = id;
+  document.getElementById("f-type").value = item.path[0];
+  fillCategorySelect();
+  document.getElementById("f-category").value = item.path[1];
+  fillNameSuggestions();
+  document.getElementById("f-name").value = item.path[2];
+  document.getElementById("f-place").value = item.place;
+  document.getElementById("f-date").value = item.date;
+  document.getElementById("f-status").value = item.status;
+  document.getElementById("admin-title").textContent = "가상 분실물 수정: " + item.path[2];
+  document.getElementById("btn-save").textContent = "수정 저장";
+  document.getElementById("btn-cancel-edit").hidden = false;
+  showFormMsg("", "");
+  renderAdminList();
+  document.getElementById("view-admin").scrollIntoView({ block: "start" });
+  document.getElementById("f-name").focus();
+}
+
+function showFormMsg(kind, text) {
+  const box = document.getElementById("form-msg");
+  box.className = "form-msg" + (kind ? " " + kind : "");
+  box.textContent = text;
+}
+
+// 폼 값 검사 → 문제가 있으면 안내 문장 목록을 돌려준다
+function validateForm(name, place, date) {
+  const errors = [];
+  if (name === "") errors.push(["f-name", "물품명을 입력해 주세요."]);
+  if (place === "") errors.push(["f-place", "보관 장소를 입력해 주세요."]);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) errors.push(["f-date", "등록 날짜를 골라 주세요."]);
+  else if (date > todayText()) errors.push(["f-date", "등록 날짜가 오늘보다 뒤예요. 날짜를 확인해 주세요."]);
+  return errors;
+}
+
+// [분실물 등록] / [수정 저장]
+function saveForm() {
+  const type = document.getElementById("f-type").value;
+  const category = document.getElementById("f-category").value;
+  const name = document.getElementById("f-name").value.trim();
+  const place = document.getElementById("f-place").value.trim();
+  const date = document.getElementById("f-date").value;
+  const status = document.getElementById("f-status").value;
+
+  ["f-name", "f-place", "f-date"].forEach(function (id) { document.getElementById(id).removeAttribute("aria-invalid"); });
+  const errors = validateForm(name, place, date);
+  if (errors.length > 0) {
+    errors.forEach(function (e) { document.getElementById(e[0]).setAttribute("aria-invalid", "true"); });
+    showFormMsg("err", "입력 오류: " + errors.map(function (e) { return e[1]; }).join(" "));
+    document.getElementById(errors[0][0]).focus();
+    return;
+  }
+
+  // 새 세부 특징이면 트리의 3단계 선택지에 추가 → 단계별 찾기에서 바로 고를 수 있다
+  const catNode = findChild(findChild(QUESTION_TREE, type), category);
+  if (!findChild(catNode, name)) catNode.children.push({ label: name });
+
+  const path = [type, category, name];
+  if (editingItemId === null) {
+    LOST_ITEMS.push({ id: nextId++, path: path, place: place, date: date, status: status });
+    showFormMsg("ok", "등록 완료: ‘" + name + "’을(를) " + STATUS_TEXT[status] + " 상태로 추가했어요. 전체 목록과 단계별 찾기에 바로 반영됐어요.");
+  } else {
+    const item = LOST_ITEMS.find(function (x) { return x.id === editingItemId; });
+    item.path = path;
+    item.place = place;
+    item.date = date;
+    item.status = status;
+    showFormMsg("ok", "수정 완료: ‘" + name + "’ 정보를 바꿨어요. 전체 목록과 단계별 찾기에 바로 반영됐어요.");
+  }
+  clearForm();
+  renderAdminList();
+}
+
+// 관리자 화면의 물건 목록 (최근 등록 순)
+function renderAdminList() {
+  const list = document.getElementById("admin-list");
+  list.innerHTML = "";
+  LOST_ITEMS.slice().sort(function (a, b) { return b.date.localeCompare(a.date); }).forEach(function (item) {
+    const li = document.createElement("li");
+    if (item.id === editingItemId) li.className = "editing";
+    const info = document.createElement("div");
+    info.className = "info";
+    const name = document.createElement("strong");
+    name.textContent = item.path[2] + " ";
+    const meta = document.createElement("span");
+    meta.className = "meta";
+    meta.textContent = item.path[0] + " > " + item.path[1] + " · " + item.place + " · " + item.date;
+    info.appendChild(name);
+    info.appendChild(makeBadge(item.status));
+    info.appendChild(meta);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn small";
+    btn.textContent = "수정";
+    btn.setAttribute("aria-label", item.path[2] + " (" + item.date + ") 수정");
+    btn.addEventListener("click", function () { startEdit(item.id); });
+    li.appendChild(info);
+    li.appendChild(btn);
+    list.appendChild(li);
+  });
+}
+
+// 탭 전환: "search", "list", "admin"
 function showView(name) {
-  const isSearch = name === "search";
-  document.getElementById("tab-search").setAttribute("aria-selected", isSearch ? "true" : "false");
-  document.getElementById("tab-list").setAttribute("aria-selected", isSearch ? "false" : "true");
-  document.getElementById("view-search").hidden = !isSearch;
-  document.getElementById("view-list").hidden = isSearch;
-  if (isSearch) renderSearch(); else renderList();
+  ["search", "list", "admin"].forEach(function (v) {
+    document.getElementById("tab-" + v).setAttribute("aria-selected", v === name ? "true" : "false");
+    document.getElementById("view-" + v).hidden = v !== name;
+  });
+  if (name === "search") renderSearch();
+  else if (name === "list") renderList();
+  else renderAdminList();
 }
 
 
 // ===== 8. 이벤트 연결 =====
 document.getElementById("tab-search").addEventListener("click", function () { showView("search"); });
 document.getElementById("tab-list").addEventListener("click", function () { showView("list"); });
+document.getElementById("tab-admin").addEventListener("click", function () { showView("admin"); });
+
+document.getElementById("f-type").addEventListener("change", fillCategorySelect);
+document.getElementById("f-category").addEventListener("change", fillNameSuggestions);
+document.getElementById("admin-form").addEventListener("submit", function (event) {
+  event.preventDefault();
+  saveForm();
+});
+document.getElementById("btn-cancel-edit").addEventListener("click", function () {
+  clearForm();
+  showFormMsg("", "");
+  renderAdminList();
+});
+fillTypeSelect();
+fillCategorySelect();
+clearForm();
 
 document.getElementById("btn-next").addEventListener("click", function () {
   goNext();
