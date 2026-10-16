@@ -6,7 +6,7 @@
 <title>10초 등교 준비물 체크리스트</title>
 <meta name="description" content="요일과 날씨를 고르면 오늘 챙길 준비물을 보여 주고, 챙긴 것을 눌러 하나씩 지우는 등교 준비물 체크리스트">
 <meta name="class" content="M반 (2-8)">
-<meta name="status" content="PRD">
+<meta name="status" content="1회 개선">
 <style>
   :root {
     --bg: #f5f7f7;
@@ -102,6 +102,35 @@
   .tag.base { background: #eef1f3; color: var(--muted); }
   .tag.custom { background: var(--accent-weak); color: var(--accent); }
   .item-btn.custom { border-style: dashed; border-color: var(--accent); }
+  /* 요일·날씨 때문에 생긴 준비물은 배지를 진하게 해서 눈에 띄게 */
+  .tag.cond { background: var(--accent); color: #fff; }
+
+  /* 직접 추가한 준비물 줄: [챙김 버튼][✕ 삭제 버튼] — 두 버튼을 떨어뜨리고 모양을 다르게 */
+  .items li.custom-row { display: flex; gap: 8px; }
+  .items li.custom-row .item-btn { flex: 1; min-width: 0; }
+  .del-btn {
+    flex: none; width: 56px; min-height: 56px; padding: 0;
+    border: 2px solid var(--err); color: var(--err); background: #fff;
+    font-size: 1.3rem; font-weight: 700; line-height: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  }
+  .del-btn small { font-size: 0.7rem; font-weight: 600; }
+  .del-btn:hover { background: var(--err-weak); }
+
+  /* 고른 조건으로 생긴 준비물을 버튼 바로 아래에 요약 (휴대폰에서 목록이 화면 밖이어도 보이게) */
+  .cond-summary {
+    margin: 14px 0 0; padding: 10px 12px; border-radius: 8px;
+    background: var(--accent-weak); color: var(--text); font-size: 0.95rem;
+  }
+  .cond-summary strong { color: var(--accent); }
+
+  /* 되돌리기 줄: 자리를 항상 차지해서 목록이 위아래로 밀리지 않게 */
+  .undo-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
+  .undo-btn { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .undo-btn:disabled { border-color: var(--line); color: var(--muted); cursor: default; opacity: 0.7; }
+  .undo-hint { font-size: 0.9rem; color: var(--muted); flex: 1; min-width: 0; }
+  .save-note { font-size: 0.88rem; color: var(--muted); margin: 10px 0 0; }
+  .save-note:empty { display: none; }
 
   .done-msg {
     padding: 18px 14px; border-radius: 8px; text-align: center;
@@ -164,6 +193,7 @@
         <button type="button" data-weather="비/눈">☔ 비·눈</button>
       </div>
     </div>
+    <p class="cond-summary" id="condSummary" aria-live="polite"></p>
   </section>
 
   <!-- [중단 2] 챙겨야 할 준비물 목록 -->
@@ -172,9 +202,14 @@
       <h2 id="listTitle">챙겨야 할 준비물</h2>
       <span class="remain" id="remainText" aria-live="polite"></span>
     </div>
-    <p class="how">챙긴 준비물을 누르면 목록에서 바로 사라져요.</p>
+    <p class="how">챙긴 준비물을 누르면 목록에서 바로 사라져요. 잘못 눌렀으면 ‘되돌리기’를 누르세요.</p>
+    <div class="undo-row">
+      <button type="button" class="undo-btn" id="undoButton" disabled>↶ 되돌리기</button>
+      <span class="undo-hint" id="undoHint" aria-live="polite"></span>
+    </div>
     <ul class="items" id="itemList"></ul>
     <p class="done-msg" id="doneMsg" role="status" hidden>모든 준비물을 챙겼습니다! 완벽한 하루 되세요!</p>
+    <p class="save-note" id="saveNote"></p>
   </section>
 
   <!-- [하단] 직접 추가 + 초기화 -->
@@ -195,7 +230,7 @@
   <section class="card" aria-label="초기화">
     <div class="reset-area">
       <button type="button" class="btn-reset" id="resetButton">초기화</button>
-      <p class="footer-note">요일·날씨 선택, 체크한 내역, 직접 추가한 준비물을 모두 처음 상태로 되돌려요.</p>
+      <p class="footer-note">요일·날씨 선택, 체크한 내역, 직접 추가한 준비물을 모두 처음 상태로 되돌려요. (저장된 내역도 지워요)</p>
     </div>
     <p class="msg" id="resetMsg" aria-live="polite"></p>
   </section>
@@ -211,8 +246,10 @@ const BASE_DATA = {
 };
 const DAYS = ["월", "화", "수", "목", "금"];
 const MAX_CUSTOM = 10;                       // 직접 추가는 최대 10개
+const MAX_UNDO = 20;                         // 되돌리기는 최근 20번까지 기억
 // 이 프로그램만 쓰는 저장 키 (다른 데이터와 겹치지 않도록 접두사 사용)
-const STORAGE_KEY = "sih26:20402:customItems";
+const STORAGE_KEY = "sih26:20402:customItems"; // 직접 추가한 준비물 (예전 버전과 같은 키·같은 모양)
+const TODAY_KEY = "sih26:20402:today";         // 오늘의 요일·날씨·체크 내역 (이번에 새로 추가)
 
 // 전시판 미리보기처럼 "주소(출처)가 없는" 상자 안에서 열리면 origin이 "null"이 된다.
 // 이런 곳에서는 저장이 막히거나, 새로고침하면 사라진다.
@@ -222,16 +259,22 @@ const IN_PREVIEW_BOX = (window.origin === "null" && location.protocol !== "file:
 // ===== 상태 =====
 let selectedDay = "월";
 let selectedWeather = "맑음";
-let customItems = [];   // 직접 추가한 준비물 이름 배열 (이것만 저장한다)
-let checklist = [];     // 지금 화면에 남아 있는 준비물: { name, type: "base" | "custom" }
+let customItems = [];   // 직접 추가한 준비물 이름 배열 (✕로 지우기 전까지 계속 남는다)
+let checkedNames = [];  // 오늘 이미 챙겨서 지운 준비물 이름 (요일·날씨를 바꿔도 유지)
+let undoStack = [];     // 챙긴 순서대로 쌓아 두는 이름 (맨 끝 = 가장 최근)
+let checklist = [];     // 지금 화면에 남아 있는 준비물: { name, type: "day" | "weather" | "common" | "custom" }
 
 // 화면 요소
 const dayButtons = document.querySelectorAll("#dayButtons button");
 const weatherButtons = document.querySelectorAll("#weatherButtons button");
 const dayNote = document.getElementById("dayNote");
+const condSummary = document.getElementById("condSummary");
 const itemList = document.getElementById("itemList");
 const remainText = document.getElementById("remainText");
 const doneMsg = document.getElementById("doneMsg");
+const undoButton = document.getElementById("undoButton");
+const undoHint = document.getElementById("undoHint");
+const saveNote = document.getElementById("saveNote");
 const addForm = document.getElementById("addForm");
 const addInput = document.getElementById("addInput");
 const addMsg = document.getElementById("addMsg");
@@ -239,6 +282,8 @@ const customCount = document.getElementById("customCount");
 const storageMsg = document.getElementById("storageMsg");
 const resetButton = document.getElementById("resetButton");
 const resetMsg = document.getElementById("resetMsg");
+
+const SAVED_TEXT = "💾 저장됨 — 새로고침하거나 다시 열어도 오늘 체크한 내역이 남아 있어요.";
 
 // ===== 기본값 정하기 =====
 // 기기 시계로 오늘 요일을 구한다. 토·일요일이면 월요일로 정하고 안내한다.
@@ -248,50 +293,99 @@ function getDefaultDay() {
   if (DAYS.includes(today)) {
     return { day: today, note: "" };
   }
-  return { day: "월", note: "오늘은 " + today + "요일이라 월요일 준비물을 먼저 보여 줘요." };
+  return { day: "월", note: "오늘은 " + today + "요일이라 월요일 준비물을 먼저 보여 줘요. 다른 요일이면 위에서 골라 주세요." };
 }
 
-// ===== 저장 (직접 추가한 준비물만) =====
-// 저장 시도: 성공하면 true, 실패하면 false. 다시 읽어서 같은지까지 확인한다.
-function saveCustom() {
+// 오늘 날짜를 "2026-10-16" 같은 글자로 만든다 (날짜가 바뀌면 체크 내역을 새로 시작하려고)
+function todayString() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+// 이름 배열만 남기는 도우미: 글자이고 비어 있지 않은 것만 (filter), 앞뒤 공백 제거 (map)
+function cleanNames(data) {
+  if (!Array.isArray(data)) return [];
+  return data.filter(function (n) {
+    return typeof n === "string" && n.trim() !== "";
+  }).map(function (n) { return n.trim(); });
+}
+
+// ===== 저장 =====
+// 저장 시도: 두 키 모두 쓰고, 다시 읽어서 같은지까지 확인한다. 성공하면 true.
+function saveAll() {
   if (IN_PREVIEW_BOX) return false;
   try {
-    const text = JSON.stringify(customItems);
-    localStorage.setItem(STORAGE_KEY, text);
-    return localStorage.getItem(STORAGE_KEY) === text;
+    const customText = JSON.stringify(customItems);
+    const todayText = JSON.stringify({
+      date: todayString(),
+      day: selectedDay,
+      weather: selectedWeather,
+      checked: checkedNames,
+      undo: undoStack
+    });
+    localStorage.setItem(STORAGE_KEY, customText);
+    localStorage.setItem(TODAY_KEY, todayText);
+    return localStorage.getItem(STORAGE_KEY) === customText &&
+           localStorage.getItem(TODAY_KEY) === todayText;
   } catch (e) {
     return false;
   }
 }
 
-// 저장된 준비물 불러오기. 결과에 따라 "loaded" / "none" / "unavailable" / "preview"
-function loadCustom() {
+// 저장하고 결과를 화면에 알려 준다 (실제로 다시 읽어 확인된 경우에만 "저장됨")
+function saveAndReport() {
+  const ok = saveAll();
+  if (ok) {
+    saveNote.textContent = SAVED_TEXT;
+    storageMsg.textContent = "";
+  } else {
+    saveNote.textContent = "";
+    showStorageProblem(IN_PREVIEW_BOX ? "preview" : "unavailable");
+  }
+  return ok;
+}
+
+// 저장된 내용 불러오기. 결과에 따라 "loaded" / "none" / "unavailable" / "preview"
+function loadAll() {
   if (IN_PREVIEW_BOX) return "preview";
-  let text;
+  let customText, todayText;
   try {
-    text = localStorage.getItem(STORAGE_KEY);
+    customText = localStorage.getItem(STORAGE_KEY);
+    todayText = localStorage.getItem(TODAY_KEY);
   } catch (e) {
     return "unavailable";
   }
-  if (text === null) return "none";
-  try {
-    const data = JSON.parse(text);
-    if (!Array.isArray(data)) return "none";
-    // filter: 글자이고 비어 있지 않은 이름만 남긴다. 혹시 많으면 10개까지만 쓴다.
-    customItems = data.filter(function (n) {
-      return typeof n === "string" && n.trim() !== "";
-    }).map(function (n) { return n.trim(); }).slice(0, MAX_CUSTOM);
-    return "loaded";
-  } catch (e) {
-    return "none";
+  let loaded = false;
+
+  // 1) 직접 추가한 준비물 (예전 버전이 저장한 것도 같은 모양이라 그대로 읽힌다)
+  if (customText !== null) {
+    try {
+      customItems = cleanNames(JSON.parse(customText)).slice(0, MAX_CUSTOM); // 혹시 많으면 10개까지만
+      loaded = true;
+    } catch (e) { /* 망가진 값이면 무시 (지우지는 않는다) */ }
   }
+
+  // 2) 오늘의 체크 내역: 날짜가 오늘과 같을 때만 이어서 쓴다. 다른 날이면 새로 시작.
+  if (todayText !== null) {
+    try {
+      const data = JSON.parse(todayText);
+      if (data && data.date === todayString()) {
+        if (DAYS.includes(data.day)) { selectedDay = data.day; dayNote.textContent = ""; }
+        if (data.weather === "맑음" || data.weather === "비/눈") selectedWeather = data.weather;
+        checkedNames = cleanNames(data.checked);
+        undoStack = cleanNames(data.undo).slice(-MAX_UNDO);
+        loaded = true;
+      }
+    } catch (e) { /* 망가진 값이면 무시하고 기본값으로 */ }
+  }
+  return loaded ? "loaded" : "none";
 }
 
 function showStorageProblem(reason) {
   if (reason === "preview") {
-    storageMsg.textContent = "저장 안 됨: 이 미리보기 화면에서는 추가한 준비물이 새로고침하면 사라져요. 계속 남기려면 새 탭에서 실행해 주세요.";
+    storageMsg.textContent = "저장 안 됨: 이 미리보기 화면에서는 저장이 막혀 있어서 새로고침하면 체크 내역과 추가한 준비물이 사라져요. 계속 남기려면 ‘새 탭 실행’으로 열어 주세요.";
   } else {
-    storageMsg.textContent = "저장 안 됨: 이 브라우저에서는 추가한 준비물을 저장할 수 없어요. 목록 확인과 체크는 그대로 쓸 수 있어요.";
+    storageMsg.textContent = "저장 안 됨: 이 브라우저에서는 저장할 수 없어요. 목록 확인과 체크는 그대로 쓸 수 있어요.";
   }
 }
 
@@ -303,21 +397,32 @@ function currentBaseNames() {
 }
 
 // ===== 목록 만들기 =====
-// 선택한 조건에 맞는 기본 준비물 + 직접 추가한 준비물을 하나의 배열로 합친다.
+// 선택한 조건에 맞는 기본 준비물 + 직접 추가한 준비물을 하나의 배열로 합친 뒤,
+// 이미 챙긴(checkedNames) 것은 filter로 빼서 "남은 목록"만 만든다.
 function buildChecklist() {
   const list = [];
-  // 공통 준비물 → 요일 준비물 → 날씨 준비물 순서로 push(배열 끝에 넣기)
-  BASE_DATA.common.forEach(function (n) { list.push({ name: n, type: "base" }); });
-  (BASE_DATA.day[selectedDay] || []).forEach(function (n) { list.push({ name: n, type: "base" }); });
-  (BASE_DATA.weather[selectedWeather] || []).forEach(function (n) { list.push({ name: n, type: "base" }); });
+  // 요일 준비물 → 날씨 준비물 → 매일 준비물 순서로 push(배열 끝에 넣기)
+  // (조건 때문에 생긴 준비물을 맨 위에 두어야 휴대폰에서 바로 눈에 띈다)
+  (BASE_DATA.day[selectedDay] || []).forEach(function (n) { list.push({ name: n, type: "day" }); });
+  (BASE_DATA.weather[selectedWeather] || []).forEach(function (n) { list.push({ name: n, type: "weather" }); });
+  BASE_DATA.common.forEach(function (n) { list.push({ name: n, type: "common" }); });
 
-  // 직접 추가한 것은 맨 아래에. filter로 기본 목록과 이름이 같은 것은 빼서 두 번 나오지 않게 한다.
-  const custom = customItems.filter(function (n) {
-    return !list.some(function (item) { return item.name === n; });
+  // 직접 추가한 것은 맨 아래에. 기본 목록과 이름이 같은 것은 빼서 두 번 나오지 않게 한다.
+  customItems.forEach(function (n) {
+    const same = list.some(function (item) { return item.name === n; });
+    if (!same) list.push({ name: n, type: "custom" });
   });
-  custom.forEach(function (n) { list.push({ name: n, type: "custom" }); });
 
-  checklist = list;
+  // filter: 이미 챙긴 이름은 남은 목록에서 뺀다
+  checklist = list.filter(function (item) { return !checkedNames.includes(item.name); });
+}
+
+// 항목 옆 배지 글자: 왜 이 준비물이 나왔는지 보여 준다
+function tagText(type) {
+  if (type === "day") return selectedDay + "요일";
+  if (type === "weather") return "비·눈";
+  if (type === "custom") return "직접 추가";
+  return "매일";
 }
 
 // ===== 화면 그리기 (DOM 변경) =====
@@ -329,6 +434,17 @@ function render() {
   weatherButtons.forEach(function (b) {
     b.setAttribute("aria-pressed", String(b.dataset.weather === selectedWeather));
   });
+
+  // 조건 요약: 버튼 바로 아래에 "이 조건이라 생긴 준비물"을 보여 준다
+  // (휴대폰에서는 목록이 화면 아래에 있어서, 요일·날씨를 바꿔도 결과가 안 보일 수 있기 때문)
+  const condNames = (BASE_DATA.day[selectedDay] || []).concat(BASE_DATA.weather[selectedWeather] || []);
+  const weatherWord = selectedWeather === "비/눈" ? "비·눈" : "맑음";
+  condSummary.innerHTML = "";
+  const head = document.createElement("strong");
+  head.textContent = selectedDay + "요일 · " + weatherWord + " → ";
+  condSummary.append(head,
+    (condNames.length > 0 ? "추가로 챙길 것: " + condNames.join(", ") : "추가로 챙길 것 없음") +
+    " / 매일: " + BASE_DATA.common.join(", "));
 
   // 목록을 비우고 배열 내용대로 다시 만든다
   itemList.innerHTML = "";
@@ -346,42 +462,109 @@ function render() {
     name.className = "item-name";
     name.textContent = item.name;     // textContent: 입력한 글자를 그대로 글자로만 보여 준다
     const tag = document.createElement("span");
-    tag.className = "tag " + item.type;
-    tag.textContent = item.type === "custom" ? "직접 추가" : "기본";
+    const isCond = item.type === "day" || item.type === "weather";
+    tag.className = "tag " + (item.type === "custom" ? "custom" : (isCond ? "cond" : "base"));
+    tag.textContent = tagText(item.type);
 
     btn.append(box, name, tag);
     btn.addEventListener("click", function () { checkItem(index); });
     li.appendChild(btn);
+
+    // 직접 추가한 준비물에만 ✕(완전히 삭제) 버튼을 따로 붙인다
+    if (item.type === "custom") {
+      li.className = "custom-row";
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "del-btn";
+      del.setAttribute("aria-label", "‘" + item.name + "’ 직접 추가 준비물 완전히 삭제");
+      del.innerHTML = '<span aria-hidden="true">✕</span><small aria-hidden="true">삭제</small>';
+      del.addEventListener("click", function () { deleteCustom(item.name); });
+      li.appendChild(del);
+    }
     itemList.appendChild(li);
   });
 
   // 남은 개수와 완료 메시지
   remainText.textContent = "남은 준비물 " + checklist.length + "개";
   doneMsg.hidden = checklist.length !== 0;
-  customCount.textContent = "직접 추가한 준비물 " + customItems.length + " / " + MAX_CUSTOM + "개";
-}
+  customCount.textContent = "직접 추가한 준비물 " + customItems.length + " / " + MAX_CUSTOM + "개 (✕ 삭제를 누르기 전까지 계속 남아요)";
 
-// ===== 준비물 체크 =====
-// 누른 항목을 splice로 배열에서 빼고, 화면을 다시 그린다 → 남은 개수가 1 줄어든다
-function checkItem(index) {
-  checklist.splice(index, 1);   // index 위치에서 1개 지우기
-  addMsg.textContent = "";
-  resetMsg.textContent = "";
-  render();
-  // 다음 항목(없으면 완료 메시지 쪽)으로 키보드 초점을 옮겨 준다
-  const buttons = itemList.querySelectorAll("button");
-  if (buttons.length > 0) {
-    buttons[Math.min(index, buttons.length - 1)].focus();
+  // 되돌리기 버튼: 되돌릴 것이 있을 때만 누를 수 있다
+  if (undoStack.length > 0) {
+    const last = undoStack[undoStack.length - 1];
+    undoButton.disabled = false;
+    undoHint.textContent = "방금 챙긴 ‘" + last + "’" +
+      (undoStack.length > 1 ? "부터 " + undoStack.length + "개를 차례로 되살릴 수 있어요." : "을(를) 되살릴 수 있어요.");
+  } else {
+    undoButton.disabled = true;
+    undoHint.textContent = "";
   }
 }
 
+// ===== 준비물 체크 =====
+// 누른 항목을 splice로 배열에서 빼고, 챙긴 목록과 되돌리기 목록에 push한다 → 남은 개수가 1 줄어든다
+function checkItem(index) {
+  const removed = checklist.splice(index, 1)[0];   // index 위치에서 1개 지우기
+  if (!removed) return;
+  checkedNames.push(removed.name);
+  undoStack.push(removed.name);
+  if (undoStack.length > MAX_UNDO) undoStack.shift();  // 너무 많으면 가장 오래된 것부터 버린다
+  addMsg.textContent = "";
+  resetMsg.textContent = "";
+  saveAndReport();
+  render();
+  // 다음 항목(없으면 되돌리기 버튼)으로 키보드 초점을 옮겨 준다
+  const buttons = itemList.querySelectorAll(".item-btn");
+  if (buttons.length > 0) {
+    buttons[Math.min(index, buttons.length - 1)].focus();
+  } else {
+    undoButton.focus();
+  }
+}
+
+// ===== 되돌리기 =====
+// 가장 최근에 챙긴 이름을 pop으로 꺼내 "챙긴 목록"에서 빼면 다시 남은 목록에 나타난다.
+// 여러 번 누르면 챙긴 순서의 반대로 하나씩 되살아난다.
+undoButton.addEventListener("click", function () {
+  const name = undoStack.pop();
+  if (name === undefined) return;
+  const pos = checkedNames.lastIndexOf(name);
+  if (pos !== -1) checkedNames.splice(pos, 1);
+  buildChecklist();
+  saveAndReport();
+  render();
+  const visible = checklist.some(function (item) { return item.name === name; });
+  undoHint.textContent = visible
+    ? "‘" + name + "’을(를) 목록에 다시 넣었어요."
+    : "‘" + name + "’을(를) 되살렸지만 지금 고른 요일·날씨 목록에는 없는 준비물이에요.";
+  if (undoButton.disabled) {
+    const first = itemList.querySelector(".item-btn");
+    if (first) first.focus();
+  }
+});
+
+// ===== 직접 추가 준비물 삭제 (✕) =====
+// 챙김(오늘 목록에서만 사라짐)과 달리, 직접 추가 목록에서 완전히 지운다.
+function deleteCustom(name) {
+  customItems = customItems.filter(function (n) { return n !== name; });
+  // 같은 이름의 체크·되돌리기 기록도 지운다 (지운 준비물이 되살아나지 않게)
+  checkedNames = checkedNames.filter(function (n) { return n !== name; });
+  undoStack = undoStack.filter(function (n) { return n !== name; });
+  buildChecklist();
+  saveAndReport();
+  render();
+  setAddMessage("‘" + name + "’을(를) 직접 추가 목록에서 삭제했어요.", "ok");
+  addInput.focus();
+}
+
 // ===== 조건 바꾸기 =====
-// 요일이나 날씨를 바꾸면 목록을 처음부터 다시 만든다 (체크했던 것도 다시 나타남)
+// 요일이나 날씨를 바꾸면 목록을 다시 만든다. 이미 챙긴 준비물은 그대로 빠져 있다.
 dayButtons.forEach(function (b) {
   b.addEventListener("click", function () {
     selectedDay = b.dataset.day;
     dayNote.textContent = "";
     buildChecklist();
+    saveAndReport();
     render();
   });
 });
@@ -389,6 +572,7 @@ weatherButtons.forEach(function (b) {
   b.addEventListener("click", function () {
     selectedWeather = b.dataset.weather;
     buildChecklist();
+    saveAndReport();
     render();
   });
 });
@@ -412,7 +596,7 @@ addForm.addEventListener("submit", function (event) {
   }
   if (customItems.length >= MAX_CUSTOM) {
     addInput.setAttribute("aria-invalid", "true");
-    setAddMessage("직접 추가는 " + MAX_CUSTOM + "개까지만 할 수 있어요. 더 넣으려면 초기화해 주세요.", "error");
+    setAddMessage("직접 추가는 " + MAX_CUSTOM + "개까지만 할 수 있어요. 필요 없는 준비물을 ✕ 삭제로 지운 뒤 추가해 주세요.", "error");
     return;
   }
   // 이미 목록에 있거나(이미 챙겨서 지운 기본 준비물 포함) 이미 추가한 이름이면 막는다
@@ -427,17 +611,14 @@ addForm.addEventListener("submit", function (event) {
 
   addInput.removeAttribute("aria-invalid");
   customItems.push(name);                        // 직접 추가 배열 끝에 넣기
-  checklist.push({ name: name, type: "custom" }); // 지금 목록 맨 아래에도 바로 넣기
+  // 예전에 같은 이름을 챙김 처리한 기록이 있으면 풀어 준다 (새로 추가했으니 목록에 보여야 함)
+  checkedNames = checkedNames.filter(function (n) { return n !== name; });
+  undoStack = undoStack.filter(function (n) { return n !== name; });
+  buildChecklist();
   addInput.value = "";
 
-  const saved = saveCustom();
-  if (saved) {
-    setAddMessage("‘" + name + "’을(를) 목록 맨 아래에 추가했어요.", "ok");
-    storageMsg.textContent = "";
-  } else {
-    setAddMessage("‘" + name + "’을(를) 목록 맨 아래에 추가했어요. (저장 안 됨)", "ok");
-    showStorageProblem(IN_PREVIEW_BOX ? "preview" : "unavailable");
-  }
+  const saved = saveAndReport();
+  setAddMessage("‘" + name + "’을(를) 목록 맨 아래에 추가했어요." + (saved ? "" : " (저장 안 됨)"), "ok");
   render();
 });
 
@@ -457,25 +638,31 @@ function setDefaults() {
 resetButton.addEventListener("click", function () {
   setDefaults();
   customItems = [];
-  // 이 프로그램의 키 하나만 지운다 (localStorage.clear()는 쓰지 않음)
+  checkedNames = [];
+  undoStack = [];
+  // 이 프로그램의 키만 지운다 (localStorage.clear()는 쓰지 않음)
   let removed = true;
   if (!IN_PREVIEW_BOX) {
-    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { removed = false; }
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(TODAY_KEY);
+    } catch (e) { removed = false; }
   }
   buildChecklist();
   setAddMessage("", "");
   addInput.value = "";
   addInput.removeAttribute("aria-invalid");
+  saveNote.textContent = "";
   render();
   resetMsg.className = "msg msg-ok";
   resetMsg.textContent = removed
-    ? "처음 상태로 되돌렸어요. 직접 추가한 준비물도 지웠어요."
+    ? "처음 상태로 되돌렸어요. 체크 내역과 직접 추가한 준비물도 지웠어요."
     : "처음 상태로 되돌렸어요.";
 });
 
 // ===== 시작 =====
 setDefaults();
-const loadResult = loadCustom();
+const loadResult = loadAll();
 if (loadResult === "preview" || loadResult === "unavailable") {
   showStorageProblem(loadResult);
 }
