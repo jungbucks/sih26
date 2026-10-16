@@ -7,7 +7,7 @@
 <title>학교 분실물 단계별 찾기</title>
 <meta name="description" content="질문 세 개를 차례로 고르면 내 분실물이 접수됐는지, 어디에 언제부터 보관 중인지 바로 알려 주는 분실물 안내판 (테스트용 가상 데이터)">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="1회 개선">
+  <meta name="status" content="2회 개선">
 
 <!-- ===== 2. 스타일 ===== -->
 <style>
@@ -200,6 +200,37 @@
   footer { margin-top: 24px; color: var(--muted); font-size: 16px; }
   footer p { margin: 0 0 6px; }
 
+  /* 관리자 목록의 [수정]·[삭제] 버튼 묶음 */
+  .row-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn.danger { color: var(--warn-text); border-color: var(--warn-text); }
+  .btn.danger-fill { background: var(--warn-text); border-color: var(--warn-text); color: #fff; }
+  /* 삭제 확인: 목록 줄 안에 나타나는 확인 상자 */
+  .admin-list li.confirming { background: var(--warn-bg); padding: 10px 12px; border-radius: 10px; }
+  .confirm-text { margin: 0; flex: 1 1 14rem; color: var(--warn-text); font-weight: 700; }
+  .empty-row { color: var(--muted); padding: 12px 0; }
+
+  /* 관리자 암호 입력 창 (페이지 안의 모달) */
+  .modal-back {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(20, 26, 36, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal {
+    width: 100%;
+    max-width: 24rem;
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  }
+  .modal h2 { font-size: 1.2rem; margin: 0 0 6px; }
+  .modal .lock-note { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
+
   [hidden] { display: none !important; }
 
   /* 좁은 화면(휴대폰): 표를 카드처럼 세로로 펼침 */
@@ -214,6 +245,7 @@
     tr { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
     td { border: 0; padding: 2px 0; }
     td::before { content: attr(data-label) " : "; color: var(--muted); }
+    td.empty-row::before { content: none; }
   }
 </style>
 </head>
@@ -280,7 +312,7 @@
   <!-- 화면 C: 관리자 모드 (가상 데이터 등록·수정) -->
   <section id="view-admin" class="panel" role="tabpanel" aria-labelledby="tab-admin" hidden>
     <h2 class="result-title" id="admin-title">가상 분실물 등록</h2>
-    <p class="admin-note">연습용 관리자 화면이에요. 로그인 확인이 없어 누구나 열 수 있고, 여기서 바꾼 내용은 <strong>이 화면에서만</strong> 보이며 새로고침하면 처음 가상 데이터로 돌아가요.</p>
+    <p class="admin-note">연습용 관리자 화면이에요. 암호 잠금은 <strong>실수로 여는 것을 막는 연습용</strong>일 뿐, 암호가 페이지 소스에 그대로 보이고 서버 확인도 없어서 진짜 보안은 아니에요. 여기서 바꾼 내용은 <strong>이 화면에서만</strong> 보이며 새로고침하면 처음 가상 데이터로 돌아가고 잠금도 다시 걸려요.</p>
     <form id="admin-form" novalidate>
       <div class="form-grid">
         <div class="field">
@@ -319,7 +351,7 @@
       <p class="form-msg" id="form-msg" role="status" aria-live="polite"></p>
     </form>
 
-    <h3 class="admin-sub">등록된 가상 분실물 (수정하려면 [수정])</h3>
+    <h3 class="admin-sub" id="admin-list-title" tabindex="-1">등록된 가상 분실물 ([수정] 또는 [삭제])</h3>
     <ul class="admin-list" id="admin-list"></ul>
   </section>
 
@@ -327,6 +359,25 @@
     <p>이 안내판은 실제 분실물 데이터베이스와 연결되어 있지 않습니다. 진짜 분실물은 담당 선생님께 꼭 확인하세요.</p>
     <p>관리자 모드의 등록·수정은 이 브라우저 화면 안에서만 반영돼요. 다른 학생과의 실시간 공유와 실제 관리자 확인은 서버가 필요해서 이 버전에는 없습니다.</p>
   </footer>
+</div>
+
+<!-- 관리자 암호 입력 창 (alert·prompt 대신 페이지 안에 띄우는 모달) -->
+<div class="modal-back" id="lock-back" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="lock-title">
+    <h2 id="lock-title">관리자 암호를 입력하세요</h2>
+    <p class="lock-note">연습용 잠금이에요. 암호가 페이지 소스에 보이고 서버 확인이 없어서 진짜 보안은 아니에요.</p>
+    <form id="lock-form" novalidate>
+      <div class="field">
+        <label for="lock-input">암호 (숫자 4자리)</label>
+        <input type="password" id="lock-input" inputmode="numeric" maxlength="10" autocomplete="off">
+      </div>
+      <p class="form-msg" id="lock-msg" role="alert"></p>
+      <div class="nav">
+        <button type="button" class="btn" id="btn-lock-cancel">취소</button>
+        <button type="submit" class="btn primary" id="btn-lock-ok">확인</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <script>
@@ -405,6 +456,21 @@ LOST_ITEMS.forEach(function (item, i) {
   if (!item.status) item.status = "keep";
 });
 let nextId = LOST_ITEMS.length + 1;
+
+// 처음부터 트리에 있던 세부 특징(잎 노드) 경로 목록
+// → 물건을 삭제해도 이 선택지들은 남겨 둔다. (물건이 없으면 '미등록' 안내가 나와야 하니까)
+// → 관리자가 새로 입력해서 생긴 선택지만, 물건이 하나도 안 남으면 지운다.
+const ORIGINAL_LEAVES = [];
+QUESTION_TREE.children.forEach(function (typeNode) {
+  typeNode.children.forEach(function (catNode) {
+    catNode.children.forEach(function (leaf) {
+      ORIGINAL_LEAVES.push([typeNode.label, catNode.label, leaf.label].join(" > "));
+    });
+  });
+});
+
+// 관리자 암호 (연습용: 페이지 소스에 그대로 보이므로 진짜 보안이 아님)
+const ADMIN_CODE = "1234";
 
 // 상태 값 → 화면에 보일 이름
 const STATUS_TEXT = { keep: "보관 중", returned: "주인에게 반환됨" };
@@ -627,6 +693,16 @@ function renderList() {
     });
     body.appendChild(tr);
   });
+  if (LOST_ITEMS.length === 0) {
+    // 모두 삭제해서 목록이 비었을 때 안내 한 줄
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 6;
+    td.className = "empty-row";
+    td.textContent = "등록된 분실물이 없어요.";
+    tr.appendChild(td);
+    body.appendChild(tr);
+  }
   const keepCount = LOST_ITEMS.filter(function (item) { return item.status === "keep"; }).length;
   document.getElementById("list-count").textContent =
     "모두 " + LOST_ITEMS.length + "건 — 보관 중 " + keepCount + "건 · 주인에게 반환됨 " +
@@ -762,12 +838,89 @@ function saveForm() {
   renderAdminList();
 }
 
+// ===== 관리자 모드: 삭제 =====
+
+let deletingItemId = null; // [삭제]를 눌러 "정말 지울까요?" 확인을 기다리는 물건의 id
+
+// 물건이 하나도 남지 않은 "관리자가 새로 만든" 선택지를 질문 트리에서 지운다.
+// 처음부터 있던 선택지는 지우지 않는다 → 물건이 없으면 단계별 찾기에서 '미등록' 안내가 나온다.
+function pruneEmptyLeaves() {
+  QUESTION_TREE.children.forEach(function (typeNode) {
+    typeNode.children.forEach(function (catNode) {
+      catNode.children = catNode.children.filter(function (leaf) {
+        const path = [typeNode.label, catNode.label, leaf.label];
+        if (ORIGINAL_LEAVES.indexOf(path.join(" > ")) !== -1) return true; // 원래 선택지는 유지
+        if (searchItems(path).length > 0) return true;                      // 물건이 남아 있으면 유지
+        // 지금 단계별 찾기에서 이 선택지를 고르고 있었다면 찾기를 처음으로 돌린다
+        const sameCat = chosenPath[0] === typeNode.label && chosenPath[1] === catNode.label;
+        if (sameCat && (chosenPath[2] === leaf.label || currentChoice === leaf.label)) resetSearch();
+        return false;
+      });
+    });
+  });
+}
+
+// [삭제 확정]: 배열(LOST_ITEMS)에서 물건을 빼고 모든 화면을 다시 그린다
+function deleteItem(id) {
+  const index = LOST_ITEMS.findIndex(function (x) { return x.id === id; });
+  if (index === -1) return;
+  const removed = LOST_ITEMS.splice(index, 1)[0];
+  deletingItemId = null;
+  if (editingItemId === id) clearForm(); // 수정 중이던 물건을 지웠으면 입력칸도 비운다
+  pruneEmptyLeaves();
+  fillNameSuggestions();                 // 입력 추천 목록도 새 트리에 맞게
+  showFormMsg("ok", "삭제 완료: ‘" + removed.path[2] + "’(" + removed.date + ")을(를) 지웠어요. 전체 목록과 단계별 찾기에서도 바로 빠졌어요.");
+  renderAdminList();
+  renderList();
+  renderSearch();
+  document.getElementById("admin-list-title").focus();
+}
+
+// 관리자 목록의 버튼 하나 만들기
+function makeSmallButton(text, extraClass, label, onClick) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn small" + (extraClass ? " " + extraClass : "");
+  btn.textContent = text;
+  btn.setAttribute("aria-label", label);
+  btn.addEventListener("click", onClick);
+  return btn;
+}
+
 // 관리자 화면의 물건 목록 (최근 등록 순)
 function renderAdminList() {
   const list = document.getElementById("admin-list");
   list.innerHTML = "";
+  if (LOST_ITEMS.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty-row";
+    li.textContent = "등록된 가상 분실물이 없어요. 위 입력칸에서 새로 등록할 수 있어요.";
+    list.appendChild(li);
+    return;
+  }
   LOST_ITEMS.slice().sort(function (a, b) { return b.date.localeCompare(a.date); }).forEach(function (item) {
     const li = document.createElement("li");
+    const what = item.path[2] + " (" + item.date + ")";
+
+    // 삭제 확인 중인 줄: 이름·날짜를 보여 주고 한 번 더 묻는다 (confirm() 대신 페이지 안 UI)
+    if (item.id === deletingItemId) {
+      li.className = "confirming";
+      const ask = document.createElement("p");
+      ask.className = "confirm-text";
+      ask.textContent = "‘" + item.path[2] + "’ · " + item.place + " · " + item.date + " — 정말 삭제할까요? 되돌릴 수 없어요.";
+      const btns = document.createElement("div");
+      btns.className = "row-btns";
+      btns.appendChild(makeSmallButton("취소", "", what + " 삭제 취소", function () {
+        deletingItemId = null;
+        renderAdminList();
+      }));
+      btns.appendChild(makeSmallButton("삭제 확정", "danger-fill", what + " 삭제 확정", function () { deleteItem(item.id); }));
+      li.appendChild(ask);
+      li.appendChild(btns);
+      list.appendChild(li);
+      return;
+    }
+
     if (item.id === editingItemId) li.className = "editing";
     const info = document.createElement("div");
     info.className = "info";
@@ -779,16 +932,77 @@ function renderAdminList() {
     info.appendChild(name);
     info.appendChild(makeBadge(item.status));
     info.appendChild(meta);
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "btn small";
-    btn.textContent = "수정";
-    btn.setAttribute("aria-label", item.path[2] + " (" + item.date + ") 수정");
-    btn.addEventListener("click", function () { startEdit(item.id); });
+    const btns = document.createElement("div");
+    btns.className = "row-btns";
+    btns.appendChild(makeSmallButton("수정", "", what + " 수정", function () {
+      deletingItemId = null;
+      startEdit(item.id);
+    }));
+    btns.appendChild(makeSmallButton("삭제", "danger", what + " 삭제", function () {
+      deletingItemId = item.id;
+      showFormMsg("", "");
+      renderAdminList();
+      // 확인 상자의 '취소' 버튼에 포커스 (실수로 바로 지우지 않게)
+      const cancel = document.querySelector("#admin-list li.confirming button");
+      if (cancel) cancel.focus();
+    }));
     li.appendChild(info);
-    li.appendChild(btn);
+    li.appendChild(btns);
     list.appendChild(li);
   });
+}
+
+// ===== 관리자 모드: 암호 잠금 (연습용) =====
+
+// 한 번 맞히면 새로고침 전까지 열린 상태로 둔다 (암호는 어디에도 저장하지 않음)
+let adminUnlocked = false;
+let viewBeforeLock = "search"; // 암호 창을 취소하면 돌아갈 탭
+
+function openLock() {
+  document.getElementById("lock-input").value = "";
+  document.getElementById("lock-input").removeAttribute("aria-invalid");
+  const msg = document.getElementById("lock-msg");
+  msg.className = "form-msg";
+  msg.textContent = "";
+  document.getElementById("lock-back").hidden = false;
+  document.getElementById("lock-input").focus();
+}
+
+function closeLock() {
+  document.getElementById("lock-back").hidden = true;
+}
+
+// [확인]: 암호가 맞으면 관리자 화면을 열고, 틀리면 경고만 보여 주고 잠금 유지
+function checkLock() {
+  const input = document.getElementById("lock-input");
+  const msg = document.getElementById("lock-msg");
+  const code = input.value.trim();
+  if (code === ADMIN_CODE) {
+    adminUnlocked = true;
+    closeLock();
+    showView("admin");
+    document.getElementById("tab-admin").focus();
+    return;
+  }
+  msg.className = "form-msg err";
+  msg.textContent = code === ""
+    ? "암호를 입력해 주세요."
+    : "암호가 틀렸어요. 관리자 화면은 잠긴 상태로 남아 있어요.";
+  input.setAttribute("aria-invalid", "true");
+  input.value = "";
+  input.focus();
+}
+
+// [취소]·Esc: 창을 닫고 원래 보던 탭으로
+function cancelLock() {
+  closeLock();
+  showView(viewBeforeLock);
+  document.getElementById("tab-" + viewBeforeLock).focus();
+}
+
+// 지금 열려 있는 탭 이름
+function currentView() {
+  return ["search", "list", "admin"].find(function (v) { return !document.getElementById("view-" + v).hidden; });
 }
 
 // 탭 전환: "search", "list", "admin"
@@ -806,7 +1020,33 @@ function showView(name) {
 // ===== 8. 이벤트 연결 =====
 document.getElementById("tab-search").addEventListener("click", function () { showView("search"); });
 document.getElementById("tab-list").addEventListener("click", function () { showView("list"); });
-document.getElementById("tab-admin").addEventListener("click", function () { showView("admin"); });
+document.getElementById("tab-admin").addEventListener("click", function () {
+  if (adminUnlocked) { showView("admin"); return; }
+  viewBeforeLock = currentView() || "search"; // 잠겨 있으면 암호 창부터
+  openLock();
+});
+document.getElementById("lock-form").addEventListener("submit", function (event) {
+  event.preventDefault();
+  checkLock();
+});
+document.getElementById("btn-lock-cancel").addEventListener("click", cancelLock);
+document.addEventListener("keydown", function (event) {
+  const back = document.getElementById("lock-back");
+  if (back.hidden) return;
+  if (event.key === "Escape") { cancelLock(); return; }
+  // 암호 창이 열려 있는 동안 Tab 키가 창 밖으로 나가지 않게 한 바퀴 돌린다
+  if (event.key === "Tab") {
+    const items = Array.from(back.querySelectorAll("input, button"));
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+});
+// 창 바깥 어두운 부분을 누르면 취소와 같게
+document.getElementById("lock-back").addEventListener("click", function (event) {
+  if (event.target === this) cancelLock();
+});
 
 document.getElementById("f-type").addEventListener("change", fillCategorySelect);
 document.getElementById("f-category").addEventListener("change", fillNameSuggestions);
