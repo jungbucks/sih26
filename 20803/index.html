@@ -7,7 +7,7 @@
 <title>포트폴리오 리스크 시각화 및 수식 해설기</title>
 <meta name="description" content="자산 3개의 비중과 상관계수를 조절하며 위험-수익률 그래프와 분산 공식 대입 과정을 실시간으로 확인하는 경제수학 학습 도구">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="PRD">
+  <meta name="status" content="1회 개선">
 
 <!-- ===== 2. 스타일 ===== -->
 <style>
@@ -84,6 +84,18 @@
   .slider-item .top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
   .slider-item .top input[type=number] { width: 84px; }
   input[type=range] { width: 100%; accent-color: var(--accent); margin: 4px 0 0; }
+  /* 슬라이더 양옆 −/+ 미세 조절 버튼 (손가락으로 누르기 쉽게 44px 이상) */
+  .stepper { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .stepper input[type=range] { flex: 1 1 auto; min-width: 0; margin: 0; }
+  .stepper button {
+    flex: 0 0 auto;
+    width: 44px; min-height: 44px; padding: 0;
+    font-size: 22px; font-weight: 700; line-height: 1;
+  }
+  /* 그래프 범례 */
+  .legend { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 15px; color: var(--muted); }
+  .legend li { display: flex; align-items: center; gap: 6px; }
+  .legend svg { flex: 0 0 auto; }
   .sum { padding: 8px 12px; border-radius: 8px; background: var(--accent-soft); font-weight: 600; }
   .sum.bad { background: var(--error-soft); color: var(--error); }
   .message {
@@ -143,6 +155,7 @@
       </select>
     </div>
     <div class="row" id="preset-buttons" style="margin-top:8px"></div>
+    <p class="small" style="margin:6px 0 0">※ 프리셋의 기대수익률·표준편차는 모두 <strong>가상의 학습용 예시 값</strong>이며, 실제 시장 통계가 아닙니다.</p>
     <div class="assets" id="asset-inputs"></div>
     <div class="row" style="margin-top:12px">
       <button type="button" id="reset-btn" class="primary">데이터 초기화</button>
@@ -165,7 +178,14 @@
       <h2 id="sec-graph">3. 위험-수익률 좌표 평면</h2>
       <canvas id="chart" width="560" height="400" role="img" aria-label="가로축 위험(표준편차), 세로축 기대수익률 그래프"></canvas>
       <div class="result-line" id="result-line" aria-live="polite"></div>
+      <ul class="legend" aria-label="그래프 범례">
+        <li><svg width="28" height="10" aria-hidden="true"><line x1="1" y1="5" x2="27" y2="5" stroke="#3d6fa8" stroke-width="3" stroke-linecap="round"/></svg>효율적 투자선</li>
+        <li><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="#8a979d"/></svg>각 자산</li>
+        <li><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="6" fill="#0f7a73"/></svg>현재 포트폴리오 P</li>
+      </ul>
       <p class="small">회색 점 = 각 자산, 진한 점 = 현재 포트폴리오. 비중을 바꾸면 진한 점이 움직입니다.</p>
+      <p class="small">효율적 투자선 = 지금 세 자산으로(공매도 없이, 비중 합 100%) 만들 수 있는 조합 중, 같은 위험에서 기대수익률이 가장 높은 조합들을 이은 선입니다. 자산 값이나 상관계수를 바꾸면 선이 다시 그려집니다.</p>
+      <p class="message" id="frontier-note" hidden></p>
     </section>
   </div>
 
@@ -188,7 +208,12 @@
 const PRESETS = [
   { name: "삼성전자", ret: 12, sd: 20 },
   { name: "미국 국채", ret: 4, sd: 5 },
-  { name: "금", ret: 6, sd: 10 }
+  { name: "금", ret: 6, sd: 10 },
+  // 1회 개선: 자산군 예시 추가 (모두 가상의 학습용 값 — 실제 통계 아님)
+  { name: "S&P500", ret: 10, sd: 16 },
+  { name: "부동산(리츠)", ret: 7, sd: 14 },
+  { name: "원자재", ret: 5, sd: 22 },
+  { name: "예금", ret: 3, sd: 0.5 }
 ];
 
 // 기본 예시 데이터: 자산을 배열로 관리하면 자산 개수를 늘리기 쉽다
@@ -308,9 +333,85 @@ function calcPortfolio() {
   return { retTerms, expRet, ownTerms, pairTerms, variance, sd };
 }
 
+/*
+  효율적 투자선(Efficient Frontier) 계산
+  - 공매도 없음: 모든 비중 ≥ 0, 비중 합 = 100%
+  - 1% 간격으로 가능한 모든 비중 조합(약 5,151개)의 (위험, 기대수익률)을 계산한다.
+  - 기대수익률을 잘게 나눈 구간마다 "위험이 가장 작은 점"만 남긴다.
+  - 그중 위험이 가장 작은 점(최소분산 포트폴리오)보다 위쪽(수익률이 높은 쪽)만 이으면 효율적 투자선이 된다.
+  - 상관계수 3개를 아무렇게나 고르면 현실에 없는 조합이 되어 분산이 음수가 나올 수 있다 → 그런 점은 건너뛴다.
+*/
+let frontierCache = { key: "", data: null };  // 비중만 바뀔 때는 다시 계산하지 않도록 기억
+
+function calcFrontier() {
+  // 자산 값과 상관계수가 같으면 지난번 결과를 그대로 쓴다
+  const key = JSON.stringify([assets.map(a => [a.ret, a.sd]), corr]);
+  if (frontierCache.key === key) return frontierCache.data;
+
+  const n = assets.length;      // 이 계산은 자산 3개 기준
+  const pts = [];               // { sd, ret }
+  let negCount = 0;             // 분산이 음수가 나온 조합 수
+  for (let a = 0; a <= 100; a++) {
+    for (let b = 0; a + b <= 100; b++) {
+      const w = [a / 100, b / 100, (100 - a - b) / 100];
+      let ret = 0, v = 0;
+      for (let i = 0; i < n; i++) {
+        ret += w[i] * assets[i].ret;
+        for (let j = 0; j < n; j++) v += w[i] * w[j] * assets[i].sd * assets[j].sd * corr[i][j];
+      }
+      if (v < 0 && v > -1e-9) v = 0;   // 아주 작은 계산 오차는 0으로
+      if (v < 0 || !isFinite(v)) { negCount++; continue; }
+      pts.push({ sd: Math.sqrt(v), ret });
+    }
+  }
+
+  let line = [];
+  if (pts.length > 0) {
+    // 기대수익률 구간(120칸)마다 위험이 가장 작은 점
+    const rMin = Math.min(...pts.map(p => p.ret));
+    const rMax = Math.max(...pts.map(p => p.ret));
+    const bins = 120;
+    const best = new Array(bins + 1).fill(null);
+    pts.forEach(p => {
+      const k = rMax > rMin ? Math.round((p.ret - rMin) / (rMax - rMin) * bins) : 0;
+      if (!best[k] || p.sd < best[k].sd) best[k] = p;
+    });
+    const env = best.filter(p => p);
+    // 최소분산 점 찾기
+    let mvp = env[0];
+    env.forEach(p => { if (p.sd < mvp.sd) mvp = p; });
+    // 최소분산 점부터 수익률이 높아지는 쪽만, 위험이 줄어들지 않는 점만 이어 매끄러운 선으로
+    env.filter(p => p.ret >= mvp.ret).sort((p, q) => p.ret - q.ret).forEach(p => {
+      if (line.length === 0 || p.sd >= line[line.length - 1].sd - 1e-9) line.push(p);
+    });
+  }
+  const data = { line, negCount };
+  frontierCache = { key, data };
+  return data;
+}
+
 // ===== 7. 화면 갱신 =====
 
 const $ = id => document.getElementById(id);
+
+// [−] 슬라이더 [+] 한 줄을 만든다. 버튼 정보는 data- 속성에 담아 두고 클릭은 bindEvents에서 처리
+function makeStepper(range, minus, plus) {
+  const wrap = document.createElement("div");
+  wrap.className = "stepper";
+  const mk = (info, sign) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = sign;
+    b.dataset.step = info.kind;
+    b.dataset.i = info.i;
+    if (info.j !== undefined) b.dataset.j = info.j;
+    b.dataset.delta = info.delta;
+    b.setAttribute("aria-label", info.label);
+    return b;
+  };
+  wrap.append(mk(minus, "−"), range, mk(plus, "+"));
+  return wrap;
+}
 
 // 자산 입력칸·슬라이더를 배열에서 자동으로 만든다 (자산이 늘어도 코드 수정 최소)
 function buildControls() {
@@ -372,7 +473,10 @@ function buildControls() {
     range.min = "0"; range.max = "100"; range.step = "1";
     range.dataset.weight = i;
     range.setAttribute("aria-labelledby", "w-label-" + i);
-    item.append(top, range);
+    // 슬라이더 양옆 −/+ 버튼 (비중은 1%씩)
+    item.append(top, makeStepper(range,
+      { kind: "w", i, delta: -1, label: "자산 " + a.label + " 비중 1% 줄이기" },
+      { kind: "w", i, delta: 1, label: "자산 " + a.label + " 비중 1% 늘리기" }));
     ws.appendChild(item);
   });
 
@@ -396,7 +500,11 @@ function buildControls() {
       range.type = "range"; range.id = "c-range-" + i + j;
       range.min = "-1"; range.max = "1"; range.step = "0.1";
       range.dataset.i = i; range.dataset.j = j;
-      item.append(top, range);
+      // 슬라이더 양옆 −/+ 버튼 (상관계수는 0.1씩)
+      const pair = assets[i].label + assets[j].label;
+      item.append(top, makeStepper(range,
+        { kind: "c", i, j, delta: -0.1, label: "상관계수 ρ" + pair + " 0.1 줄이기" },
+        { kind: "c", i, j, delta: 0.1, label: "상관계수 ρ" + pair + " 0.1 늘리기" }));
       cs.appendChild(item);
     }
   }
@@ -440,6 +548,13 @@ function renderLabels() {
 function update() {
   renderLabels();
   const errors = validate();
+  // 입력이 정상이어도 상관계수 조합 때문에 현재 비중의 분산이 음수면 √를 계산할 수 없다 (NaN 방지)
+  if (errors.length === 0) {
+    const check = calcPortfolio();
+    if (!(check.variance >= 0)) {
+      errors.push("지금 상관계수 조합에서는 현재 비중의 분산이 음수(" + fmt(check.variance, 4) + ")가 되어 위험 σp를 계산할 수 없습니다. 상관계수를 바꿔 보세요.");
+    }
+  }
   const box = $("error-box");
   if (errors.length > 0) {
     // 오류가 있으면 안내만 표시하고 그래프·수식 갱신은 멈춘다
@@ -526,6 +641,26 @@ function drawChart(result) {
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText("기대수익률 E(R) (%) →", 0, 0);
   ctx.restore();
+
+  // 효율적 투자선 (자산 점보다 먼저 그려 점이 위에 보이게)
+  const fr = calcFrontier();
+  if (fr.line.length >= 2) {
+    ctx.strokeStyle = "#3d6fa8";
+    ctx.lineWidth = 3;
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.beginPath();
+    fr.line.forEach((p, k) => (k === 0 ? ctx.moveTo(X(p.sd), Y(p.ret)) : ctx.lineTo(X(p.sd), Y(p.ret))));
+    ctx.stroke();
+  }
+  ctx.lineWidth = 1;
+  const note = $("frontier-note");
+  if (fr.negCount > 0) {
+    note.hidden = false;
+    note.textContent = "알림: 지금 상관계수 세 개는 실제로는 함께 나올 수 없는 조합이라, 일부 비중에서 분산이 음수가 됩니다. 그런 비중 조합(" + fr.negCount + "개)은 효율적 투자선에서 빼고 그렸습니다.";
+  } else {
+    note.hidden = true;
+    note.textContent = "";
+  }
 
   // 각 자산 점 (회색)
   assets.forEach(a => {
@@ -661,6 +796,35 @@ function bindEvents() {
     corr[j][i] = v;
     update();
   });
+
+  // −/+ 버튼: 비중은 1%, 상관계수는 0.1씩. 범위를 넘지 않게 자르고 슬라이더·숫자·계산을 함께 갱신
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  function onStep(e) {
+    const b = e.target.closest("button[data-step]");
+    if (!b) return;
+    const i = Number(b.dataset.i);
+    const delta = Number(b.dataset.delta);
+    if (b.dataset.step === "w") {
+      // 숫자칸이 비었거나 글자면 슬라이더 위치에서 시작한다
+      let cur = Number(assets[i].raw.weight);
+      if (assets[i].raw.weight.trim() === "" || isNaN(cur)) cur = Number($("w-range-" + i).value);
+      // 소수 오차를 막기 위해 소수 첫째 자리에서 반올림
+      const v = Math.round(clamp(cur + delta, 0, 100) * 10) / 10;
+      setAssetValue(i, "weight", String(v));
+      $("w-num-" + i).value = String(v);
+      $("w-range-" + i).value = v;
+    } else {
+      const j = Number(b.dataset.j);
+      // 0.1을 여러 번 더하면 0.30000000000000004 같은 오차가 생기므로 소수 첫째 자리로 반올림
+      const v = Math.round(clamp(corr[i][j] + delta, -1, 1) * 10) / 10;
+      corr[i][j] = v;
+      corr[j][i] = v;
+      $("c-range-" + i + j).value = v;
+    }
+    update();
+  }
+  $("weight-sliders").addEventListener("click", onStep);
+  $("corr-sliders").addEventListener("click", onStep);
 
   // 데이터 초기화
   $("reset-btn").addEventListener("click", () => {
