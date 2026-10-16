@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<!-- ===== 메타 ===== -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>그림 주제 뽑기</title>
+<meta name="description" content="그림 분야·난이도·연습 목적을 고르면 조건에 맞는 그림 연습 주제를 중복 없이 하나씩 추천해 주는 프로그램">
+<meta name="class" content="O반 (2-5)">
+<meta name="status" content="PRD">
+
+<!-- ===== 스타일 ===== -->
+<style>
+  :root {
+    --bg: #faf8f4;        /* 도화지 같은 밝은 바탕 */
+    --card: #ffffff;
+    --text: #2b2a28;      /* 먹색 */
+    --muted: #5f5b55;
+    --line: #ddd7cc;
+    --accent: #2f5d62;    /* 차분한 청록 물감색 */
+    --accent-soft: #e6eeee;
+    --warn-bg: #fff5e1;
+    --warn-line: #c98a1b;
+    --ok-bg: #edf4ec;
+    --ok-line: #4f7a4a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  main { max-width: 40rem; margin: 0 auto; padding: 24px 16px 56px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; line-height: 1.3; }
+  .sub { margin: 0 0 24px; color: var(--muted); font-size: 1rem; }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  /* 조건 선택: fieldset + 칩 모양 라디오 버튼 */
+  fieldset { border: 0; margin: 0 0 16px; padding: 0; min-width: 0; }
+  fieldset:last-child { margin-bottom: 0; }
+  legend { font-weight: 700; padding: 0; margin-bottom: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { position: relative; }
+  .chip input {
+    position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0;
+  }
+  .chip span {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: 44px; padding: 8px 16px;
+    border: 1px solid var(--line); border-radius: 999px;
+    background: #fff; color: var(--text);
+    font-size: 1rem; cursor: pointer; user-select: none;
+  }
+  .chip span::before {   /* 선택 여부를 색이 아닌 모양(✓)으로도 보여 줌 */
+    content: none;
+  }
+  .chip input:checked + span {
+    background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700;
+  }
+  .chip input:checked + span::before { content: "✓"; }
+  .chip input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* 버튼 */
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  button {
+    font: inherit; font-size: 1rem;
+    min-height: 44px; padding: 10px 16px;
+    border-radius: 10px; border: 1px solid var(--accent);
+    background: #fff; color: var(--accent);
+    cursor: pointer;
+  }
+  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); color: #fff; font-weight: 700; flex: 1 1 100%; }
+  button:disabled {
+    background: #f0eee9; color: #8a857c; border-color: #d6d1c7; border-style: dashed; cursor: not-allowed;
+  }
+
+  /* 안내 메시지 (색만이 아니라 [안내] 글자도 함께 표시) */
+  .message {
+    margin: 0 0 16px; padding: 12px 14px; border-radius: 10px;
+    border: 1px solid var(--warn-line); background: var(--warn-bg); font-weight: 600;
+  }
+  .message.ok { border-color: var(--ok-line); background: var(--ok-bg); }
+  .message[hidden] { display: none; }
+  .tag { display: inline-block; margin-right: 6px; font-weight: 700; }
+
+  /* 결과 영역 */
+  .result { text-align: left; }
+  .result-label { margin: 0 0 4px; color: var(--muted); font-size: 0.95rem; }
+  .topic { margin: 0; font-size: 1.5rem; font-weight: 700; line-height: 1.45; color: var(--text); }
+  .placeholder { margin: 0; color: var(--muted); }
+  .note {
+    margin: 14px 0 0; padding-top: 12px; border-top: 1px dashed var(--line);
+    color: var(--muted); font-size: 1rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>그림 주제 뽑기</h1>
+  <p class="sub">그림 분야, 난이도, 연습 목적을 하나씩 고른 뒤 ‘주제 추천’을 눌러 보세요. 같은 조건에서는 이미 나온 주제가 다시 나오지 않아요.</p>
+
+  <!-- 조건 선택 -->
+  <form class="panel" id="conditions" onsubmit="return false;">
+    <fieldset>
+      <legend>그림 분야</legend>
+      <div class="chips">
+        <label class="chip"><input type="radio" name="field" value="인물·캐릭터"><span>인물·캐릭터</span></label>
+        <label class="chip"><input type="radio" name="field" value="풍경·자연"><span>풍경·자연</span></label>
+        <label class="chip"><input type="radio" name="field" value="사물·정물"><span>사물·정물</span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>난이도</legend>
+      <div class="chips">
+        <label class="chip"><input type="radio" name="level" value="쉬움"><span>쉬움</span></label>
+        <label class="chip"><input type="radio" name="level" value="보통"><span>보통</span></label>
+        <label class="chip"><input type="radio" name="level" value="어려움"><span>어려움</span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>연습 목적</legend>
+      <div class="chips">
+        <label class="chip"><input type="radio" name="purpose" value="형태 연습"><span>형태 연습</span></label>
+        <label class="chip"><input type="radio" name="purpose" value="명암 연습"><span>명암 연습</span></label>
+        <label class="chip"><input type="radio" name="purpose" value="색 표현 연습"><span>색 표현 연습</span></label>
+      </div>
+    </fieldset>
+  </form>
+
+  <!-- 버튼 -->
+  <div class="actions">
+    <button type="button" class="btn-primary" id="btnRecommend">주제 추천</button>
+    <button type="button" id="btnAgain" disabled>다시 뽑기</button>
+    <button type="button" id="btnReset" disabled>처음부터 다시 뽑기</button>
+  </div>
+
+  <!-- 안내 메시지 (선택 누락·초기화 안내) -->
+  <p class="message" id="message" role="status" aria-live="polite" hidden></p>
+
+  <!-- 결과 영역 -->
+  <section class="panel result" id="result" aria-live="polite" aria-label="추천 결과">
+    <p class="placeholder">아직 추천된 주제가 없어요. 조건을 고르고 ‘주제 추천’을 눌러 주세요.</p>
+  </section>
+</main>
+
+<script>
+// ===== 주제 데이터 =====
+// 주제 데이터를 저장하는 부분:
+// TOPICS 배열의 한 칸에는 주제 하나가 객체로 들어 있어요.
+// 각 주제에는 분야(field)·난이도(level)·연습 목적(purpose)이 꼭 붙어 있어서
+// 나중에 사용자가 고른 조건과 비교할 수 있어요. (분야 3 × 난이도 3 × 목적 3 = 27가지 조합, 조합마다 3개)
+const TOPICS = [
+  // --- 인물·캐릭터 ---
+  { name: "다양한 표정의 얼굴 그리기", field: "인물·캐릭터", level: "쉬움", purpose: "형태 연습" },
+  { name: "동그라미와 네모로 간단한 캐릭터 그리기", field: "인물·캐릭터", level: "쉬움", purpose: "형태 연습" },
+  { name: "막대 인형으로 여러 가지 자세 그리기", field: "인물·캐릭터", level: "쉬움", purpose: "형태 연습" },
+  { name: "간단한 얼굴의 빛과 그림자 표현하기", field: "인물·캐릭터", level: "쉬움", purpose: "명암 연습" },
+  { name: "옆에서 빛을 받은 둥근 캐릭터 얼굴 그리기", field: "인물·캐릭터", level: "쉬움", purpose: "명암 연습" },
+  { name: "펼친 손바닥 아래에 생긴 그림자 표현하기", field: "인물·캐릭터", level: "쉬움", purpose: "명암 연습" },
+  { name: "좋아하는 색 세 가지로 캐릭터 옷 칠하기", field: "인물·캐릭터", level: "쉬움", purpose: "색 표현 연습" },
+  { name: "같은 얼굴을 따뜻한 색과 차가운 색으로 칠하기", field: "인물·캐릭터", level: "쉬움", purpose: "색 표현 연습" },
+  { name: "볼과 입술의 자연스러운 색 표현하기", field: "인물·캐릭터", level: "쉬움", purpose: "색 표현 연습" },
+
+  { name: "의자에 앉아 있는 사람의 몸 비율 그리기", field: "인물·캐릭터", level: "보통", purpose: "형태 연습" },
+  { name: "옆모습 얼굴의 눈·코·입 위치 그리기", field: "인물·캐릭터", level: "보통", purpose: "형태 연습" },
+  { name: "여러 방향으로 움직이는 손 그리기", field: "인물·캐릭터", level: "보통", purpose: "형태 연습" },
+  { name: "창가 빛을 받은 옆얼굴 표현하기", field: "인물·캐릭터", level: "보통", purpose: "명암 연습" },
+  { name: "모자 챙 아래 얼굴에 진 그림자 표현하기", field: "인물·캐릭터", level: "보통", purpose: "명암 연습" },
+  { name: "주름진 옷소매의 밝은 곳과 어두운 곳 표현하기", field: "인물·캐릭터", level: "보통", purpose: "명암 연습" },
+  { name: "그늘 속에 있는 피부색의 변화 표현하기", field: "인물·캐릭터", level: "보통", purpose: "색 표현 연습" },
+  { name: "노을빛을 받은 캐릭터의 색 표현하기", field: "인물·캐릭터", level: "보통", purpose: "색 표현 연습" },
+  { name: "보색 대비로 캐릭터와 배경 칠하기", field: "인물·캐릭터", level: "보통", purpose: "색 표현 연습" },
+
+  { name: "아래에서 올려다본 사람의 전신 그리기", field: "인물·캐릭터", level: "어려움", purpose: "형태 연습" },
+  { name: "달리는 사람의 움직이는 자세 그리기", field: "인물·캐릭터", level: "어려움", purpose: "형태 연습" },
+  { name: "서로 다른 거리에 서 있는 세 사람 그리기", field: "인물·캐릭터", level: "어려움", purpose: "형태 연습" },
+  { name: "아래에서 비추는 조명을 받은 얼굴 표현하기", field: "인물·캐릭터", level: "어려움", purpose: "명암 연습" },
+  { name: "두 방향에서 조명을 받은 인물 표현하기", field: "인물·캐릭터", level: "어려움", purpose: "명암 연습" },
+  { name: "촛불 하나만 켜진 방의 인물 표현하기", field: "인물·캐릭터", level: "어려움", purpose: "명암 연습" },
+  { name: "네온 조명 아래 인물의 피부색 표현하기", field: "인물·캐릭터", level: "어려움", purpose: "색 표현 연습" },
+  { name: "여러 사람이 모인 장면의 색 조화 표현하기", field: "인물·캐릭터", level: "어려움", purpose: "색 표현 연습" },
+  { name: "주황 햇빛과 파란 그늘이 함께 비치는 인물 그리기", field: "인물·캐릭터", level: "어려움", purpose: "색 표현 연습" },
+
+  // --- 풍경·자연 ---
+  { name: "모양이 서로 다른 구름 여러 개 그리기", field: "풍경·자연", level: "쉬움", purpose: "형태 연습" },
+  { name: "나무 한 그루의 줄기와 가지 그리기", field: "풍경·자연", level: "쉬움", purpose: "형태 연습" },
+  { name: "산 세 개가 겹쳐 보이는 모습 그리기", field: "풍경·자연", level: "쉬움", purpose: "형태 연습" },
+  { name: "둥근 바위 하나의 그림자 표현하기", field: "풍경·자연", level: "쉬움", purpose: "명암 연습" },
+  { name: "햇빛 아래 나무 한 그루와 그림자 그리기", field: "풍경·자연", level: "쉬움", purpose: "명암 연습" },
+  { name: "밝은 낮 하늘과 어두운 밤하늘 비교해 그리기", field: "풍경·자연", level: "쉬움", purpose: "명암 연습" },
+  { name: "노을이 지는 하늘의 색 변화 그리기", field: "풍경·자연", level: "쉬움", purpose: "색 표현 연습" },
+  { name: "봄 들판의 연두색과 초록색 칠하기", field: "풍경·자연", level: "쉬움", purpose: "색 표현 연습" },
+  { name: "파란색의 진하기만 바꿔 바다 칠하기", field: "풍경·자연", level: "쉬움", purpose: "색 표현 연습" },
+
+  { name: "구불구불 흘러가는 강 그리기", field: "풍경·자연", level: "보통", purpose: "형태 연습" },
+  { name: "가까운 나무와 먼 나무의 크기 차이 그리기", field: "풍경·자연", level: "보통", purpose: "형태 연습" },
+  { name: "바닷가 바위와 부서지는 파도 모양 그리기", field: "풍경·자연", level: "보통", purpose: "형태 연습" },
+  { name: "숲길에 비치는 햇빛과 그늘 표현하기", field: "풍경·자연", level: "보통", purpose: "명암 연습" },
+  { name: "해 질 녘 길게 늘어진 나무 그림자 표현하기", field: "풍경·자연", level: "보통", purpose: "명암 연습" },
+  { name: "안개 낀 산의 앞뒤 밝기 차이 표현하기", field: "풍경·자연", level: "보통", purpose: "명암 연습" },
+  { name: "단풍 숲의 여러 가지 빨강과 노랑 표현하기", field: "풍경·자연", level: "보통", purpose: "색 표현 연습" },
+  { name: "비 오는 날 회색빛 거리의 색 표현하기", field: "풍경·자연", level: "보통", purpose: "색 표현 연습" },
+  { name: "호수에 비친 하늘의 색 표현하기", field: "풍경·자연", level: "보통", purpose: "색 표현 연습" },
+
+  { name: "원근감을 고려해 길과 건물 그리기", field: "풍경·자연", level: "어려움", purpose: "형태 연습" },
+  { name: "높은 곳에서 내려다본 마을 그리기", field: "풍경·자연", level: "어려움", purpose: "형태 연습" },
+  { name: "굽이진 산길이 멀어지는 모습 그리기", field: "풍경·자연", level: "어려움", purpose: "형태 연습" },
+  { name: "달빛만 비치는 밤 숲 표현하기", field: "풍경·자연", level: "어려움", purpose: "명암 연습" },
+  { name: "가로등 여러 개가 켜진 밤거리 표현하기", field: "풍경·자연", level: "어려움", purpose: "명암 연습" },
+  { name: "구름 사이로 빛줄기가 내려오는 들판 표현하기", field: "풍경·자연", level: "어려움", purpose: "명암 연습" },
+  { name: "해가 뜨는 바다의 하늘색과 물빛 표현하기", field: "풍경·자연", level: "어려움", purpose: "색 표현 연습" },
+  { name: "눈 덮인 산 그늘 속의 푸른빛 표현하기", field: "풍경·자연", level: "어려움", purpose: "색 표현 연습" },
+  { name: "강물에 비친 밤 풍경 불빛의 색 표현하기", field: "풍경·자연", level: "어려움", purpose: "색 표현 연습" },
+
+  // --- 사물·정물 ---
+  { name: "연필 한 자루 그리기", field: "사물·정물", level: "쉬움", purpose: "형태 연습" },
+  { name: "동그란 접시 하나 그리기", field: "사물·정물", level: "쉬움", purpose: "형태 연습" },
+  { name: "정육면체 상자 하나 그리기", field: "사물·정물", level: "쉬움", purpose: "형태 연습" },
+  { name: "공 하나의 밝은 면과 그림자 표현하기", field: "사물·정물", level: "쉬움", purpose: "명암 연습" },
+  { name: "달걀 하나의 둥근 명암 표현하기", field: "사물·정물", level: "쉬움", purpose: "명암 연습" },
+  { name: "종이컵 하나와 바닥 그림자 그리기", field: "사물·정물", level: "쉬움", purpose: "명암 연습" },
+  { name: "레몬 하나를 노란색 계열로 칠하기", field: "사물·정물", level: "쉬움", purpose: "색 표현 연습" },
+  { name: "색연필 다섯 자루를 서로 다른 색으로 칠하기", field: "사물·정물", level: "쉬움", purpose: "색 표현 연습" },
+  { name: "빨간 토마토의 색 변화 칠하기", field: "사물·정물", level: "쉬움", purpose: "색 표현 연습" },
+
+  { name: "머그컵을 다른 각도에서 그리기", field: "사물·정물", level: "보통", purpose: "형태 연습" },
+  { name: "펼쳐진 책 한 권 그리기", field: "사물·정물", level: "보통", purpose: "형태 연습" },
+  { name: "운동화 한 켤레의 옆모습 그리기", field: "사물·정물", level: "보통", purpose: "형태 연습" },
+  { name: "사과의 밝은 면과 어두운 면 표현하기", field: "사물·정물", level: "보통", purpose: "명암 연습" },
+  { name: "구겨진 종이 한 장의 명암 표현하기", field: "사물·정물", level: "보통", purpose: "명암 연습" },
+  { name: "원기둥 모양 필통의 명암 표현하기", field: "사물·정물", level: "보통", purpose: "명암 연습" },
+  { name: "과일 세 개가 서로 비치는 색 표현하기", field: "사물·정물", level: "보통", purpose: "색 표현 연습" },
+  { name: "초록 천 위 빨간 사과의 보색 대비 표현하기", field: "사물·정물", level: "보통", purpose: "색 표현 연습" },
+  { name: "파란 천 위 흰 컵에 비친 색 표현하기", field: "사물·정물", level: "보통", purpose: "색 표현 연습" },
+
+  { name: "여러 물건이 놓인 책상 위 그리기", field: "사물·정물", level: "어려움", purpose: "형태 연습" },
+  { name: "비스듬히 놓인 의자를 원근감 있게 그리기", field: "사물·정물", level: "어려움", purpose: "형태 연습" },
+  { name: "자전거 한 대의 구조 그리기", field: "사물·정물", level: "어려움", purpose: "형태 연습" },
+  { name: "물이 담긴 유리컵의 빛과 그림자 표현하기", field: "사물·정물", level: "어려움", purpose: "명암 연습" },
+  { name: "금속 숟가락에 비친 반사 표현하기", field: "사물·정물", level: "어려움", purpose: "명암 연습" },
+  { name: "흰 천 위에 놓인 흰 달걀들의 명암 표현하기", field: "사물·정물", level: "어려움", purpose: "명암 연습" },
+  { name: "투명한 유리병 너머로 비치는 색 표현하기", field: "사물·정물", level: "어려움", purpose: "색 표현 연습" },
+  { name: "여러 색 조명을 받은 정물 표현하기", field: "사물·정물", level: "어려움", purpose: "색 표현 연습" },
+  { name: "은색 주전자에 비친 주변 색 표현하기", field: "사물·정물", level: "어려움", purpose: "색 표현 연습" }
+];
+
+// 결과 아래에 항상 보여 줄 안내 문구
+const NOTE_TEXT = "이 주제는 연습 아이디어예요. 마음에 들지 않으면 다시 뽑거나 원하는 주제를 직접 선택해도 돼요.";
+const MSG_NONE = "조건에 맞는 주제가 없어요. 다른 조건을 선택해 주세요.";
+const MSG_DONE = "이 조건의 주제를 모두 확인했어요. 처음부터 다시 뽑거나 다른 조건을 선택해 보세요.";
+
+// 조건 이름(라디오 name)과 화면에 보이는 항목 이름
+const GROUPS = [
+  { key: "field", label: "그림 분야" },
+  { key: "level", label: "난이도" },
+  { key: "purpose", label: "연습 목적" }
+];
+
+// ===== 상태 =====
+// history 배열: 지금 고른 조건에서 이미 추천한 주제의 이름을 차례로 저장해요.
+// (저장하지 않으므로 페이지를 새로 열면 빈 배열로 다시 시작해요.)
+let history = [];
+let hasDrawn = false; // 지금 조건에서 한 번이라도 추천했는지
+
+// ===== 처리 함수 =====
+
+// 화면에서 고른 세 조건을 읽어 와요. 고르지 않은 항목은 null
+function readConditions() {
+  const result = {};
+  GROUPS.forEach(g => {
+    const checked = document.querySelector('input[name="' + g.key + '"]:checked');
+    result[g.key] = checked ? checked.value : null;
+  });
+  return result;
+}
+
+// 조건에 맞는 주제를 찾는 부분:
+// TOPICS 배열을 처음부터 끝까지 살펴보며 분야·난이도·목적이 세 개 모두 같은 주제만 골라 새 배열로 만들어요.
+function findMatching(list, cond) {
+  return list.filter(t => t.field === cond.field && t.level === cond.level && t.purpose === cond.purpose);
+}
+
+// 이미 추천한 주제를 제외하는 부분:
+// 조건에 맞는 주제 중에서 history 배열에 이름이 들어 있지 않은 주제만 남겨요. (includes로 중복 확인)
+function excludeDrawn(matching, drawn) {
+  return matching.filter(t => !drawn.includes(t.name));
+}
+
+// 주제를 무작위로 고르는 부분:
+// 0 이상 (남은 개수) 미만의 정수를 무작위로 만들어 그 번호의 주제를 꺼내요.
+function pickRandom(remaining) {
+  const index = Math.floor(Math.random() * remaining.length);
+  return remaining[index];
+}
+
+// 주제 하나 뽑기: 결과를 { type, topic } 형태로 돌려줘요.
+// type은 "topic"(주제 있음) / "none"(조건에 맞는 주제가 아예 없음) / "done"(모두 추천함)
+function drawTopic(list, cond, drawn) {
+  const matching = findMatching(list, cond);
+  if (matching.length === 0) {
+    return { type: "none" };
+  }
+  const remaining = excludeDrawn(matching, drawn);
+  // 주제가 소진되었는지 확인하는 부분:
+  // 남은 주제 배열이 비어 있으면 이 조건의 주제를 모두 추천한 것이므로 더 뽑지 않아요.
+  if (remaining.length === 0) {
+    return { type: "done" };
+  }
+  return { type: "topic", topic: pickRandom(remaining) };
+}
+
+// ===== 화면 표시 =====
+const resultEl = document.getElementById("result");
+const messageEl = document.getElementById("message");
+const btnRecommend = document.getElementById("btnRecommend");
+const btnAgain = document.getElementById("btnAgain");
+const btnReset = document.getElementById("btnReset");
+
+function showMessage(text, kind) {
+  messageEl.textContent = "";
+  const tag = document.createElement("span");
+  tag.className = "tag";
+  tag.textContent = kind === "ok" ? "✔ 안내 " : "⚠ 안내 ";
+  messageEl.appendChild(tag);
+  messageEl.appendChild(document.createTextNode(text));
+  messageEl.className = kind === "ok" ? "message ok" : "message";
+  messageEl.hidden = false;
+}
+function hideMessage() {
+  messageEl.hidden = true;
+  messageEl.textContent = "";
+}
+
+function showPlaceholder(text) {
+  resultEl.innerHTML = "";
+  const p = document.createElement("p");
+  p.className = "placeholder";
+  p.textContent = text;
+  resultEl.appendChild(p);
+}
+
+function showTopic(name) {
+  resultEl.innerHTML = "";
+  const label = document.createElement("p");
+  label.className = "result-label";
+  label.textContent = "추천 주제";
+  const topic = document.createElement("p");
+  topic.className = "topic";
+  topic.id = "topicName";
+  topic.textContent = name;
+  const note = document.createElement("p");
+  note.className = "note";
+  note.textContent = NOTE_TEXT;
+  resultEl.append(label, topic, note);
+}
+
+function showNotice(text) {
+  resultEl.innerHTML = "";
+  const p = document.createElement("p");
+  p.className = "message";
+  p.style.margin = "0";
+  const tag = document.createElement("span");
+  tag.className = "tag";
+  tag.textContent = "⚠ 안내 ";
+  p.append(tag, document.createTextNode(text));
+  resultEl.appendChild(p);
+}
+
+function updateButtons() {
+  btnAgain.disabled = !hasDrawn;
+  btnReset.disabled = !hasDrawn;
+}
+
+// ===== 이벤트 =====
+
+// [주제 추천]과 [다시 뽑기]가 함께 쓰는 동작
+// 클릭 처리는 한 번에 하나씩 끝까지 실행되므로, 빠르게 여러 번 눌러도
+// 매번 history가 먼저 갱신된 뒤 다음 클릭이 처리되어 같은 주제가 다시 나오지 않아요.
+function handleDraw() {
+  const cond = readConditions();
+  const missing = GROUPS.filter(g => cond[g.key] === null).map(g => g.label);
+  if (missing.length > 0) {
+    showMessage("아직 선택하지 않은 항목이 있어요: " + missing.join(", ") + ". 이 항목을 선택한 뒤 ‘주제 추천’을 눌러 주세요.", "warn");
+    return;
+  }
+  hideMessage();
+
+  const result = drawTopic(TOPICS, cond, history);
+  if (result.type === "none") {
+    showNotice(MSG_NONE);
+    return;
+  }
+  if (result.type === "done") {
+    showNotice(MSG_DONE);
+    return;
+  }
+  history.push(result.topic.name); // 추천한 주제를 기록해서 다음에 제외해요
+  hasDrawn = true;
+  showTopic(result.topic.name);
+  updateButtons();
+}
+
+btnRecommend.addEventListener("click", handleDraw);
+btnAgain.addEventListener("click", handleDraw);
+
+// 조건 변경과 초기화에 따라 기록을 갱신하는 부분 ①: 조건 변경
+// 세 조건 중 하나라도 바뀌면 이전 조건에서 뽑은 기록을 비우고 결과도 지워서 새 조건으로 처음부터 시작해요.
+document.getElementById("conditions").addEventListener("change", () => {
+  history = [];
+  hasDrawn = false;
+  hideMessage();
+  showPlaceholder("조건이 바뀌었어요. ‘주제 추천’을 눌러 새 조건의 주제를 받아 보세요.");
+  updateButtons();
+});
+
+// 조건 변경과 초기화에 따라 기록을 갱신하는 부분 ②: 처음부터 다시 뽑기
+// 현재 조건의 추천 기록(history 배열)만 비워요. 고른 조건은 그대로 남아요.
+btnReset.addEventListener("click", () => {
+  history = [];
+  hasDrawn = false;
+  showPlaceholder("추천 기록을 지웠어요.");
+  showMessage("처음부터 다시 뽑을 수 있어요. ‘주제 추천’을 눌러 주세요.", "ok");
+  updateButtons();
+  btnRecommend.focus(); // 버튼이 비활성화되며 포커스를 잃지 않도록 추천 버튼으로 옮겨요
+});
+</script>
+</body>
+</html>
