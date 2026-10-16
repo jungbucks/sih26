@@ -36,6 +36,14 @@ export const FONTS = {
     feel: "힘 있는 제목 (본문은 고딕)",
     titleOnly: true,
   },
+  F5: {
+    name: "픽셀 글꼴",
+    family: "Galmuri11",
+    file: "Galmuri11.woff2",
+    bold: "Galmuri11-Bold.woff2",
+    weight: "400",
+    feel: "옛 컴퓨터·게임 화면",
+  },
 };
 
 // accent = 버튼 바탕, onAccent = 버튼 글자, accentText = 바탕 위 강조 글자
@@ -72,7 +80,7 @@ export const STYLES = [
     id: "S5", name: "클로드풍", group: "따뜻·친근",
     feel: "크림색 바탕, 테라코타, 책 같은 제목",
     bg: "#faf9f5", surface: "#f5f0e8", text: "#141413", mute: "#6c6a64", border: "#e6dfd8",
-    accent: "#cc785c", onAccent: "#ffffff", accentText: "#a9583e", btnLarge: true,
+    accent: "#cc785c", onAccent: "#ffffff", accentText: "#9c4f37", btnLarge: true,
     radius: 12, btnRadius: 8, shadow: "none", font: "F1", titleFont: "F3",
   },
   {
@@ -128,15 +136,84 @@ export const STYLES = [
     id: "S13", name: "버터와 초록", group: "선생님 세트",
     feel: "차분하게 설명해 주는 따뜻함",
     bg: "#fdf9ed", surface: "#f3ead2", text: "#262114", mute: "#6e6a5c", border: "#eae0c6",
-    accent: "#2e7d4f", onAccent: "#ffffff", accentText: "#2e7d4f",
+    accent: "#2e7d4f", onAccent: "#ffffff", accentText: "#276b43",
     radius: 12, btnRadius: 10, shadow: "none", font: "F2",
   },
   {
     id: "S14", name: "햇살과 호박", group: "선생님 세트",
     feel: "친근하고 활기찬 워크북",
     bg: "#fdfbf6", surface: "#f5efe1", text: "#23201a", mute: "#6d675c", border: "#ede7da",
-    accent: "#b45309", onAccent: "#ffffff", accentText: "#b45309",
+    accent: "#b45309", onAccent: "#ffffff", accentText: "#9a4708",
     radius: 14, btnRadius: 10, shadow: "none", font: "F2",
+  },
+  // 시대·장르: 색만으로는 안 나오는 스타일이라 테두리 굵기(bw), 버튼 테두리·그림자, 배경 무늬(pattern)를 더 쓴다.
+  // 무늬는 제목 글자 뒤에 깔리므로 바탕과 거의 같은 밝기의 옅은 점만 쓴다.
+  {
+    id: "S15", name: "레트로 맥", group: "시대·장르",
+    feel: "1980년대 흑백 컴퓨터 창, 픽셀 글자",
+    bg: "#ffffff", surface: "#ffffff", text: "#000000", mute: "#444444", border: "#000000",
+    accent: "#000000", onAccent: "#ffffff", accentText: "#000000",
+    bw: 2, radius: 0, btnRadius: 8, btnBorder: true, shadow: "3px 3px 0 #000000", font: "F5",
+    pattern: "radial-gradient(#bdbdbd 0.8px, transparent 1px)", patternSize: "4px 4px",
+    patternNote: "회색 점이 촘촘한 옛 컴퓨터 바탕화면",
+  },
+  {
+    id: "S16", name: "윈도우 95풍", group: "시대·장르",
+    feel: "회색 창, 볼록한 버튼, 남색 제목 막대",
+    bg: "#c0c0c0", surface: "#ffffff", text: "#000000", mute: "#333333", border: "#808080",
+    accent: "#000080", onAccent: "#ffffff", accentText: "#000080",
+    radius: 0, btnRadius: 0, font: "F5",
+    shadow: "inset 1px 1px 0 #808080, inset -1px -1px 0 #ffffff",
+    btnShadow: "inset -1px -1px 0 #0a0a0a, inset 1px 1px 0 #ffffff, inset -2px -2px 0 #808080, inset 2px 2px 0 #dfdfdf",
+  },
+  {
+    id: "S17", name: "8비트 게임", group: "시대·장르", dark: true,
+    feel: "고전 게임기 팔레트, 각진 픽셀 상자",
+    bg: "#1d2b53", surface: "#000000", text: "#fff1e8", mute: "#c2c3c7", border: "#29adff",
+    accent: "#ffec27", onAccent: "#000000", accentText: "#ffec27", block: "#7e2553",
+    bw: 2, radius: 0, btnRadius: 0, shadow: "4px 4px 0 #000000", btnShadow: "4px 4px 0 #000000", font: "F5",
+  },
+  {
+    id: "S18", name: "멤피스", group: "시대·장르",
+    feel: "1980년대 땡땡이 무늬, 원색과 굵은 선",
+    bg: "#fff8e7", surface: "#ffffff", text: "#1b1b1b", mute: "#4a4a4a", border: "#1b1b1b",
+    accent: "#ffd23f", onAccent: "#1b1b1b", accentText: "#b0126c", block: "#7fe0c8",
+    bw: 2, radius: 16, btnRadius: 999, btnBorder: true,
+    shadow: "4px 4px 0 #1b1b1b", btnShadow: "3px 3px 0 #1b1b1b", font: "F2", titleFont: "F4",
+    pattern: "radial-gradient(#ffc6ec 2px, transparent 2.5px), radial-gradient(#bdeee1 2px, transparent 2.5px)",
+    patternSize: "28px 28px", patternPos: "0 0, 14px 14px",
+    patternNote: "분홍·민트 물방울 점이 엇갈려 찍힌 바탕",
+  },
+  {
+    id: "S19", name: "스위스 스타일", group: "시대·장르",
+    feel: "흰 바탕, 검은 격자, 빨강 하나",
+    bg: "#ffffff", surface: "#f2f2f2", text: "#000000", mute: "#555555", border: "#000000",
+    accent: "#e30613", onAccent: "#ffffff", accentText: "#d10511",
+    radius: 0, btnRadius: 0, shadow: "none", font: "F1",
+  },
+  {
+    id: "S20", name: "바우하우스", group: "시대·장르",
+    feel: "빨강·파랑·노랑 원색, 동그라미와 네모",
+    bg: "#f1e9da", surface: "#ffffff", text: "#111111", mute: "#4d4a44", border: "#111111",
+    accent: "#2251a3", onAccent: "#ffffff", accentText: "#c62828", block: "#f4c430",
+    bw: 2, radius: 0, btnRadius: 999, shadow: "none", font: "F1", titleFont: "F4",
+  },
+  {
+    id: "S21", name: "네오 브루탈리즘", group: "시대·장르",
+    feel: "두꺼운 검은 테두리, 딱딱한 그림자, 쨍한 색",
+    bg: "#f4f4f0", surface: "#ffffff", text: "#000000", mute: "#3d3d3d", border: "#000000",
+    accent: "#ff90e8", onAccent: "#000000", accentText: "#000000", block: "#ffc900",
+    bw: 3, radius: 6, btnRadius: 6, btnBorder: true,
+    shadow: "4px 4px 0 #000000", btnShadow: "4px 4px 0 #000000", font: "F1",
+  },
+  {
+    id: "S22", name: "Y2K", group: "시대·장르",
+    feel: "2000년 무렵의 반짝이는 보라, 말랑한 버튼",
+    bg: "#e9ecff", surface: "#ffffff", text: "#1a1446", mute: "#4b4a6b", border: "#c9d6ff",
+    accent: "#7b2ff7", onAccent: "#ffffff", accentText: "#6a1fe0", block: "#d9f6ff",
+    radius: 24, btnRadius: 999, font: "F2",
+    shadow: "0 0 0 2px #ffffff, 0 8px 24px rgba(123,47,247,.25)",
+    btnShadow: "inset 0 2px 0 rgba(255,255,255,.45), 0 4px 12px rgba(123,47,247,.35)",
   },
 ];
 
@@ -188,7 +265,18 @@ export function buildPrompt(style, fontId, extra) {
     "",
     "2. 모양",
     `- 카드 모서리 ${shape(style.radius)}, 버튼 모서리 ${shape(style.btnRadius)}`,
-    `- 그림자: ${style.shadow === "none" ? "쓰지 않기" : style.shadow}`,
+    `- 카드·입력칸 테두리 ${style.bw || 1}px ${style.border}`,
+    `- 카드 그림자: ${style.shadow === "none" ? "쓰지 않기" : style.shadow}`,
+  );
+  if (style.btnBorder) out.push(`- 버튼에도 ${style.bw || 1}px ${style.border} 테두리`);
+  if (style.btnShadow) out.push(`- 버튼 그림자: ${style.btnShadow}`);
+  if (style.pattern)
+    out.push(
+      `- 페이지 바탕 무늬(${style.patternNote}): background-image: ${style.pattern}; background-size: ${style.patternSize};` +
+        (style.patternPos ? ` background-position: ${style.patternPos};` : ""),
+      "- 무늬는 페이지 바탕에만 깔고, 글자가 많은 카드 안에는 깔지 마",
+    );
+  out.push(
     "",
     "3. 글꼴 (전시판 공용 글꼴 — 아래 CSS를 그대로 넣어 줘)",
     ...ids.flatMap(fontFace),
@@ -224,6 +312,12 @@ function applyPreview(el, style, fontId) {
   set("--p-btn-radius", style.btnRadius + "px");
   set("--p-btn-size", style.btnLarge ? "19px" : "15px");
   set("--p-shadow", style.shadow);
+  set("--p-bw", (style.bw || 1) + "px");
+  set("--p-btn-border", style.btnBorder ? `${style.bw || 1}px solid ${style.border}` : "0");
+  set("--p-btn-shadow", style.btnShadow || "none");
+  set("--p-pattern", style.pattern || "none");
+  set("--p-pattern-size", style.patternSize || "auto");
+  set("--p-pattern-pos", style.patternPos || "0 0");
   set("--p-font", stack(fonts.body));
   set("--p-title-font", stack(fonts.title));
   el.dataset.style = style.id;
@@ -274,10 +368,12 @@ function init() {
     b.dataset.id = s.id;
     b.setAttribute("aria-pressed", "false");
     b.innerHTML =
-      `<span class="mini" aria-hidden="true" style="background:${s.bg}">` +
-      `<span class="mini-card" style="background:${s.block || s.surface};border-color:${s.border};border-radius:${Math.min(s.radius, 10)}px">` +
+      `<span class="mini" aria-hidden="true" style="background:${s.bg}` +
+      (s.pattern ? `;background-image:${s.pattern};background-size:${s.patternSize};background-position:${s.patternPos || "0 0"}` : "") +
+      `">` +
+      `<span class="mini-card" style="background:${s.block || s.surface};border:${s.bw || 1}px solid ${s.border};border-radius:${Math.min(s.radius, 10)}px;box-shadow:${s.shadow}">` +
       `<i class="mini-title" style="background:${s.text}"></i><i class="mini-line" style="background:${s.mute}"></i></span>` +
-      `<i class="mini-btn" style="background:${s.accent};border-radius:${s.btnRadius >= 999 ? 999 : Math.min(s.btnRadius, 6)}px"></i>` +
+      `<i class="mini-btn" style="background:${s.accent};border-radius:${s.btnRadius >= 999 ? 999 : Math.min(s.btnRadius, 6)}px;border:${s.btnBorder ? `${s.bw || 1}px solid ${s.border}` : "0"};box-shadow:${s.btnShadow || "none"}"></i>` +
       `</span><span class="style-name"><b>${s.id}</b> ${s.name}</span><span class="style-feel">${s.feel}</span>`;
     b.addEventListener("click", () => {
       styleId = s.id;

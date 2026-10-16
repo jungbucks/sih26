@@ -196,6 +196,9 @@ export async function build({
       "GowunBatang-Bold.woff2",
       "GowunDodum-OFL.txt",
       "GowunBatang-OFL.txt",
+      "Galmuri11.woff2",
+      "Galmuri11-Bold.woff2",
+      "Galmuri-OFL.txt",
       "SOURCES.md",
     ]) {
       await fs.copyFile(

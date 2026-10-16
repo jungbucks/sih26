@@ -1,7 +1,7 @@
 # Bundled web fonts
 
 Paperlogy and Wanted Sans are redistributed unchanged under SIL Open Font License 1.1.
-Gowun Dodum and Gowun Batang are subsetted (KS X 1001 Hangul 2,350 + ASCII + common
+Gowun Dodum, Gowun Batang and Galmuri11 are subsetted (KS X 1001 Hangul 2,350 + ASCII + common
 symbols) and converted to WOFF2 under the same license; neither declares a Reserved Font Name.
 The corresponding original copyright and license notices are included here.
 No font CDN is used at runtime.
@@ -19,8 +19,12 @@ No font CDN is used at runtime.
 - `GowunBatang-Regular.woff2`, `GowunBatang-Bold.woff2`: Gowun Batang Regular/Bold, subsets of
   https://github.com/google/fonts/tree/1d0e46c7933245c8180fe83e47917961c913bbdb/ofl/gowunbatang
   License: `GowunBatang-OFL.txt`.
+- `Galmuri11.woff2`, `Galmuri11-Bold.woff2`: Galmuri11 Regular/Bold pixel font, subsets of
+  the `galmuri@2.40.3` npm package (https://github.com/quiple/galmuri), `dist/Galmuri11.ttf`
+  and `dist/Galmuri11-Bold.ttf`.
+  License: `Galmuri-OFL.txt`.
 
 The exhibition interface uses Paperlogy and Wanted Sans. The design-proposal page
-(`design.html`) previews all four. Student works may load these shared fonts by the
+(`design.html`) previews all five. Student works may load these shared fonts by the
 relative path `../assets/fonts/<file>` (design revision requests); when the file is
 opened offline the browser falls back to a default font and features keep working.

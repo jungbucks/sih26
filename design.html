@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>디자인 시안 · 레이트 바이브 코딩</title>
-    <meta name="description" content="스타일 카드 14개 중 하나를 고르면 샘플 앱이 바뀌고, 그대로 붙여 넣을 디자인 수정 프롬프트가 완성됩니다." />
+    <meta name="description" content="스타일 카드 22개 중 하나를 고르면 샘플 앱이 바뀌고, 그대로 붙여 넣을 디자인 수정 프롬프트가 완성됩니다." />
     <link rel="stylesheet" href="assets/style.css" />
     <style>
       @font-face {
@@ -22,6 +22,18 @@
       @font-face {
         font-family: "Gowun Batang";
         src: url("assets/fonts/GowunBatang-Bold.woff2") format("woff2");
+        font-weight: 700;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Galmuri11";
+        src: url("assets/fonts/Galmuri11.woff2") format("woff2");
+        font-weight: 400;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Galmuri11";
+        src: url("assets/fonts/Galmuri11-Bold.woff2") format("woff2");
         font-weight: 700;
         font-display: swap;
       }
@@ -151,7 +163,10 @@
         padding: 20px;
         border: 1px solid var(--line-strong);
         border-radius: 20px;
-        background: var(--p-bg);
+        background-color: var(--p-bg);
+        background-image: var(--p-pattern, none);
+        background-size: var(--p-pattern-size, auto);
+        background-position: var(--p-pattern-pos, 0 0);
         color: var(--p-text);
         font-family: var(--p-font);
         line-height: 1.6;
@@ -178,7 +193,7 @@
         flex: 1;
         min-width: 0;
         padding: 10px 12px;
-        border: 1px solid var(--p-border);
+        border: var(--p-bw, 1px) solid var(--p-border);
         border-radius: min(var(--p-radius), 12px);
         background: var(--p-surface);
         color: var(--p-mute);
@@ -186,8 +201,9 @@
       }
       #preview .p-btn {
         padding: 10px 16px;
-        border: 0;
+        border: var(--p-btn-border, 0);
         border-radius: var(--p-btn-radius);
+        box-shadow: var(--p-btn-shadow, none);
         background: var(--p-accent);
         color: var(--p-on-accent);
         font: inherit;
@@ -234,7 +250,7 @@
         align-items: center;
         gap: 10px;
         padding: 10px 12px;
-        border: 1px solid var(--p-border);
+        border: var(--p-bw, 1px) solid var(--p-border);
         border-radius: var(--p-radius);
         background: var(--p-surface);
         box-shadow: var(--p-shadow);
@@ -258,9 +274,10 @@
       #preview .p-ghost {
         width: 100%;
         padding: 10px;
-        border: 1px solid var(--p-border);
+        border: var(--p-bw, 1px) solid var(--p-border);
         border-radius: var(--p-btn-radius);
-        background: transparent;
+        background: var(--p-surface);
+        box-shadow: var(--p-btn-shadow, none);
         color: var(--p-text);
         font: inherit;
         font-size: 15px;
@@ -369,7 +386,7 @@
       </p>
       <div class="design-layout">
         <section aria-labelledby="pick-title">
-          <h2 class="step-title" id="pick-title"><span>1</span>스타일 고르기 (14개)</h2>
+          <h2 class="step-title" id="pick-title"><span>1</span>스타일 고르기 (22개)</h2>
           <div id="styles"></div>
         </section>
         <div class="design-side">
@@ -416,7 +433,7 @@
       <p class="design-note">
         ○○풍 스타일의 색·모서리 값은 VoltAgent의 awesome-design-md(MIT 라이선스)가 공개 웹사이트에서
         관찰해 모은 DESIGN.md를 참고했습니다. 각 회사의 공식 디자인 시스템이 아니며, 작품에는 브랜드
-        이름·로고 없이 색과 형태만 적용합니다. 글꼴: Wanted Sans·Paperlogy·고운돋움·고운바탕(SIL OFL 1.1).
+        이름·로고 없이 색과 형태만 적용합니다. 글꼴: Wanted Sans·Paperlogy·고운돋움·고운바탕·갈무리(SIL OFL 1.1). 레트로 맥 스타일의 원래 시스템 글꼴(Chicago)은 무료 글꼴이 아니라서 한글 픽셀 글꼴 갈무리로 대신합니다.
       </p>
     </main>
   </body>
