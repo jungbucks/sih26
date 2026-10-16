@@ -198,6 +198,7 @@ export async function build({
       "GowunBatang-OFL.txt",
       "Galmuri11.woff2",
       "Galmuri11-Bold.woff2",
+      "GalmuriMono11.woff2",
       "Galmuri-OFL.txt",
       "SOURCES.md",
     ]) {
