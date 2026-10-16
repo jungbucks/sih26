@@ -559,12 +559,15 @@ footer {
   gap: 8px;
   margin: 0;
 }
-/* 학번: 고정폭 + 넓은 자간 */
+/* 학번: 학생이 자기 작품을 찾는 첫 단서 — 카드에서 가장 먼저 읽히게 크고 굵게, 숫자 폭은 고르게 */
 .student-id {
-  font-family: ui-monospace, "D2Coding", Consolas, monospace;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-family: "Wanted Sans", sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  color: var(--ink);
 }
 /* 반: 작은 칩 */
 .student-class {
