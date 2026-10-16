@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내 전용 자주 다니는 장소 노선 연결 확인기</title>
+<meta name="description" content="자주 다니는 장소끼리의 연결을 직접 등록해 두고, 두 장소가 바로 이어져 있는지 한 화면에서 확인하는 그래프(인접 리스트) 연습 프로그램">
+<meta name="class" content="M반 (2-8)">
+<meta name="status" content="PRD">
+<style>
+  :root {
+    --bg: #f4f7f8;
+    --card: #ffffff;
+    --text: #1d2428;
+    --muted: #56636b;
+    --line: #d5dde1;
+    --accent: #0f7b74;
+    --accent-weak: #e3f3f1;
+    --ok: #1a7f37;
+    --ok-weak: #e9f6ec;
+    --err: #b42318;
+    --err-weak: #fdecea;
+    --warn: #8a5a00;
+    --warn-weak: #fff6e0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .wrap { max-width: 42rem; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; line-height: 1.35; }
+  h2 { font-size: 1.15rem; margin: 0 0 12px; }
+  .intro { color: var(--muted); margin: 0 0 12px; }
+
+  /* 실제 교통 정보가 아니라는 안내: 눈에 띄게 */
+  .notice {
+    margin: 0 0 20px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--warn-weak);
+    color: var(--warn);
+    border-left: 4px solid var(--warn);
+    font-weight: 600;
+    font-size: 0.97rem;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 16px;
+    margin-bottom: 20px;
+  }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  .hint { display: block; font-size: 0.9rem; color: var(--muted); font-weight: 400; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .two > div { min-width: 0; }
+  .two label { margin-top: 0; }
+  @media (max-width: 420px) { .two { grid-template-columns: 1fr; } }
+  input[type="text"], select {
+    width: 100%;
+    font: inherit;
+    padding: 10px 12px;
+    min-height: 44px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+  }
+  input[type="text"]:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  input[aria-invalid="true"] { border-color: var(--err); border-width: 2px; }
+  button {
+    font: inherit;
+    font-size: 1rem;
+    min-height: 44px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+  }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .btn-danger { border-color: var(--err); color: var(--err); }
+  .btn-danger-solid { background: var(--err); border-color: var(--err); color: #fff; font-weight: 600; }
+  .btn-small { min-height: 40px; padding: 6px 12px; font-size: 0.95rem; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+
+  /* 안내 메시지: 색 + 글자로 함께 구분 */
+  .msg { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 0.95rem; }
+  .msg:empty { display: none; }
+  .msg-error { background: var(--err-weak); color: var(--err); border-left: 4px solid var(--err); }
+  .msg-ok { background: var(--ok-weak); color: var(--ok); border-left: 4px solid var(--ok); }
+  .msg-warn { background: var(--warn-weak); color: var(--warn); border-left: 4px solid var(--warn); }
+  #storageStatus { margin: 0 0 20px; }
+
+  /* 결과 표시창 */
+  .result {
+    margin-top: 16px;
+    padding: 14px;
+    border-radius: 10px;
+    border: 2px solid var(--line);
+    background: #fafbfb;
+  }
+  .result-main { margin: 0; font-size: 1.08rem; font-weight: 700; }
+  .result.yes { border-color: var(--ok); background: var(--ok-weak); }
+  .result.yes .result-main { color: var(--ok); }
+  .result.no { border-color: var(--muted); }
+  .result.warn { border-color: var(--warn); background: var(--warn-weak); }
+  .result.warn .result-main { color: var(--warn); }
+  .result-notice { margin: 8px 0 0; font-size: 0.88rem; color: var(--warn); font-weight: 600; }
+
+  .list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .count { color: var(--muted); font-size: 0.92rem; }
+  .edges { list-style: none; margin: 0; padding: 0; }
+  .edge { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .edge:last-child { border-bottom: none; }
+  .edge-main { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .edge-text { flex: 1 1 auto; min-width: 0; font-weight: 600; }
+  .edge-text .arrow { color: var(--accent); margin: 0 6px; }
+  .edge-main button { flex: none; white-space: nowrap; }
+  .empty { color: var(--muted); padding: 12px 0; margin: 0; }
+  .confirm-box { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--err-weak); }
+  .confirm-box p { margin: 0 0 8px; color: var(--err); font-size: 0.95rem; }
+  .confirm-box .row { margin-top: 0; }
+  .reset-area { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+<!-- ===== 화면 구조 ===== -->
+<main class="wrap">
+  <header>
+    <h1>내 전용 자주 다니는 장소 노선 연결 확인기</h1>
+    <p class="intro">자주 다니는 장소끼리 바로 오갈 수 있는 길을 등록해 두면, 출발지와 도착지를 골라 직접 연결되어 있는지 한 번에 확인할 수 있어요.</p>
+  </header>
+
+  <!-- 윤리적 고려: 실제 교통 정보로 오해하지 않도록 맨 위에 안내 -->
+  <p class="notice" role="note">⚠ 이 정보는 사용자가 직접 입력한 예시 데이터예요. 실제 대중교통 운행 정보와 다를 수 있으니, 실제로 이동할 때는 꼭 따로 확인하세요.</p>
+
+  <!-- 저장 상태 안내 -->
+  <div id="storageStatus" class="msg" role="status" aria-live="polite"></div>
+
+  <!-- 영역 1: 연결 등록 -->
+  <section class="card" aria-labelledby="addTitle">
+    <h2 id="addTitle">1. 장소 연결 등록</h2>
+    <form id="addForm" novalidate>
+      <div class="two">
+        <div>
+          <label for="placeA">장소 1 <span class="hint">예: 집</span></label>
+          <input type="text" id="placeA" autocomplete="off" maxlength="40" placeholder="장소 이름">
+        </div>
+        <div>
+          <label for="placeB">장소 2 <span class="hint">예: 학교</span></label>
+          <input type="text" id="placeB" autocomplete="off" maxlength="40" placeholder="장소 이름">
+        </div>
+      </div>
+      <p class="hint" style="margin:8px 0 0">두 장소 사이를 양쪽으로 오갈 수 있는 길로 등록해요. 장소 이름은 20자까지, 장소는 최대 20개·연결은 최대 30개까지 저장돼요.</p>
+      <div class="row">
+        <button type="submit" class="btn-primary" id="addButton">연결 추가</button>
+      </div>
+      <div id="addMessage" class="msg" role="alert" aria-live="assertive"></div>
+    </form>
+  </section>
+
+  <!-- 영역 2: 연결 확인 -->
+  <section class="card" aria-labelledby="checkTitle">
+    <h2 id="checkTitle">2. 연결 확인</h2>
+    <div class="two">
+      <div>
+        <label for="fromSelect">출발지</label>
+        <select id="fromSelect"></select>
+      </div>
+      <div>
+        <label for="toSelect">도착지</label>
+        <select id="toSelect"></select>
+      </div>
+    </div>
+    <div class="row">
+      <button type="button" class="btn-primary" id="checkButton">연결 확인</button>
+    </div>
+    <div id="result" class="result" aria-live="polite">
+      <p class="result-main" id="resultText">출발지와 도착지를 고른 뒤 [연결 확인]을 눌러 보세요.</p>
+      <p class="result-notice">※ 사용자가 입력한 예시 데이터로 판단한 결과예요. 실제 대중교통 운행 정보와 다를 수 있어요.</p>
+    </div>
+  </section>
+
+  <!-- 영역 3: 목록 및 초기화 -->
+  <section class="card" aria-labelledby="listTitle">
+    <div class="list-head">
+      <h2 id="listTitle">3. 등록된 연결 목록</h2>
+      <span class="count" id="countText"></span>
+    </div>
+    <ul class="edges" id="edgeList"></ul>
+    <div id="listMessage" class="msg" role="status" aria-live="polite"></div>
+
+    <div class="reset-area">
+      <button type="button" class="btn-danger" id="resetButton">전체 초기화</button>
+      <div class="confirm-box" id="resetConfirm" hidden>
+        <p>등록한 연결을 모두 지우고 기본 예시(집 ↔ 학교, 학교 ↔ 도서관)로 되돌릴까요? 되돌릴 수 없어요.</p>
+        <div class="row">
+          <button type="button" class="btn-danger-solid btn-small" id="resetYes">네, 초기화</button>
+          <button type="button" class="btn-small" id="resetNo">취소</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+// ===== 설정 =====
+const MAX_PLACES = 20;        // 장소(노드)는 최대 20개
+const MAX_EDGES = 30;         // 연결(간선)은 최대 30개
+const MAX_NAME = 20;          // 장소 이름은 최대 20글자
+// 이 프로그램만 쓰는 저장 키 (다른 데이터와 겹치지 않도록 접두사 사용)
+const STORAGE_KEY = "sih26:20202:graph";
+
+// 기본 예시 데이터: 집 ↔ 학교, 학교 ↔ 도서관
+function exampleGraph() {
+  return {
+    "집": ["학교"],
+    "학교": ["집", "도서관"],
+    "도서관": ["학교"]
+  };
+}
+
+// ===== 데이터 =====
+// 그래프를 "인접 리스트"로 저장한다.
+//   - 키(Key)   : 장소 이름 (노드)
+//   - 값(Value) : 그 장소와 바로 연결된 장소들의 배열 (간선)
+// 예) { "집": ["학교"], "학교": ["집", "도서관"], "도서관": ["학교"] }
+//     → "학교" 칸을 보면 학교와 바로 이어진 곳(집, 도서관)을 한눈에 알 수 있다.
+let graph = exampleGraph();
+let deletingKey = null;       // 삭제 확인을 띄운 연결 (예: "집|학교"), 없으면 null
+let storageAvailable = true;
+
+// 전시판 미리보기처럼 "주소(출처)가 없는" 상자 안에서 열리면 origin이 "null"이 된다.
+// 이런 곳에서는 저장이 막히거나, 저장된 것처럼 보여도 새로고침하면 사라진다.
+// (내려받은 파일을 직접 연 file:// 주소도 origin이 "null"이지만 저장은 되므로 제외)
+const IN_PREVIEW_BOX = (window.origin === "null" && location.protocol !== "file:");
+
+// 화면 요소
+const addForm = document.getElementById("addForm");
+const placeA = document.getElementById("placeA");
+const placeB = document.getElementById("placeB");
+const addMessage = document.getElementById("addMessage");
+const fromSelect = document.getElementById("fromSelect");
+const toSelect = document.getElementById("toSelect");
+const checkButton = document.getElementById("checkButton");
+const resultBox = document.getElementById("result");
+const resultText = document.getElementById("resultText");
+const edgeList = document.getElementById("edgeList");
+const countText = document.getElementById("countText");
+const listMessage = document.getElementById("listMessage");
+const storageStatus = document.getElementById("storageStatus");
+const resetButton = document.getElementById("resetButton");
+const resetConfirm = document.getElementById("resetConfirm");
+const resetYes = document.getElementById("resetYes");
+const resetNo = document.getElementById("resetNo");
+
+// ===== 그래프 처리 함수 =====
+
+// 등록된 장소(노드) 목록 = 인접 리스트의 키들
+function getPlaces() {
+  return Object.keys(graph);
+}
+
+// 간선 조회: A의 배열 안에 B가 들어 있으면 두 장소는 "직접" 연결된 것
+// (양쪽으로 같이 저장하므로 A 쪽만 봐도 된다)
+function hasEdge(a, b) {
+  return Array.isArray(graph[a]) && graph[a].indexOf(b) !== -1;
+}
+
+// 연결 목록을 [A, B] 쌍으로 만들기 (같은 연결이 두 번 나오지 않게)
+// 인접 리스트에는 "집→학교"와 "학교→집"이 둘 다 들어 있으므로 한 번만 센다.
+function getEdges() {
+  const edges = [];
+  const seen = {};
+  getPlaces().forEach(function (a) {
+    graph[a].forEach(function (b) {
+      const key = pairKey(a, b);
+      if (!seen[key]) {
+        seen[key] = true;
+        edges.push([a, b]);
+      }
+    });
+  });
+  return edges;
+}
+
+// 순서와 상관없이 같은 연결이면 같은 이름표를 만든다 ("학교|집"과 "집|학교"는 같은 연결)
+function pairKey(a, b) {
+  return a < b ? a + "|" + b : b + "|" + a;
+}
+
+// 간선 추가 (무방향): 양쪽 장소의 배열에 서로를 넣는다
+function addEdge(a, b) {
+  // 처음 보는 장소면 빈 배열로 새 노드를 만든다
+  if (!graph[a]) graph[a] = [];
+  if (!graph[b]) graph[b] = [];
+  graph[a].push(b);   // A에서 B로 갈 수 있고
+  graph[b].push(a);   // B에서 A로도 갈 수 있다
+}
+
+// 간선 삭제 (무방향): 양쪽 배열에서 서로를 빼고,
+// 더 이상 아무 곳과도 연결되지 않은 장소는 목록에서 없앤다
+function removeEdge(a, b) {
+  if (graph[a]) graph[a] = graph[a].filter(function (x) { return x !== b; });
+  if (graph[b]) graph[b] = graph[b].filter(function (x) { return x !== a; });
+  if (graph[a] && graph[a].length === 0) delete graph[a];
+  if (graph[b] && graph[b].length === 0) delete graph[b];
+}
+
+// 마지막 글자에 받침이 있는지 알아보기 (true/false, 모르면 null)
+function hasBatchim(word) {
+  const last = word.charCodeAt(word.length - 1);
+  if (last >= 0xAC00 && last <= 0xD7A3) {
+    // 한글 글자: (코드 - 0xAC00) % 28 이 0이 아니면 받침이 있다
+    return (last - 0xAC00) % 28 !== 0;
+  }
+  const ch = word.charAt(word.length - 1);
+  // 숫자는 읽는 소리로 판단 (영·일·삼·육·칠·팔은 받침이 있음)
+  if (/[0-9]/.test(ch)) return "013678".indexOf(ch) !== -1;
+  return null;   // 영어 등은 정확히 알기 어렵다
+}
+
+// "집과", "학교와"처럼 받침에 맞는 조사 붙이기
+function withWaGwa(word) {
+  const b = hasBatchim(word);
+  return word + (b === null ? "와(과)" : (b ? "과" : "와"));
+}
+
+// "도서관은", "학교는"처럼 받침에 맞는 조사 붙이기
+function withEunNeun(word) {
+  const b = hasBatchim(word);
+  return word + (b === null ? "은(는)" : (b ? "은" : "는"));
+}
+
+// 입력값 검사: 문제가 있으면 안내 문구를, 없으면 null
+function validateNewEdge(a, b) {
+  if (a === "" || b === "") {
+    return { text: "장소 이름이 비어 있어요. 장소 1과 장소 2를 모두 입력해 주세요.", field: a === "" ? placeA : placeB };
+  }
+  if (a.length > MAX_NAME || b.length > MAX_NAME) {
+    return { text: "장소 이름은 " + MAX_NAME + "자까지 입력할 수 있어요.", field: a.length > MAX_NAME ? placeA : placeB };
+  }
+  if (a === b) {
+    return { text: "두 장소 이름이 같아요. 서로 다른 장소를 입력해 주세요.", field: placeB };
+  }
+  if (hasEdge(a, b)) {
+    return { text: "‘" + a + " ↔ " + b + "’ 연결은 이미 등록되어 있어요. (방향만 바꾼 것도 같은 연결이에요.)", field: placeA };
+  }
+  let newPlaces = 0;
+  if (!graph[a]) newPlaces++;
+  if (!graph[b]) newPlaces++;
+  if (getPlaces().length + newPlaces > MAX_PLACES) {
+    return { text: "장소는 최대 " + MAX_PLACES + "개까지 등록할 수 있어요. 지금 있는 장소끼리 연결하거나, 쓰지 않는 연결을 삭제해 주세요.", field: placeA };
+  }
+  if (getEdges().length >= MAX_EDGES) {
+    return { text: "연결은 최대 " + MAX_EDGES + "개까지 등록할 수 있어요. 쓰지 않는 연결을 삭제한 뒤 추가해 주세요.", field: placeA };
+  }
+  return null;
+}
+
+// ===== 저장 =====
+
+// 저장 시도: "다시 읽어 봤더니 똑같이 들어 있다"까지 확인해야 성공으로 친다
+function saveGraph() {
+  if (IN_PREVIEW_BOX) {
+    storageAvailable = false;
+    return false;
+  }
+  try {
+    const text = JSON.stringify(graph);
+    localStorage.setItem(STORAGE_KEY, text);
+    const ok = (localStorage.getItem(STORAGE_KEY) === text);   // 다시 읽어서 비교
+    storageAvailable = ok;
+    return ok;
+  } catch (e) {
+    storageAvailable = false;
+    return false;
+  }
+}
+
+// 불러온 데이터가 올바른 인접 리스트인지 검사
+function isValidGraph(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+  const places = Object.keys(data);
+  if (places.length > MAX_PLACES) return false;
+  let edgeEnds = 0;
+  for (let i = 0; i < places.length; i++) {
+    const a = places[i];
+    const list = data[a];
+    if (a.trim() === "" || a !== a.trim() || a.length > MAX_NAME) return false;
+    if (!Array.isArray(list) || list.length === 0) return false;
+    for (let j = 0; j < list.length; j++) {
+      const b = list[j];
+      if (typeof b !== "string" || b === a) return false;           // 자기 자신과 연결 X
+      if (list.indexOf(b) !== j) return false;                       // 같은 연결 중복 X
+      if (!Array.isArray(data[b]) || data[b].indexOf(a) === -1) return false; // 반대쪽도 있어야 함
+    }
+    edgeEnds += list.length;
+  }
+  return edgeEnds / 2 <= MAX_EDGES;
+}
+
+// 저장된 그래프 불러오기: 결과 상태 문자열을 돌려준다
+function loadGraph() {
+  if (IN_PREVIEW_BOX) {
+    storageAvailable = false;
+    return "preview";
+  }
+  let text;
+  try {
+    text = localStorage.getItem(STORAGE_KEY);
+  } catch (e) {
+    storageAvailable = false;
+    return "unavailable";
+  }
+  if (text === null) return "none";
+  try {
+    const data = JSON.parse(text);
+    if (!isValidGraph(data)) return "broken";
+    graph = data;
+    return "loaded";
+  } catch (e) {
+    return "broken";
+  }
+}
+
+function whyNotSaved() {
+  if (IN_PREVIEW_BOX) return "전시판 미리보기 안에서는 저장이 막혀 있어요. ‘새 탭 실행’으로 열면 저장돼요.";
+  return "이 브라우저에서는 저장 기능을 쓸 수 없어요.";
+}
+
+// 변경 후 저장을 시도하고 결과를 안내
+function saveAndReport(actionText) {
+  if (saveGraph()) {
+    showStorageStatus("ok", "저장 완료: " + actionText);
+  } else {
+    showStorageStatus("warn", actionText + " 다만 저장되지 않아 새로고침하면 사라질 수 있어요. " + whyNotSaved());
+  }
+}
+
+// ===== 화면 갱신 =====
+
+function showStorageStatus(kind, text) {
+  storageStatus.className = "msg msg-" + kind;
+  storageStatus.textContent = text;
+}
+
+function showMessage(box, kind, text) {
+  box.className = "msg msg-" + kind;
+  box.textContent = text;
+}
+
+function showResult(kind, text) {
+  resultBox.className = "result " + kind;
+  resultText.textContent = text;
+}
+
+// 드롭다운을 지금 장소 목록으로 다시 채운다 (고르던 값은 남아 있으면 유지)
+function fillSelect(select, places) {
+  const before = select.value;
+  select.innerHTML = "";
+  if (places.length === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "등록된 장소 없음";
+    select.appendChild(opt);
+    return;
+  }
+  places.forEach(function (p) {
+    const opt = document.createElement("option");
+    opt.value = p;
+    opt.textContent = p;
+    select.appendChild(opt);
+  });
+  if (places.indexOf(before) !== -1) select.value = before;
+}
+
+function renderSelects() {
+  const places = getPlaces();
+  const hadFrom = fromSelect.value;
+  const hadTo = toSelect.value;
+  fillSelect(fromSelect, places);
+  fillSelect(toSelect, places);
+  // 처음 화면에서는 출발지와 도착지를 서로 다르게 골라 둔다
+  if (hadFrom === "" && hadTo === "" && places.length >= 2) {
+    fromSelect.value = places[0];
+    toSelect.value = places[1];
+  }
+}
+
+function renderList() {
+  const edges = getEdges();
+  edgeList.innerHTML = "";
+  countText.textContent = "장소 " + getPlaces().length + "/" + MAX_PLACES + "개 · 연결 " + edges.length + "/" + MAX_EDGES + "개";
+  if (edges.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "등록된 연결이 없어요. 위에서 장소 두 곳을 입력해 연결을 추가해 보세요.";
+    edgeList.appendChild(li);
+    return;
+  }
+  edges.forEach(function (pair) {
+    const a = pair[0], b = pair[1];
+    const key = pairKey(a, b);
+    const li = document.createElement("li");
+    li.className = "edge";
+
+    const main = document.createElement("div");
+    main.className = "edge-main";
+    const text = document.createElement("span");
+    text.className = "edge-text";
+    text.append(a);
+    const arrow = document.createElement("span");
+    arrow.className = "arrow";
+    arrow.setAttribute("aria-label", "양방향 연결");
+    arrow.textContent = "↔";
+    text.append(arrow, b);
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "btn-danger btn-small";
+    del.textContent = "삭제";
+    del.setAttribute("aria-label", a + " ↔ " + b + " 연결 삭제");
+    del.addEventListener("click", function () {
+      deletingKey = (deletingKey === key) ? null : key;
+      renderList();
+    });
+    main.append(text, del);
+    li.appendChild(main);
+
+    // 삭제 전에 한 번 더 묻기 (페이지 안 확인 상자)
+    if (deletingKey === key) {
+      const box = document.createElement("div");
+      box.className = "confirm-box";
+      const p = document.createElement("p");
+      p.textContent = "‘" + a + " ↔ " + b + "’ 연결을 삭제할까요?";
+      const row = document.createElement("div");
+      row.className = "row";
+      const yes = document.createElement("button");
+      yes.type = "button";
+      yes.className = "btn-danger-solid btn-small";
+      yes.textContent = "네, 삭제";
+      yes.addEventListener("click", function () { deleteEdge(a, b); });
+      const no = document.createElement("button");
+      no.type = "button";
+      no.className = "btn-small";
+      no.textContent = "취소";
+      no.addEventListener("click", function () { deletingKey = null; renderList(); });
+      row.append(yes, no);
+      box.append(p, row);
+      li.appendChild(box);
+    }
+    edgeList.appendChild(li);
+  });
+}
+
+function renderAll() {
+  renderSelects();
+  renderList();
+}
+
+// ===== 사용자 동작 =====
+
+// 연결 추가
+addForm.addEventListener("submit", function (e) {
+  e.preventDefault();
+  placeA.removeAttribute("aria-invalid");
+  placeB.removeAttribute("aria-invalid");
+  const a = placeA.value.trim();   // 앞뒤 공백 제거 (공백만 있으면 빈 칸)
+  const b = placeB.value.trim();
+  const problem = validateNewEdge(a, b);
+  if (problem) {
+    showMessage(addMessage, "error", problem.text);
+    problem.field.setAttribute("aria-invalid", "true");
+    problem.field.focus();
+    return;
+  }
+  addEdge(a, b);
+  placeA.value = "";
+  placeB.value = "";
+  deletingKey = null;
+  renderAll();
+  showMessage(addMessage, "ok", "‘" + a + " ↔ " + b + "’ 연결을 추가했어요.");
+  saveAndReport("‘" + a + " ↔ " + b + "’ 연결을 추가했어요.");
+  placeA.focus();
+});
+
+// 연결 확인: 그래프에서 두 장소 사이에 직접 간선이 있는지 조회
+checkButton.addEventListener("click", function () {
+  const from = fromSelect.value;
+  const to = toSelect.value;
+  if (getPlaces().length === 0 || from === "" || to === "") {
+    showResult("warn", "등록된 장소나 연결 정보가 없습니다.");
+    return;
+  }
+  if (from === to) {
+    showResult("warn", "출발지와 도착지가 같습니다. 서로 다른 장소를 골라 주세요.");
+    return;
+  }
+  if (hasEdge(from, to)) {
+    showResult("yes", withWaGwa(from) + " " + withEunNeun(to) + " 직접 연결되어 있습니다.");
+  } else {
+    showResult("no", "두 장소는 직접 연결되어 있지 않습니다.");
+  }
+});
+
+// 연결 삭제
+function deleteEdge(a, b) {
+  removeEdge(a, b);
+  deletingKey = null;
+  renderAll();
+  showMessage(listMessage, "ok", "‘" + a + " ↔ " + b + "’ 연결을 삭제했어요.");
+  showResult("", "목록이 바뀌었어요. 출발지와 도착지를 다시 고른 뒤 [연결 확인]을 눌러 보세요.");
+  saveAndReport("‘" + a + " ↔ " + b + "’ 연결을 삭제했어요.");
+}
+
+// 전체 초기화: 페이지 안 확인 상자 → 저장 키 지우기 → 기본 예시로 되돌리기
+resetButton.addEventListener("click", function () {
+  resetConfirm.hidden = !resetConfirm.hidden;
+});
+resetNo.addEventListener("click", function () {
+  resetConfirm.hidden = true;
+});
+resetYes.addEventListener("click", function () {
+  resetConfirm.hidden = true;
+  // 이 프로그램의 키 하나만 지운다 (localStorage.clear()는 쓰지 않음)
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* 저장소를 못 쓰면 화면만 초기화 */ }
+  graph = exampleGraph();
+  deletingKey = null;
+  fromSelect.value = "";
+  toSelect.value = "";
+  fromSelect.innerHTML = "";
+  toSelect.innerHTML = "";
+  renderAll();
+  addMessage.textContent = "";
+  showMessage(listMessage, "ok", "기본 예시 상태(집 ↔ 학교, 학교 ↔ 도서관)로 되돌렸어요.");
+  showResult("", "출발지와 도착지를 고른 뒤 [연결 확인]을 눌러 보세요.");
+  saveAndReport("기본 예시 상태로 초기화했어요.");
+});
+
+// ===== 시작 =====
+(function start() {
+  const state = loadGraph();
+  if (state === "broken") {
+    graph = exampleGraph();
+    showStorageStatus("warn", "저장된 연결 정보가 손상되어 읽을 수 없었어요. 기본 예시 상태로 시작해요. 새로 추가하면 다시 저장돼요.");
+  } else if (state === "preview" || state === "unavailable") {
+    showStorageStatus("warn", "저장 기능을 쓸 수 없어 기본 예시로 시작해요. 지금 화면에서는 그대로 쓸 수 있지만 새로고침하면 사라져요. " + whyNotSaved());
+  } else if (state === "loaded") {
+    showStorageStatus("ok", "이 브라우저에 저장해 둔 연결 정보를 불러왔어요.");
+  }
+  renderAll();
+})();
+</script>
+</body>
+</html>
