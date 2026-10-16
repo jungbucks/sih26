@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>디자인 시안 · 레이트 바이브 코딩</title>
+    <meta name="description" content="스타일 카드 14개 중 하나를 고르면 샘플 앱이 바뀌고, 그대로 붙여 넣을 디자인 수정 프롬프트가 완성됩니다." />
+    <link rel="stylesheet" href="assets/style.css" />
+    <style>
+      @font-face {
+        font-family: "Gowun Dodum";
+        src: url("assets/fonts/GowunDodum-Regular.woff2") format("woff2");
+        font-weight: 400;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Gowun Batang";
+        src: url("assets/fonts/GowunBatang-Regular.woff2") format("woff2");
+        font-weight: 400;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Gowun Batang";
+        src: url("assets/fonts/GowunBatang-Bold.woff2") format("woff2");
+        font-weight: 700;
+        font-display: swap;
+      }
+      .design-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 380px;
+        gap: 32px;
+        align-items: start;
+        margin-top: 24px;
+      }
+      .design-side {
+        position: sticky;
+        top: 16px;
+        display: grid;
+        gap: 20px;
+      }
+      .step-title {
+        margin: 0 0 12px;
+        font-size: 17px;
+        font-weight: 700;
+      }
+      .step-title span {
+        display: inline-grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        margin-right: 8px;
+        border-radius: 999px;
+        background: var(--ink);
+        color: var(--canvas);
+        font-size: 13px;
+      }
+      #styles {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        gap: 10px;
+      }
+      .style-group {
+        grid-column: 1 / -1;
+        margin: 14px 0 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .style-group:first-child {
+        margin-top: 0;
+      }
+      .style-card {
+        display: grid;
+        gap: 6px;
+        min-height: 44px;
+        padding: 12px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--r-lg);
+        background: var(--canvas);
+        color: var(--ink);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .style-card:hover {
+        border-color: var(--ink);
+      }
+      .style-card[aria-pressed="true"] {
+        border-color: var(--ink);
+        box-shadow: 0 0 0 2px var(--ink);
+      }
+      .style-card:focus-visible,
+      .font-chip:focus-visible {
+        outline: 3px solid var(--focus);
+        outline-offset: 2px;
+      }
+      .swatch {
+        display: flex;
+        height: 22px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: var(--r-xs);
+      }
+      .swatch i {
+        flex: 1;
+      }
+      .style-name {
+        font-size: 16px;
+      }
+      .style-name b {
+        margin-right: 4px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .style-feel {
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--muted);
+        word-break: keep-all;
+      }
+      /* 샘플 앱: 모든 값이 --p-* 변수에서 온다 */
+      #preview {
+        padding: 20px;
+        border: 1px solid var(--line-strong);
+        border-radius: 20px;
+        background: var(--p-bg);
+        color: var(--p-text);
+        font-family: var(--p-font);
+        line-height: 1.6;
+        word-break: keep-all;
+        transition: background 0.2s;
+      }
+      #preview h2 {
+        margin: 0;
+        font-family: var(--p-title-font);
+        font-size: 24px;
+        font-weight: 700;
+        line-height: 1.3;
+      }
+      #preview .p-sub {
+        margin: 4px 0 16px;
+        font-size: 14px;
+        color: var(--p-mute);
+      }
+      #preview .p-row {
+        display: flex;
+        gap: 8px;
+      }
+      #preview .p-input {
+        flex: 1;
+        min-width: 0;
+        padding: 10px 12px;
+        border: 1px solid var(--p-border);
+        border-radius: min(var(--p-radius), 12px);
+        background: var(--p-surface);
+        color: var(--p-mute);
+        font-size: 15px;
+      }
+      #preview .p-btn {
+        padding: 10px 16px;
+        border: 0;
+        border-radius: var(--p-btn-radius);
+        background: var(--p-accent);
+        color: var(--p-on-accent);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      #preview .p-result {
+        margin: 16px 0;
+        padding: 16px;
+        border-radius: var(--p-radius);
+        background: var(--p-block);
+        box-shadow: var(--p-shadow);
+      }
+      #preview .p-result small {
+        font-size: 13px;
+        color: var(--p-mute);
+      }
+      #preview .p-result strong {
+        display: block;
+        font-family: var(--p-title-font);
+        font-size: 28px;
+        line-height: 1.3;
+      }
+      #preview .p-result em {
+        font-style: normal;
+        color: var(--p-accent-text);
+      }
+      #preview[data-style="S7"] .p-result small {
+        color: var(--p-text);
+      }
+      #preview[data-style="S7"] .p-result em {
+        text-decoration: underline;
+      }
+      #preview ul {
+        display: grid;
+        gap: 8px;
+        margin: 0 0 16px;
+        padding: 0;
+        list-style: none;
+      }
+      #preview li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--p-border);
+        border-radius: var(--p-radius);
+        background: var(--p-surface);
+        box-shadow: var(--p-shadow);
+        font-size: 15px;
+      }
+      #preview li .box {
+        flex: none;
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--p-mute);
+        border-radius: 4px;
+      }
+      #preview li.done .box {
+        border-color: var(--p-accent);
+        background: var(--p-accent);
+      }
+      #preview li.done span:last-child {
+        color: var(--p-mute);
+        text-decoration: line-through;
+      }
+      #preview .p-ghost {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid var(--p-border);
+        border-radius: var(--p-btn-radius);
+        background: transparent;
+        color: var(--p-text);
+        font: inherit;
+        font-size: 15px;
+      }
+      #fonts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .font-chip {
+        min-height: 40px;
+        padding: 6px 14px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        background: var(--canvas);
+        color: var(--ink);
+        font-size: 15px;
+        cursor: pointer;
+      }
+      .font-chip[aria-pressed="true"] {
+        border-color: var(--ink);
+        background: var(--ink);
+        color: var(--canvas);
+      }
+      .chosen {
+        margin: 0 0 8px;
+        font-size: 15px;
+      }
+      .chosen b {
+        font-size: 17px;
+      }
+      #extra,
+      #prompt {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--field);
+        border-radius: var(--r-sm);
+        background: var(--canvas);
+        color: var(--ink);
+        font: inherit;
+        font-size: 15px;
+        line-height: 1.6;
+      }
+      #prompt {
+        height: 220px;
+        font-family: ui-monospace, Consolas, monospace;
+        font-size: 13px;
+        background: var(--paper);
+      }
+      .copy-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        margin-top: 8px;
+      }
+      #copy-status {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .design-note {
+        margin-top: 40px;
+        font-size: 13px;
+        line-height: 1.7;
+        color: var(--muted);
+      }
+      label.step-title {
+        display: block;
+      }
+      .hint {
+        margin: -6px 0 8px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      @media (max-width: 900px) {
+        .design-layout {
+          grid-template-columns: 1fr;
+        }
+        .design-side {
+          position: static;
+        }
+      }
+      @media (max-width: 540px) {
+        #styles {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .style-feel {
+          font-size: 13px;
+        }
+      }
+    </style>
+    <script type="module" src="assets/design.js"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">본문으로 이동</a>
+    <header>
+      <a class="brand" href="./">SIH26 <span>정보과학 수업용</span></a>
+      <a class="button about-open" href="./">전시판으로</a>
+    </header>
+    <main id="main">
+      <h1>디자인 시안</h1>
+      <p class="intro">
+        카드 하나를 누르면 오른쪽 샘플 앱이 그 스타일로 바뀌어요. 마음에 드는 걸 골라 프롬프트를
+        복사한 뒤 수정 요청서에 붙여 넣으면 끝이에요.
+      </p>
+      <div class="design-layout">
+        <section aria-labelledby="pick-title">
+          <h2 class="step-title" id="pick-title"><span>1</span>스타일 고르기 (14개)</h2>
+          <div id="styles"></div>
+        </section>
+        <div class="design-side">
+          <section aria-label="샘플 앱 미리보기">
+            <div id="preview">
+              <h2>오늘 할 일 정리기</h2>
+              <p class="p-sub">해야 할 일을 적고 하나씩 지워 보세요.</p>
+              <div class="p-row">
+                <span class="p-input">예) 수행평가 보고서</span>
+                <button class="p-btn" type="button" tabindex="-1">추가</button>
+              </div>
+              <div class="p-result">
+                <small>오늘 남은 일</small>
+                <strong><em>2개</em> 남았어요</strong>
+              </div>
+              <ul>
+                <li class="done"><span class="box"></span><span>체육복 챙기기</span></li>
+                <li><span class="box"></span><span>수학 문제집 3쪽</span></li>
+                <li><span class="box"></span><span>정보 과제 제출</span></li>
+              </ul>
+              <button class="p-ghost" type="button" tabindex="-1">완료한 일 지우기</button>
+            </div>
+          </section>
+          <section aria-labelledby="font-title">
+            <h2 class="step-title" id="font-title"><span>2</span>글꼴만 바꾸기 (선택)</h2>
+            <div id="fonts"></div>
+          </section>
+          <section>
+            <label class="step-title" for="extra"><span>3</span>그 밖에 바꾸고 싶은 디자인 (선택)</label>
+            <p class="hint">예) 결과 숫자를 더 크게, 버튼을 화면 아래쪽에</p>
+            <textarea id="extra" rows="2"></textarea>
+          </section>
+          <section aria-labelledby="prompt-title">
+            <h2 class="step-title" id="prompt-title"><span>4</span>프롬프트 복사</h2>
+            <p class="chosen">선택: <b id="chosen"></b></p>
+            <textarea id="prompt" readonly aria-label="완성된 디자인 수정 프롬프트"></textarea>
+            <div class="copy-row">
+              <button id="copy" class="button primary" type="button">프롬프트 복사</button>
+              <span id="copy-status" role="status"></span>
+            </div>
+          </section>
+        </div>
+      </div>
+      <p class="design-note">
+        ○○풍 스타일의 색·모서리 값은 VoltAgent의 awesome-design-md(MIT 라이선스)가 공개 웹사이트에서
+        관찰해 모은 DESIGN.md를 참고했습니다. 각 회사의 공식 디자인 시스템이 아니며, 작품에는 브랜드
+        이름·로고 없이 색과 형태만 적용합니다. 글꼴: Wanted Sans·Paperlogy·고운돋움·고운바탕(SIL OFL 1.1).
+      </p>
+    </main>
+  </body>
+</html>

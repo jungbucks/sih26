@@ -1219,3 +1219,28 @@ footer {
 .work-identity {
   margin-bottom: 8px;
 }
+
+/* ── 헤더 '디자인 시안' 링크: '레이트 바이브 코딩?' 버튼 왼쪽에 나란히 ── */
+.design-open {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 14px;
+  text-decoration: none;
+}
+.design-open + .about-open {
+  margin-left: 0;
+}
+@media (max-width: 540px) {
+  .design-open {
+    flex: none;
+    margin-left: auto;
+    padding: 6px 10px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+}
+@media (max-width: 400px) {
+  .gallery-page .brand span {
+    display: none;
+  }
+}

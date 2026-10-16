@@ -177,10 +177,10 @@ export async function build({
   } catch {}
   let server;
   try {
-    for (const file of ["index.html", "work.html"])
+    for (const file of ["index.html", "work.html", "design.html"])
       await fs.copyFile(path.join(root, file), path.join(staging, file));
     await fs.mkdir(path.join(staging, "assets"));
-    for (const file of ["style.css", "common.js", "gallery.js", "work.js", "about.js"])
+    for (const file of ["style.css", "common.js", "gallery.js", "work.js", "about.js", "design.js"])
       await fs.copyFile(
         path.join(root, "assets", file),
         path.join(staging, "assets", file),
@@ -191,6 +191,11 @@ export async function build({
       "WantedSansVariable.woff2",
       "Paperlogy-OFL.txt",
       "WantedSans-OFL.txt",
+      "GowunDodum-Regular.woff2",
+      "GowunBatang-Regular.woff2",
+      "GowunBatang-Bold.woff2",
+      "GowunDodum-OFL.txt",
+      "GowunBatang-OFL.txt",
       "SOURCES.md",
     ]) {
       await fs.copyFile(
