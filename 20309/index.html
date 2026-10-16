@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>마인크래프트 다단계 아이템 재료 계산기</title>
+<meta name="description" content="만들 아이템과 개수를 고르면 단계별 조합 트리, 창고에서 챙길 기본 원재료 총합, 올림 조합 횟수와 남는 재료, 64개 세트 단위를 계산해 주는 마인크래프트 재료 계산기">
+<meta name="class" content="M반 (2-8)">
+<meta name="status" content="PRD">
+<style>
+  :root {
+    --bg: #f5f6f3;
+    --card: #ffffff;
+    --text: #1d221c;
+    --muted: #525c50;
+    --line: #d5dbd2;
+    --accent: #2e6b2f;
+    --accent-weak: #e9f3e8;
+    --err: #b42318;
+    --err-weak: #fdecea;
+    --final: #1f4f9a;
+    --final-weak: #e8eefa;
+    --mid: #7a4d00;
+    --mid-weak: #fff3dc;
+    --base: #2e6b2f;
+    --base-weak: #e9f3e8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .wrap { max-width: 44rem; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.55rem; margin: 0 0 6px; line-height: 1.35; }
+  h2 { font-size: 1.15rem; margin: 0 0 10px; line-height: 1.4; }
+  .intro { color: var(--muted); margin: 0 0 12px; }
+  .edition {
+    margin: 0 0 20px;
+    padding: 10px 14px;
+    border-left: 4px solid var(--accent);
+    background: var(--accent-weak);
+    border-radius: 0 8px 8px 0;
+    font-weight: 600;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px 16px;
+    margin-bottom: 20px;
+  }
+  label { display: block; font-weight: 600; margin: 0 0 4px; }
+  .field { margin-bottom: 14px; }
+  .hint { display: block; font-size: 1rem; color: var(--muted); font-weight: 400; }
+  select, input[type="text"] {
+    width: 100%;
+    font: inherit;
+    min-height: 46px;
+    padding: 8px 12px;
+    border: 1px solid #9aa597;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+  }
+  select:focus-visible, input[type="text"]:focus-visible {
+    outline: 3px solid var(--accent); outline-offset: 2px; border-color: var(--accent);
+  }
+  input[aria-invalid="true"] { border-color: var(--err); border-width: 2px; }
+  button {
+    font: inherit;
+    font-size: 1rem;
+    min-height: 46px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid #9aa597;
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+  }
+  button:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .examples { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); }
+  .examples p { margin: 0 0 8px; color: var(--muted); font-size: 1rem; }
+  .msg { margin-top: 14px; padding: 10px 14px; border-radius: 8px; }
+  .msg:empty { display: none; }
+  .msg.error { background: var(--err-weak); color: var(--err); font-weight: 600; border: 1px solid #f1b8b2; }
+  .guide { color: var(--muted); margin: 0; }
+
+  /* 배지: 색만으로 구분하지 않도록 글자 라벨을 항상 함께 붙인다 */
+  .badge {
+    display: inline-block;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.4;
+    padding: 1px 8px;
+    border-radius: 6px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+  }
+  .badge.final { color: var(--final); background: var(--final-weak); }
+  .badge.mid { color: var(--mid); background: var(--mid-weak); }
+  .badge.base { color: var(--base); background: var(--base-weak); }
+
+  /* 영역 A: 기본 원재료 요약 */
+  .sum-list { list-style: none; margin: 0; padding: 0; }
+  .sum-list li {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--line);
+  }
+  .sum-list li:last-child { border-bottom: 0; }
+  .sum-name { font-weight: 700; }
+  .sum-count { font-weight: 700; font-size: 1.1rem; margin-left: auto; }
+  .sets { color: var(--muted); font-weight: 600; }
+  .note { margin: 10px 0 0; font-size: 1rem; color: var(--muted); }
+
+  /* 영역 B: 단계별 조합 트리 (들여쓰기) */
+  .tree, .tree ul { list-style: none; margin: 0; padding: 0; }
+  .tree ul { margin-left: 10px; padding-left: 12px; border-left: 2px solid var(--line); }
+  .node { padding: 8px 0 4px; }
+  .node-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+  .node-name { font-weight: 700; }
+  .node-count { font-weight: 700; }
+  .node-meta { font-size: 1rem; color: var(--muted); margin-top: 2px; }
+  .leftover { color: var(--mid); font-weight: 600; }
+
+  .tip {
+    border: 1px solid #c9b98a;
+    background: #fffaf0;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .tip h2 { margin-bottom: 6px; }
+  .tip p { margin: 0; }
+
+  details { margin-bottom: 16px; }
+  summary { cursor: pointer; font-weight: 700; color: var(--accent); min-height: 44px; display: flex; align-items: center; }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 1rem; min-width: 30rem; }
+  th, td { border: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
+  th { background: var(--accent-weak); }
+  .foot { font-size: 1rem; color: var(--muted); margin: 0; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>마인크래프트 다단계 아이템 재료 계산기</h1>
+    <p class="intro">만들 아이템과 개수를 고르면, 창고에서 챙길 기본 원재료와 단계별 조합 순서를 한 번에 계산해 줘요.</p>
+    <p class="edition">기준: Minecraft Java Edition 기본 작업대 조합법</p>
+  </header>
+
+  <!-- 입력 및 조작 영역 -->
+  <section class="card" aria-labelledby="inputTitle">
+    <h2 id="inputTitle">무엇을 몇 개 만들까요?</h2>
+    <form id="calcForm" novalidate>
+      <div class="field">
+        <label for="itemSelect">목표 아이템</label>
+        <select id="itemSelect"></select>
+      </div>
+      <div class="field">
+        <label for="countInput">제작 개수 <span class="hint">1부터 999 사이의 자연수 (입력 후 Enter로도 계산돼요)</span></label>
+        <input type="text" id="countInput" inputmode="numeric" autocomplete="off" placeholder="예: 11" aria-describedby="formMessage">
+      </div>
+      <div class="row">
+        <button type="submit" class="btn-primary" id="calcBtn">계산하기</button>
+        <button type="button" id="resetBtn">초기화</button>
+      </div>
+      <div id="formMessage" class="msg" role="alert" aria-live="assertive"></div>
+    </form>
+    <div class="examples">
+      <p>빠르게 해 보기</p>
+      <div class="row">
+        <button type="button" id="exBookshelf">예시: 책장 11개</button>
+        <button type="button" id="exPiston">예시: 피스톤 1개</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 결과 출력 영역 -->
+  <div id="resultArea" aria-live="polite">
+    <p class="card guide" id="guideText">만들 아이템과 개수(1~999)를 입력하고 [계산하기]를 눌러 주세요.</p>
+  </div>
+
+  <!-- 하단 대체 획득 안내 영역 -->
+  <aside class="tip" aria-labelledby="tipTitle">
+    <h2 id="tipTitle">다른 방법으로 얻을 수도 있어요</h2>
+    <p id="tipText"></p>
+  </aside>
+
+  <details>
+    <summary>직접 확인해 볼 테스트 표 열기</summary>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th scope="col">상황</th><th scope="col">입력·조작</th><th scope="col">기대 결과</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>정상 (올림·세트 단위)</td>
+            <td>책장 11개 계산</td>
+            <td>판자 66개 (1세트 + 2개, 실제 68개 제작·남는 재료 +2개), 책 33개, 종이 99개 (1세트 + 35개) / 기본 원재료: 원목 17개, 가죽 33개, 사탕수수 99개 (1세트 + 35개)</td>
+          </tr>
+          <tr>
+            <td>경계 (1개·999개)</td>
+            <td>피스톤 1개 계산 후 999개 계산</td>
+            <td>1개: 판자 3개 → 원목 1개 (판자 4개 제작, 남는 재료 +1개), 조약돌 4개, 철괴 1개, 레드스톤 가루 1개 / 999개: 원목 750개 (11세트 + 46개), 판자 3000개 제작·남는 재료 +3개</td>
+          </tr>
+          <tr>
+            <td>잘못된 입력·연타</td>
+            <td>빈칸, 0, -5, 1000 입력 / 정상 숫자로 [계산하기] 5번 연속</td>
+            <td>안내 문구가 뜨고 계산하지 않음 / 결과는 한 벌만 보임</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  <p class="foot">이 계산기는 입력한 내용을 브라우저에 저장하지 않아요. [초기화]나 새로고침을 하면 처음 화면으로 돌아가요.</p>
+</div>
+
+<script>
+// =====================================================================
+// ① 트리(Tree) 자료구조 데이터
+// ---------------------------------------------------------------------
+// 아이템 하나하나가 트리의 "노드"예요.
+//   name        : 화면에 보일 이름
+//   kind        : 구분 (craft = 조합으로 만드는 재료, base = 더 이상 조합하지 않는 기본 원재료)
+//   method      : 만드는 곳 (workbench = 작업대 조합, furnace = 화로 제련)
+//   outputCount : 1번 조합(제련)할 때 만들어지는 개수
+//   children    : 하위 재료 목록. { id: 하위 아이템 이름표, count: 1번 조합에 필요한 개수 }
+// children이 비어 있으면 "리프 노드" = 기본 원재료예요.
+// 맨 위에서 시작한 아이템(루트 노드)은 화면에서 [최종 아이템]으로 표시해요.
+// =====================================================================
+const ITEMS = {
+  bookshelf:    { name: "책장", kind: "craft", method: "workbench", outputCount: 1,
+                  children: [{ id: "planks", count: 6 }, { id: "book", count: 3 }] },
+  piston:       { name: "피스톤", kind: "craft", method: "workbench", outputCount: 1,
+                  children: [{ id: "planks", count: 3 }, { id: "cobblestone", count: 4 },
+                             { id: "iron_ingot", count: 1 }, { id: "redstone", count: 1 }] },
+  sticky_piston:{ name: "끈적끈적한 피스톤", kind: "craft", method: "workbench", outputCount: 1,
+                  children: [{ id: "piston", count: 1 }, { id: "slime_ball", count: 1 }] },
+  enchanting_table: { name: "마법 부여대", kind: "craft", method: "workbench", outputCount: 1,
+                  children: [{ id: "book", count: 1 }, { id: "diamond", count: 2 }, { id: "obsidian", count: 4 }] },
+  beacon:       { name: "신호기", kind: "craft", method: "workbench", outputCount: 1,
+                  children: [{ id: "glass", count: 5 }, { id: "obsidian", count: 3 }, { id: "nether_star", count: 1 }] },
+  powered_rail: { name: "파워 레일", kind: "craft", method: "workbench", outputCount: 6,
+                  children: [{ id: "gold_ingot", count: 6 }, { id: "stick", count: 1 }, { id: "redstone", count: 1 }] },
+
+  // 중간 재료
+  planks: { name: "판자", kind: "craft", method: "workbench", outputCount: 4, children: [{ id: "log", count: 1 }] },
+  book:   { name: "책", kind: "craft", method: "workbench", outputCount: 1,
+            children: [{ id: "paper", count: 3 }, { id: "leather", count: 1 }] },
+  paper:  { name: "종이", kind: "craft", method: "workbench", outputCount: 3, children: [{ id: "sugar_cane", count: 3 }] },
+  stick:  { name: "막대기", kind: "craft", method: "workbench", outputCount: 4, children: [{ id: "planks", count: 2 }] },
+  glass:  { name: "유리", kind: "craft", method: "furnace", outputCount: 1, children: [{ id: "sand", count: 1 }] },
+
+  // 기본 원재료 (children이 없는 리프 노드)
+  log:         { name: "원목", kind: "base", children: [] },
+  sugar_cane:  { name: "사탕수수", kind: "base", children: [] },
+  leather:     { name: "가죽", kind: "base", children: [] },
+  cobblestone: { name: "조약돌", kind: "base", children: [] },
+  iron_ingot:  { name: "철괴", kind: "base", children: [] },
+  redstone:    { name: "레드스톤 가루", kind: "base", children: [] },
+  slime_ball:  { name: "슬라임볼", kind: "base", children: [] },
+  diamond:     { name: "다이아몬드", kind: "base", children: [] },
+  obsidian:    { name: "흑요석", kind: "base", children: [] },
+  nether_star: { name: "네더의 별", kind: "base", children: [] },
+  sand:        { name: "모래", kind: "base", children: [] },
+  gold_ingot:  { name: "금괴", kind: "base", children: [] }
+};
+
+// 드롭다운에 보일 최종 아이템 6종과 아이템별 대체 획득 안내
+const TARGETS = [
+  { id: "bookshelf", tip: "책장은 사서 주민과 거래하거나 마을 도서관·근거지 도서관에서 직접 얻을 수도 있어요." },
+  { id: "piston", tip: "피스톤은 정글 사원 안의 레드스톤 장치에서 자연 생성된 것을 얻을 수도 있어요." },
+  { id: "sticky_piston", tip: "슬라임볼은 늪 바이옴이나 슬라임 청크, 또는 떠돌이 상인과의 거래로 얻을 수 있어요." },
+  { id: "enchanting_table", tip: "책과 흑요석은 마을 상자나 무너진 차원문 상자에서 파밍하면 조합 재료를 아낄 수 있어요." },
+  { id: "beacon", tip: "유리는 사서 주민과 에메랄드로 거래하면 모래를 제련하지 않고 바로 구할 수도 있어요." },
+  { id: "powered_rail", tip: "막대기는 나뭇잎을 부수거나 마녀를 처치하거나, 대나무로 조합하는 등 다른 방법으로도 얻을 수 있어요." }
+];
+const DEFAULT_ITEM = "bookshelf";
+const ERROR_TEXT = "1부터 999 사이의 자연수를 입력해 주세요.";
+
+// =====================================================================
+// ③-1 올림 계산과 64개(1세트) 환산
+// ---------------------------------------------------------------------
+// 올림(Math.ceil): 판자는 원목 1개로 한 번에 4개가 만들어져요.
+//   판자가 66개 필요하면 66 ÷ 4 = 16.5번인데, 조합은 반 번만 할 수 없으니
+//   Math.ceil(16.5) = 17번 조합해야 해요. → 실제 17 × 4 = 68개가 만들어지고 2개가 남아요.
+// 세트 환산: 마인크래프트 한 칸에는 64개(1세트)까지 들어가요.
+//   Math.floor(개수 / 64) = 몫 = 꽉 찬 세트 수 (소수점 아래를 버림)
+//   개수 % 64            = 나머지 = 세트로 묶고 남은 낱개
+//   예) 99개 → Math.floor(99 / 64) = 1세트, 99 % 64 = 35개 → (1세트 + 35개)
+// =====================================================================
+function craftTimes(need, outputCount) {
+  return Math.ceil(need / outputCount);
+}
+
+function setText(count) {
+  if (count < 64) return "";                  // 64개 미만이면 세트 표시를 생략 ("0세트" 안 씀)
+  const sets = Math.floor(count / 64);
+  const rest = count % 64;
+  if (rest === 0) return "(" + sets + "세트)"; // 나머지가 0이면 "+0개"를 생략
+  return "(" + sets + "세트 + " + rest + "개)";
+}
+
+// =====================================================================
+// ② 재귀 탐색 함수: 부모 노드에서 자식 노드로 내려가며 필요 개수 계산
+// ---------------------------------------------------------------------
+// calcNode(아이템 이름표, 필요한 개수)를 부르면
+//   1) 조합 횟수 R = 올림(필요 개수 ÷ 1회 생성 개수)
+//   2) 실제 만들어지는 개수 = R × 1회 생성 개수, 남는 개수 = 실제 개수 - 필요 개수
+//   3) 자식 재료마다 "R × 1회에 필요한 개수"만큼 필요하므로,
+//      그 값을 넣어 calcNode를 다시 부른다 (자기 자신을 다시 부르는 것 = 재귀)
+//   4) 자식이 없는 기본 원재료에 도착하면 더 내려가지 않고 멈춘다
+// 남는 중간 재료가 생겨도 하위 재료는 "실제 조합 횟수" 기준으로 계산해요.
+// 같은 중간 재료가 다른 가지에 또 나오면 가지마다 따로 계산해요.
+// 결과는 화면에 그리기 좋게 { 아이템, 필요 개수, 조합 횟수, 실제 개수, 남는 개수, 자식들 } 형태로 돌려줘요.
+// =====================================================================
+function calcNode(id, need) {
+  const item = ITEMS[id];
+  const result = { id: id, item: item, need: need, children: [] };
+
+  if (item.children.length === 0) {
+    return result; // 리프 노드(기본 원재료): 여기서 멈춤
+  }
+
+  const times = craftTimes(need, item.outputCount); // ③ 올림 계산
+  result.times = times;
+  result.made = times * item.outputCount;
+  result.leftover = result.made - need;
+
+  for (const child of item.children) {
+    result.children.push(calcNode(child.id, times * child.count)); // 재귀 호출
+  }
+  return result;
+}
+
+// 트리를 끝까지 돌며 기본 원재료(리프)만 모아서 합산한다.
+// 같은 원재료가 여러 가지에서 나오면 더해서 하나로 보여줘요.
+function collectBase(node, totals) {
+  if (node.children.length === 0) {
+    if (!totals.has(node.id)) totals.set(node.id, 0);
+    totals.set(node.id, totals.get(node.id) + node.need);
+    return totals;
+  }
+  for (const child of node.children) collectBase(child, totals);
+  return totals;
+}
+
+// ----- 화면 요소 -----
+const form = document.getElementById("calcForm");
+const itemSelect = document.getElementById("itemSelect");
+const countInput = document.getElementById("countInput");
+const formMessage = document.getElementById("formMessage");
+const resultArea = document.getElementById("resultArea");
+const tipText = document.getElementById("tipText");
+
+// 드롭다운 채우기
+for (const t of TARGETS) {
+  const opt = document.createElement("option");
+  opt.value = t.id;
+  opt.textContent = ITEMS[t.id].name;
+  itemSelect.appendChild(opt);
+}
+
+function showTip() {
+  const t = TARGETS.find(function (x) { return x.id === itemSelect.value; });
+  tipText.textContent = t ? t.tip : "";
+}
+
+function showGuide() {
+  resultArea.innerHTML = "";
+  const p = document.createElement("p");
+  p.className = "card guide";
+  p.id = "guideText";
+  p.textContent = "만들 아이템과 개수(1~999)를 입력하고 [계산하기]를 눌러 주세요.";
+  resultArea.appendChild(p);
+}
+
+function clearError() {
+  formMessage.textContent = "";
+  formMessage.className = "msg";
+  countInput.removeAttribute("aria-invalid");
+}
+
+function showError() {
+  formMessage.textContent = ERROR_TEXT;
+  formMessage.className = "msg error";
+  countInput.setAttribute("aria-invalid", "true");
+}
+
+// 입력값 검사: 숫자만(소수점·부호·문자 불가), 1~999만 통과
+function readCount() {
+  const raw = countInput.value.trim();
+  if (!/^[0-9]+$/.test(raw)) return null;
+  const n = Number(raw);
+  if (n < 1 || n > 999) return null;
+  return n;
+}
+
+function el(tag, className, text) {
+  const e = document.createElement(tag);
+  if (className) e.className = className;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function badge(level) {
+  if (level === "final") return el("span", "badge final", "[최종 아이템]");
+  if (level === "mid") return el("span", "badge mid", "[중간 재료]");
+  return el("span", "badge base", "[기본 원재료]");
+}
+
+// 트리의 노드 하나(와 그 아래 자식들)를 들여쓰기 목록으로 그린다
+function renderNode(node, isRoot) {
+  const li = el("li", "node");
+  const head = el("div", "node-head");
+  const level = isRoot ? "final" : (node.children.length === 0 ? "base" : "mid");
+  head.appendChild(el("span", "node-name", node.item.name));
+  head.appendChild(badge(level));
+  head.appendChild(el("span", "node-count", node.need + "개"));
+  const sets = setText(node.need);
+  if (sets) head.appendChild(el("span", "sets", sets));
+  li.appendChild(head);
+
+  if (node.children.length > 0) {
+    const meta = el("div", "node-meta");
+    const how = node.item.method === "furnace" ? "화로 제련" : "작업대 조합";
+    let text = how + " " + node.times + "회 (1회에 " + node.item.outputCount + "개)";
+    if (node.item.method === "furnace") text += " · 연료 별도";
+    meta.appendChild(document.createTextNode(text));
+    if (node.leftover > 0) {
+      meta.appendChild(document.createTextNode(" "));
+      meta.appendChild(el("span", "leftover",
+        "(실제 " + node.made + "개 제작, 남는 재료 +" + node.leftover + "개)"));
+    }
+    li.appendChild(meta);
+
+    const ul = el("ul");
+    for (const child of node.children) ul.appendChild(renderNode(child, false));
+    li.appendChild(ul);
+  }
+  return li;
+}
+
+function hasFurnace(node) {
+  if (node.item.method === "furnace") return true;
+  return node.children.some(hasFurnace);
+}
+
+function calculate() {
+  const n = readCount();
+  if (n === null) {
+    showError();
+    showGuide();          // 잘못된 입력이면 계산하지 않고 결과도 비운다
+    return;
+  }
+  clearError();
+
+  const tree = calcNode(itemSelect.value, n);
+  const totals = collectBase(tree, new Map());
+
+  // 이전 결과를 완전히 비우고 새로 그린다 (연타해도 결과가 쌓이지 않음)
+  resultArea.innerHTML = "";
+
+  // 영역 A: 창고에서 챙길 기본 원재료 요약
+  const cardA = el("section", "card");
+  cardA.setAttribute("aria-labelledby", "areaATitle");
+  const titleA = el("h2", "", "창고에서 챙길 기본 원재료 (" + tree.item.name + " " + n + "개)");
+  titleA.id = "areaATitle";
+  cardA.appendChild(titleA);
+  const list = el("ul", "sum-list");
+  totals.forEach(function (count, id) {
+    const li = el("li");
+    li.appendChild(el("span", "sum-name", ITEMS[id].name));
+    li.appendChild(badge("base"));
+    const right = el("span", "sum-count", count + "개");
+    li.appendChild(right);
+    const sets = setText(count);
+    if (sets) li.appendChild(el("span", "sets", sets));
+    list.appendChild(li);
+  });
+  cardA.appendChild(list);
+  if (hasFurnace(tree)) {
+    cardA.appendChild(el("p", "note", "유리는 화로에서 제련해요. 제련에 쓰는 연료는 이 계산에 포함되지 않으니 따로 챙겨 주세요."));
+  }
+  resultArea.appendChild(cardA);
+
+  // 영역 B: 단계별 조합 트리 상세
+  const cardB = el("section", "card");
+  cardB.setAttribute("aria-labelledby", "areaBTitle");
+  const titleB = el("h2", "", "단계별 조합 트리");
+  titleB.id = "areaBTitle";
+  cardB.appendChild(titleB);
+  cardB.appendChild(el("p", "note", "아래쪽(기본 원재료)부터 위쪽 순서로 조합하면 최종 아이템이 완성돼요."));
+  const treeList = el("ul", "tree");
+  treeList.appendChild(renderNode(tree, true));
+  cardB.appendChild(treeList);
+  resultArea.appendChild(cardB);
+}
+
+function resetAll() {
+  itemSelect.value = DEFAULT_ITEM;
+  countInput.value = "";
+  clearError();
+  showGuide();
+  showTip();
+}
+
+function runExample(id, count) {
+  itemSelect.value = id;
+  countInput.value = String(count);
+  showTip();
+  calculate();
+}
+
+// 폼 제출 = [계산하기] 버튼 클릭 또는 입력창에서 Enter
+form.addEventListener("submit", function (e) {
+  e.preventDefault();
+  calculate();
+});
+document.getElementById("resetBtn").addEventListener("click", resetAll);
+document.getElementById("exBookshelf").addEventListener("click", function () { runExample("bookshelf", 11); });
+document.getElementById("exPiston").addEventListener("click", function () { runExample("piston", 1); });
+itemSelect.addEventListener("change", showTip);
+
+resetAll();
+</script>
+</body>
+</html>
