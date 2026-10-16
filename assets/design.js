@@ -1,6 +1,7 @@
 // 3차(디자인) 개선용 시안 페이지 — 스타일 카드를 고르면 샘플 앱이 바뀌고 수정 프롬프트가 완성된다.
 // 브랜드 '풍' 값은 VoltAgent/awesome-design-md(MIT)의 DESIGN.md에서 가져왔다. 공식 브랜드 사양이 아니다.
-// 흰 글자 대비가 AA(4.5:1)에 못 미치는 원본 강조색은 같은 문서의 진한 변형(pressed/active)으로 바꿨다.
+// 원본 강조색 위 흰 글자가 4.5:1에 못 미치면(btnLarge) 버튼 글자를 19px 굵게 키워 큰 글자 기준(3:1)을 맞추고,
+// 바탕 위 강조 글자(accentText)만 같은 문서의 진한 변형을 쓴다. 원본 색은 그대로 둔다.
 
 const FONT_DIR = "../assets/fonts/";
 
@@ -56,7 +57,7 @@ export const STYLES = [
   {
     id: "S3", name: "리니어풍", group: "깔끔·미니멀", dark: true,
     feel: "까만 바탕, 보랏빛 파랑, 날렵함",
-    bg: "#08090a", surface: "#141516", text: "#f7f8f8", mute: "#8a8f98", border: "#23252a",
+    bg: "#010102", surface: "#0f1011", text: "#f7f8f8", mute: "#8a8f98", border: "#23252a",
     accent: "#5e6ad2", onAccent: "#ffffff", accentText: "#828fff",
     radius: 12, btnRadius: 6, shadow: "0 0 0 1px #23252a", font: "F1",
   },
@@ -71,21 +72,21 @@ export const STYLES = [
     id: "S5", name: "클로드풍", group: "따뜻·친근",
     feel: "크림색 바탕, 테라코타, 책 같은 제목",
     bg: "#faf9f5", surface: "#f5f0e8", text: "#141413", mute: "#6c6a64", border: "#e6dfd8",
-    accent: "#a9583e", onAccent: "#ffffff", accentText: "#a9583e",
+    accent: "#cc785c", onAccent: "#ffffff", accentText: "#a9583e", btnLarge: true,
     radius: 12, btnRadius: 8, shadow: "none", font: "F1", titleFont: "F3",
   },
   {
     id: "S6", name: "에어비앤비풍", group: "따뜻·친근",
     feel: "둥근 카드, 선명한 코랄 핑크",
     bg: "#ffffff", surface: "#f7f7f7", text: "#222222", mute: "#6a6a6a", border: "#dddddd",
-    accent: "#e00b41", onAccent: "#ffffff", accentText: "#e00b41",
+    accent: "#ff385c", onAccent: "#ffffff", accentText: "#e00b41", btnLarge: true,
     radius: 20, btnRadius: 8, shadow: "0 6px 16px rgba(0,0,0,.12)", font: "F2",
   },
   {
     id: "S7", name: "피그마풍", group: "따뜻·친근",
     feel: "검정 바탕글에 파스텔 색 블록",
-    bg: "#ffffff", surface: "#dceeb1", text: "#000000", mute: "#4a4a4a", border: "#e6e6e6",
-    accent: "#000000", onAccent: "#ffffff", accentText: "#000000", block: "#c5b0f4",
+    bg: "#ffffff", surface: "#f7f7f5", text: "#000000", mute: "#4a4a4a", border: "#e6e6e6",
+    accent: "#000000", onAccent: "#ffffff", accentText: "#000000", block: "#dceeb1",
     radius: 24, btnRadius: 999, shadow: "none", font: "F1",
   },
   {
@@ -99,7 +100,7 @@ export const STYLES = [
     id: "S9", name: "나이키풍", group: "강렬·개성",
     feel: "흑백 대비, 굵은 제목, 각진 카드",
     bg: "#ffffff", surface: "#f5f5f5", text: "#111111", mute: "#707072", border: "#e5e5e5",
-    accent: "#111111", onAccent: "#ffffff", accentText: "#d30005",
+    accent: "#111111", onAccent: "#ffffff", accentText: "#111111",
     radius: 0, btnRadius: 999, shadow: "none", font: "F1", titleFont: "F4",
   },
   {
@@ -178,6 +179,8 @@ export function buildPrompt(style, fontId, extra) {
     `- 글자 ${style.text}, 보조 글자 ${style.mute}`,
     `- 강조색 ${style.accent} (버튼 글자 ${style.onAccent}) — 가장 중요한 버튼과 핵심 결과 한두 곳에만`,
   ];
+  if (style.btnLarge)
+    out.push("- 강조색 버튼의 글자는 19px 이상 굵게 (이 색 위의 흰 글자는 큰 글자여야 읽기 쉬워요)");
   if (style.accentText !== style.accent)
     out.push(`- 바탕 위에 강조 글자를 쓸 때는 ${style.accentText}`);
   if (style.block) out.push(`- 결과·요약 카드 하나에 색 블록 ${style.block}를 써도 좋아`);
@@ -219,6 +222,7 @@ function applyPreview(el, style, fontId) {
   set("--p-block", style.block || style.surface);
   set("--p-radius", style.radius + "px");
   set("--p-btn-radius", style.btnRadius + "px");
+  set("--p-btn-size", style.btnLarge ? "19px" : "15px");
   set("--p-shadow", style.shadow);
   set("--p-font", stack(fonts.body));
   set("--p-title-font", stack(fonts.title));
@@ -270,8 +274,10 @@ function init() {
     b.dataset.id = s.id;
     b.setAttribute("aria-pressed", "false");
     b.innerHTML =
-      `<span class="swatch" aria-hidden="true">` +
-      [s.bg, s.surface, s.text, s.accent].map((c) => `<i style="background:${c}"></i>`).join("") +
+      `<span class="mini" aria-hidden="true" style="background:${s.bg}">` +
+      `<span class="mini-card" style="background:${s.block || s.surface};border-color:${s.border};border-radius:${Math.min(s.radius, 10)}px">` +
+      `<i class="mini-title" style="background:${s.text}"></i><i class="mini-line" style="background:${s.mute}"></i></span>` +
+      `<i class="mini-btn" style="background:${s.accent};border-radius:${s.btnRadius >= 999 ? 999 : Math.min(s.btnRadius, 6)}px"></i>` +
       `</span><span class="style-name"><b>${s.id}</b> ${s.name}</span><span class="style-feel">${s.feel}</span>`;
     b.addEventListener("click", () => {
       styleId = s.id;
