@@ -190,7 +190,7 @@ export const TRENDS = [
       "- 버튼과 화면 아래쪽에 떠 있는 도구 막대에만 적용하고, 글이 많은 카드와 입력칸은 불투명하게 둬",
       `- 유리: background: color-mix(in srgb, ${c.surface} 45%, transparent); backdrop-filter: blur(12px) saturate(160%); border: 1px solid rgba(255,255,255,.6);`,
       "- 두께감: box-shadow: inset 0 1px 0 rgba(255,255,255,.75), inset 0 -1px 0 rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.12);",
-      `- 유리 뒤가 비쳐 보이도록 페이지 바탕에 강조색 ${c.accent}을 옅게 번진 둥근 빛 1~2개(radial-gradient)로 깔아 줘`,
+      `- 유리 뒤가 비쳐 보이도록 페이지 바탕에 강조색 ${c.accent}을 번진 둥근 빛 1~2개(radial-gradient)로 깔아 줘. 글자 아래로 오는 빛은 투명도 12% 이하, 글자 없는 구석만 30%까지`,
       "- 버튼을 누르는 동안(:active) 살짝 눌리게(scale .97). 유리 위 글자는 바탕과 대비 4.5:1 이상",
     ],
     dont: "모든 카드를 유리로 만들기, 글자 뒤에 강한 무늬 깔기",
@@ -218,7 +218,7 @@ export const TRENDS = [
     lines: (c) => [
       "- 카드 위쪽 가장자리에만 1px 밝은 선(inset 0 1px 0 rgba(255,255,255,.08))",
       `- 가장 중요한 결과 카드 뒤에만 강조색의 은은한 빛: box-shadow: 0 0 48px color-mix(in srgb, ${c.accent} 30%, transparent);`,
-      "- 화면 맨 위 제목 뒤에 아주 옅은 빛 번짐(radial-gradient) 하나. 빛은 2곳을 넘기지 마",
+      "- 화면 맨 위 제목 뒤에 아주 옅은 빛 번짐(radial-gradient, 투명도 18% 이하) 하나. 빛은 2곳을 넘기지 마",
       "- 숫자는 font-variant-numeric: tabular-nums; 로 폭을 맞춰 계기판처럼",
     ],
     dont: "네온을 여기저기 쓰기, 회색 글자를 너무 어둡게(대비 4.5:1 아래로) 두기",
@@ -272,8 +272,8 @@ export const TRENDS = [
     font: "F2",
     shape: () => ({ radius: 16, btnRadius: 999, shadow: "none" }),
     lines: (c) => [
-      `- 페이지 바탕에 강조색 ${c.accent}와 ${c.block}를 크게 번진 radial-gradient 2~3개로 깔아 줘 (옅게, 투명도 25~40%)`,
-      "- 그 위에 입자: SVG feTurbulence(baseFrequency .8) 노이즈를 data URI로 만들어 background-image에 겹치고 투명도 .15~.25",
+      `- 페이지 바탕에 강조색 ${c.accent}와 ${c.block}를 크게 번진 radial-gradient 2~3개로 깔아 줘. 글자 아래로 오는 번짐은 투명도 12% 이하, 글자 없는 구석은 40%까지`,
+      "- 그 위에 입자: SVG feTurbulence(baseFrequency .8) 노이즈를 data URI로 만들어 background-image에 겹치고 투명도 .10~.15",
       "- 카드·입력칸 안에는 입자를 넣지 말고 깨끗한 바탕 유지",
     ],
     dont: "입자를 진하게, 무지개처럼 색 여러 개 섞기",
@@ -427,12 +427,13 @@ export function buildPrompt(color, trend, extra) {
     out.push(
       "",
       sec(`2026 트렌드 기법: ${trend.name} — ${trend.def}`),
-      `- 적용 범위: ${trend.scope}. 위의 색·모양 값을 그대로 쓰면서 이 기법을 더해 줘`,
+      `- 적용 범위: ${trend.scope}. 위의 색·모양 값을 그대로 쓰면서 이 기법을 더해 줘. 2번 모양과 겹치는 곳은 이 3번이 우선이야`,
       ...trend.lines(c),
       `- 하지 말 것: ${trend.dont}`,
     );
     if (trend.motion)
       out.push("- 움직임은 @media (prefers-reduced-motion: reduce)에서 멈추고, 멈춘 상태로도 화면이 완성돼 보이게");
+    out.push("- 빛·무늬·유리 위에 올라간 글자(보조 글자 포함)도 대비 4.5:1 이상. 모자라면 효과를 더 옅게");
   }
   out.push(
     "",
@@ -547,10 +548,17 @@ function init() {
       showDock();
     }).observe(preview);
   document.getElementById("pv-dock-frame").addEventListener("click", () => preview.scrollIntoView({ block: "center" }));
+  const fold = document.getElementById("pv-dock-fold");
+  fold.addEventListener("click", () => {
+    const folded = dock.classList.toggle("is-folded");
+    fold.textContent = folded ? "펼치기" : "접기";
+    fold.setAttribute("aria-expanded", String(!folded));
+  });
 
   const saved = store.get();
   let colorId = byId(COLORS, saved.color) ? saved.color : "C1";
   let trendId = byId(TRENDS, saved.trend) ? saved.trend : "T00";
+  if (typeof saved.extra === "string") extra.value = saved.extra.slice(0, 500);
 
   for (const [label, dark] of [["밝은 바탕", false], ["어두운 바탕", true]]) {
     const h = document.createElement("h3");
@@ -620,7 +628,7 @@ function init() {
     chosen.textContent = `${col.name} · ${t.id === "T00" ? "트렌드 없음(기본)" : t.name}`;
     promptEl.value = buildPrompt(col, t, extra.value);
     status.textContent = "";
-    store.set({ color: colorId, trend: trendId });
+    store.set({ color: colorId, trend: trendId, extra: extra.value });
     syncDock();
   }
   const pick = () => {
@@ -632,6 +640,7 @@ function init() {
 
   extra.addEventListener("input", () => {
     promptEl.value = buildPrompt(byId(COLORS, colorId), byId(TRENDS, trendId), extra.value);
+    store.set({ color: colorId, trend: trendId, extra: extra.value });
   });
 
   copyBtn.addEventListener("click", async () => {

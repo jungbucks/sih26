@@ -37,12 +37,6 @@
         font-weight: 700;
         font-display: swap;
       }
-      @font-face {
-        font-family: "GalmuriMono11";
-        src: url("assets/fonts/GalmuriMono11.woff2") format("woff2");
-        font-weight: 400;
-        font-display: swap;
-      }
       .design-layout {
         display: grid;
         grid-template-columns: minmax(0, 1fr) 380px;
@@ -445,7 +439,7 @@
       /* T01 리퀴드 글래스: 버튼만 두꺼운 유리, 뒤에 강조색 빛 */
       .pv[data-trend="T01"] {
         background-image:
-          radial-gradient(circle at 85% 18%, color-mix(in srgb, var(--p-accent) 45%, transparent) 0, transparent 38%),
+          radial-gradient(circle at 85% 18%, color-mix(in srgb, var(--p-accent) 12%, transparent) 0, transparent 38%),
           radial-gradient(circle at 10% 95%, color-mix(in srgb, var(--p-accent) 30%, transparent) 0, transparent 40%);
         background-size: 100% 100%;
       }
@@ -491,7 +485,7 @@
       }
       /* T03 다크 테크: 결과 뒤 은은한 빛, 카드 윗변 하이라이트 */
       .pv[data-trend="T03"] {
-        background-image: radial-gradient(ellipse at 50% -10%, color-mix(in srgb, var(--p-accent) 28%, transparent), transparent 60%);
+        background-image: radial-gradient(ellipse at 50% -10%, color-mix(in srgb, var(--p-accent) 18%, transparent), transparent 60%);
         background-size: 100% 100%;
       }
       .pv[data-trend="T03"] .p-result {
@@ -600,8 +594,8 @@
       /* T07 그레이니 그라데이션: 번진 색 + 입자 (바탕만) */
       .pv[data-trend="T07"] {
         background-image:
-          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E"),
-          radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--p-accent) 38%, transparent), transparent 50%),
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.12'/%3E%3C/svg%3E"),
+          radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--p-accent) 12%, transparent), transparent 50%),
           radial-gradient(circle at 95% 60%, color-mix(in srgb, var(--p-block) 90%, transparent), transparent 55%);
         background-size: 160px 160px, 100% 100%, 100% 100%;
         background-position: 0 0;
@@ -772,15 +766,29 @@
         transform-origin: top left;
         pointer-events: none;
       }
-      .pv-dock-link {
-        display: block;
-        padding: 8px;
+      .pv-dock-bar {
+        display: flex;
         border-top: 1px solid var(--line);
+      }
+      .pv-dock-link,
+      .pv-dock-fold {
+        flex: 1;
+        min-height: 40px;
+        padding: 0 6px;
+        border: 0;
+        background: none;
         color: var(--ink);
+        font: inherit;
         font-size: 13px;
         text-align: center;
         text-decoration: none;
+        line-height: 40px;
+        cursor: pointer;
       }
+      .pv-dock-fold {
+        border-left: 1px solid var(--line);
+      }
+      .pv-dock-fold:focus-visible,
       .pv-dock-link:focus-visible {
         outline: 3px solid var(--focus);
         outline-offset: -3px;
@@ -963,6 +971,12 @@
         .pv-dock[hidden] {
           display: none;
         }
+        .pv-dock.is-folded .pv-dock-frame {
+          display: none;
+        }
+        main {
+          padding-bottom: 260px;
+        }
       }
       @media (max-width: 540px) {
         #colors {
@@ -985,7 +999,7 @@
       <h1>디자인 시안</h1>
       <p class="intro">
         먼저 색을 고르고, 그다음 요즘 홈페이지에서 쓰는 트렌드를 골라 보세요. 트렌드는 고른 색으로 입혀져서
-        오른쪽 샘플 앱에 바로 보여요. 마음에 드는 조합의 프롬프트를 복사해 수정 요청서에 붙여 넣으면 끝이에요.
+        샘플 앱에 바로 보여요(휴대폰은 화면 아래쪽 작은 창). 마음에 드는 조합의 프롬프트를 복사해 수정 요청서에 붙여 넣으면 끝이에요.
       </p>
       <div class="design-layout">
         <div class="design-pick">
@@ -1044,7 +1058,10 @@
       </div>
       <div class="pv-dock" id="pv-dock" hidden>
         <div class="pv-dock-frame" id="pv-dock-frame" aria-hidden="true"><div class="pv pv-mini" id="preview-mini" inert></div></div>
-        <a class="pv-dock-link" href="#preview">미리보기 크게 보기</a>
+        <div class="pv-dock-bar">
+          <a class="pv-dock-link" href="#preview">크게 보기</a>
+          <button class="pv-dock-fold" id="pv-dock-fold" type="button" aria-expanded="true">접기</button>
+        </div>
       </div>
       <p class="design-note">
         컬러셋은 VoltAgent의 awesome-design-md(MIT 라이선스)가 공개 웹사이트에서 관찰해 모은 DESIGN.md, 선생님 디자인 지침의
