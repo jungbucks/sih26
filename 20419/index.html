@@ -6,7 +6,7 @@
 <title>수행평가 관리 플래너</title>
 <meta name="description" content="여러 과목의 수행평가를 마감일·우선순위와 함께 적어 두고, 완료한 과제는 취소선과 함께 아래로 정리해 주는 플래너">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="1회 개선">
+<meta name="status" content="2회 개선">
 <style>
   /* ===== 색과 기본 글꼴 ===== */
   :root {
@@ -47,6 +47,39 @@
     margin-bottom: 20px;
     font-weight: 600;
   }
+
+  /* 저장이 안 되는 환경일 때 화면 맨 위에 뜨는 경고창 */
+  .save-alert {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    border: 2px solid var(--warn);
+    background: var(--warn-soft);
+    color: var(--text);
+    padding: 12px 14px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+  }
+  .save-alert .icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--warn);
+    color: #fff;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+  .save-alert strong { display: block; color: var(--warn); font-size: 1.05rem; }
+  .save-alert p { margin: 2px 0 0; }
+
+  /* 필수/선택 표시 */
+  .req { color: var(--warn); font-size: 0.85rem; font-weight: 700; margin-left: 4px; }
+  .opt { color: var(--muted); font-size: 0.85rem; font-weight: 600; margin-left: 4px; }
+  .form-hint { margin: 0 0 12px; color: var(--muted); font-size: 0.93rem; }
 
   /* ===== 입력 폼 ===== */
   .panel {
@@ -118,7 +151,14 @@
   .card.p-high { border-left-color: var(--warn); }
   .card.p-mid { border-left-color: var(--accent); }
   .card.p-low { border-left-color: #9aa3ad; }
-  .card .body { min-width: 0; flex: 1; }
+  .card.p-none { border-left-color: var(--line); }
+  .card .body { min-width: 0; flex: 1; overflow-wrap: anywhere; } /* 띄어쓰기 없는 긴 글도 줄바꿈 */
+  /* 카드 맨 위: 마감 날짜 + D-day를 가장 크게 */
+  .due-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-bottom: 2px; }
+  .due-date { font-size: 1.2rem; font-weight: 800; }
+  .dday { font-size: 1.2rem; font-weight: 800; color: var(--accent); }
+  .dday.today { color: var(--warn); }
+  .dday.late { color: var(--warn); }
   .subject { font-weight: 700; }
   .task { margin: 2px 0 4px; }
   .meta { color: var(--muted); font-size: 0.93rem; display: flex; flex-wrap: wrap; gap: 4px 12px; }
@@ -133,6 +173,7 @@
   .badge.p-high { color: var(--warn); }
   .badge.p-mid { color: var(--accent); }
   .badge.p-low { color: var(--muted); }
+  .badge.p-none { color: var(--muted); border-style: dashed; font-weight: 600; }
   .late { color: var(--warn); font-weight: 700; }
   .card button { flex-shrink: 0; }
   /* 카드 오른쪽 버튼 묶음 (완료 + 삭제) */
@@ -152,7 +193,8 @@
   .card { flex-wrap: wrap; }
   /* 완료된 카드: 흐리게 + 취소선 */
   .card.done { background: #f1f2f4; border-left-color: var(--done); }
-  .card.done .subject, .card.done .task { text-decoration: line-through; color: var(--done); }
+  .card.done .subject, .card.done .task, .card.done .due-date { text-decoration: line-through; color: var(--done); }
+  .card.done .dday { color: var(--done); }
   .card.done .done-label { color: var(--muted); font-weight: 700; }
   .empty {
     border: 1px dashed #b9c0c8;
@@ -204,6 +246,15 @@
 <body>
 <!-- ===== 화면 구조 ===== -->
 <main class="wrap">
+  <!-- 저장 제한 경고창: 저장이 안 되는 환경에서만 보인다 -->
+  <div class="save-alert" id="save-alert" role="alert" hidden>
+    <span class="icon" aria-hidden="true">!</span>
+    <div>
+      <strong id="save-alert-title">저장이 되지 않는 화면이에요</strong>
+      <p id="save-alert-text"></p>
+    </div>
+  </div>
+
   <h1>수행평가 관리 플래너</h1>
   <p class="lead">과제를 적어 두면 해야 할 일은 위로, 끝낸 일은 아래로 정리해 줍니다.</p>
 
@@ -212,28 +263,29 @@
   <!-- 입력 폼 -->
   <section class="panel" aria-labelledby="form-title">
     <h2 id="form-title">수행평가 추가</h2>
+    <p class="form-hint">과목명과 마감 날짜만 적어도 추가할 수 있어요.</p>
     <form id="task-form" novalidate>
       <div class="grid">
         <div>
-          <label for="in-subject">과목명</label>
-          <input id="in-subject" type="text" maxlength="20" placeholder="예: 국어" autocomplete="off">
+          <label for="in-subject">과목명<span class="req">필수</span></label>
+          <input id="in-subject" type="text" maxlength="20" placeholder="예: 국어" autocomplete="off" aria-required="true">
         </div>
         <div>
-          <label for="in-due">마감 날짜</label>
-          <input id="in-due" type="date">
+          <label for="in-due">마감 날짜<span class="req">필수</span></label>
+          <input id="in-due" type="date" aria-required="true">
         </div>
         <div class="full">
-          <label for="in-task">과제 내용</label>
+          <label for="in-task">과제 내용<span class="opt">선택</span></label>
           <input id="in-task" type="text" maxlength="60" placeholder="예: 독서 감상문 제출" autocomplete="off">
         </div>
         <div>
-          <label for="in-minutes">예상 소요 시간(분)</label>
+          <label for="in-minutes">예상 소요 시간(분)<span class="opt">선택</span></label>
           <input id="in-minutes" type="number" min="1" max="1440" step="1" inputmode="numeric" placeholder="예: 45">
         </div>
         <div>
-          <label for="in-priority">우선순위</label>
+          <label for="in-priority">우선순위<span class="opt">선택</span></label>
           <select id="in-priority">
-            <option value="">선택하세요</option>
+            <option value="">우선순위 없음</option>
             <option value="high">높음</option>
             <option value="mid">보통</option>
             <option value="low">낮음</option>
@@ -277,8 +329,8 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sample-title">
     <h2 id="sample-title">이렇게 사용해요</h2>
     <ol>
-      <li>위 입력칸에 과목명, 과제 내용, 마감 날짜, 소요 시간, 우선순위를 적고 '추가'를 눌러요.</li>
-      <li>목록은 마감일이 빠른 과제가 위로, 마감일이 같으면 우선순위가 높은 과제가 위로 와요.</li>
+      <li>위 입력칸에 과목명과 마감 날짜를 적고 '추가'를 눌러요. 과제 내용, 소요 시간, 우선순위는 비워 둬도 돼요.</li>
+      <li>목록은 마감일이 빠른 과제가 위로, 마감일이 같으면 우선순위가 높은 과제가 위로 와요. (우선순위 없음은 맨 뒤)</li>
       <li>다 끝낸 과제는 '완료'를 누르면 취소선이 그어지고 아래로 내려가요.</li>
       <li>잘못 넣은 과제는 '삭제'로 하나만 지울 수 있어요.</li>
     </ol>
@@ -294,13 +346,16 @@
 // ===== 예시 데이터·설정 =====
 const STORAGE_KEY = "sih26:20419:tasks";   // 이 프로그램 전용 저장 이름
 const MAX_TASKS = 20;                       // 최대 20개까지 저장
-const PRIORITY_NAME = { high: "높음", mid: "보통", low: "낮음" };
-const PRIORITY_RANK = { high: 0, mid: 1, low: 2 }; // 숫자가 작을수록 위에 표시
+const PRIORITY_NAME = { high: "높음", mid: "보통", low: "낮음", none: "없음" };
+const PRIORITY_RANK = { high: 0, mid: 1, low: 2, none: 3 }; // 숫자가 작을수록 위에 표시
+const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 
 // 예시 데이터: 마감일은 "오늘로부터 며칠 뒤"로 적어 둔다 (내일=1, 글피=3)
+// 세 번째는 필수 항목(과목명·마감 날짜)만 적은 예시
 const SAMPLE_TASKS = [
   { subject: "국어", task: "독서 감상문 제출", daysLater: 1, minutes: 45, priority: "high" },
-  { subject: "수학", task: "학습지 3페이지 풀기", daysLater: 3, minutes: 30, priority: "mid" }
+  { subject: "수학", task: "학습지 3페이지 풀기", daysLater: 3, minutes: 30, priority: "mid" },
+  { subject: "영어", task: "", daysLater: 3, minutes: null, priority: "none" }
 ];
 
 // ===== 데이터·상태 =====
@@ -337,7 +392,7 @@ function loadTasks() {
   try {
     const text = localStorage.getItem(STORAGE_KEY);
     const data = text ? JSON.parse(text) : [];
-    tasks = Array.isArray(data) ? data.slice(0, MAX_TASKS) : [];
+    tasks = Array.isArray(data) ? data.slice(0, MAX_TASKS).filter(isTaskLike).map(normalizeTask) : [];
   } catch (e) {
     canSave = false;
     tasks = [];
@@ -361,17 +416,36 @@ function removeSaved() {
   try { localStorage.removeItem(STORAGE_KEY); } catch (e) { canSave = false; }
 }
 
+// 저장된 항목이 과제 모양인지 (과목명·마감 날짜가 있어야 함)
+function isTaskLike(x) {
+  return x && typeof x === "object" && typeof x.subject === "string" && typeof x.due === "string" && x.due !== "";
+}
+
+// 비어 있는 선택 항목을 기본값으로 맞춘다
+// (예전에 저장한 과제는 모든 항목이 있어 그대로 유지된다)
+function normalizeTask(x) {
+  const m = Number(x.minutes);
+  return {
+    id: typeof x.id === "string" && x.id ? x.id : Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    subject: x.subject,
+    task: typeof x.task === "string" ? x.task : "",
+    due: x.due,
+    minutes: Number.isInteger(m) && m >= 1 ? m : null,    // 비면 null = 소요 시간 미정
+    priority: PRIORITY_RANK.hasOwnProperty(x.priority) ? x.priority : "none",
+    done: x.done === true
+  };
+}
+
 // 새 수행평가 객체 만들기
 function makeTask(subject, task, due, minutes, priority) {
-  return {
-    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+  return normalizeTask({
     subject: subject,
     task: task,
     due: due,
     minutes: minutes,
     priority: priority,
     done: false
-  };
+  });
 }
 
 // 정렬 규칙: 미완료가 위, 완료가 아래.
@@ -388,26 +462,37 @@ function sortedTasks() {
   return sortTasks(tasks);
 }
 
-// 폼 입력 검사: 빠진 항목 이름 목록과 오류 문장을 돌려준다
+// 폼 입력 검사: 필수 항목(과목명·마감 날짜)만 검사한다
+// 과제 내용·소요 시간·우선순위는 비워도 된다. 단, 소요 시간을 적었다면 올바른 숫자여야 한다.
 function checkForm(values) {
   const missing = [];
   if (!values.subject) missing.push({ id: "in-subject", name: "과목명" });
-  if (!values.task) missing.push({ id: "in-task", name: "과제 내용" });
   if (!values.due) missing.push({ id: "in-due", name: "마감 날짜" });
-  if (values.minutesText === "") missing.push({ id: "in-minutes", name: "예상 소요 시간" });
-  if (!values.priority) missing.push({ id: "in-priority", name: "우선순위" });
 
   if (missing.length > 0) {
     return {
       bad: missing.map(function (m) { return m.id; }),
-      text: "모든 항목을 입력해 주세요. 비어 있는 항목: " + missing.map(function (m) { return m.name; }).join(", ")
+      text: "필수 항목을 입력해 주세요. 비어 있는 항목: " + missing.map(function (m) { return m.name; }).join(", ")
     };
   }
-  const n = Number(values.minutesText);
-  if (!Number.isInteger(n) || n < 1 || n > 1440) {
-    return { bad: ["in-minutes"], text: "예상 소요 시간은 1~1440 사이의 정수(분)로 입력해 주세요." };
+  if (values.minutesBad) {
+    return { bad: ["in-minutes"], text: "예상 소요 시간은 1~1440 사이의 정수(분)로 입력하거나 비워 두세요." };
+  }
+  if (values.minutesText !== "") {
+    const n = Number(values.minutesText);
+    if (!Number.isInteger(n) || n < 1 || n > 1440) {
+      return { bad: ["in-minutes"], text: "예상 소요 시간은 1~1440 사이의 정수(분)로 입력하거나 비워 두세요." };
+    }
   }
   return null;
+}
+
+// "2026-10-20" → "10월 20일 (화)"
+function formatDue(dueString) {
+  const d = new Date(dueString + "T00:00:00");
+  if (isNaN(d)) return dueString;
+  const year = d.getFullYear() !== new Date().getFullYear() ? d.getFullYear() + "년 " : "";
+  return year + (d.getMonth() + 1) + "월 " + d.getDate() + "일 (" + WEEKDAY[d.getDay()] + ")";
 }
 
 // ===== 화면 갱신 =====
@@ -418,6 +503,9 @@ const formMsg = document.getElementById("form-msg");
 const listMsg = document.getElementById("list-msg");
 const storageMsg = document.getElementById("storage-msg");
 const confirmBox = document.getElementById("confirm-box");
+const saveAlert = document.getElementById("save-alert");
+const saveAlertTitle = document.getElementById("save-alert-title");
+const saveAlertText = document.getElementById("save-alert-text");
 
 function showMessage(el, text, kind) {
   el.textContent = text;
@@ -433,10 +521,24 @@ function buildCard(t, preview) {
   const body = document.createElement("div");
   body.className = "body";
 
+  // 1) 맨 위: 마감 날짜 + D-day (가장 크게)
+  const dueLine = document.createElement("div");
+  dueLine.className = "due-line";
+  const dueDate = document.createElement("span");
+  dueDate.className = "due-date";
+  dueDate.textContent = formatDue(t.due);
+  const dday = document.createElement("span");
+  const left = daysLeft(t.due);
+  dday.className = "dday" + (left === 0 ? " today" : left < 0 ? " late" : "");
+  dday.textContent = left === 0 ? "D-day (오늘 마감)" : left > 0 ? "D-" + left : "마감 " + (-left) + "일 지남";
+  dueLine.append(dueDate, dday);
+
+  // 2) 과목명
   const subject = document.createElement("div");
   subject.className = "subject";
   subject.textContent = t.subject;
 
+  // 3) 과제 내용 + 기타 정보 (비어 있는 선택 항목은 기본값으로 표시)
   const task = document.createElement("div");
   task.className = "task";
   task.textContent = t.task;
@@ -448,23 +550,19 @@ function buildCard(t, preview) {
   badge.className = "badge p-" + t.priority;
   badge.textContent = "우선순위 " + PRIORITY_NAME[t.priority];
 
-  const due = document.createElement("span");
-  const left = daysLeft(t.due);
-  let leftText = left === 0 ? "오늘 마감" : left > 0 ? "D-" + left : "마감 " + (-left) + "일 지남";
-  due.textContent = "마감 " + t.due + " (" + leftText + ")";
-  if (left < 0 && !t.done) due.className = "late";
-
   const time = document.createElement("span");
-  time.textContent = "예상 " + t.minutes + "분";
+  time.textContent = t.minutes ? "예상 " + t.minutes + "분" : "소요 시간 미정";
 
-  meta.append(badge, due, time);
+  meta.append(badge, time);
   if (t.done) {
     const doneLabel = document.createElement("span");
     doneLabel.className = "done-label";
     doneLabel.textContent = "완료됨";
     meta.append(doneLabel);
   }
-  body.append(subject, task, meta);
+  body.append(dueLine, subject);
+  if (t.task) body.append(task);   // 과제 내용이 비었으면 줄을 만들지 않는다
+  body.append(meta);
   li.append(body);
   if (preview) return li;
 
@@ -478,7 +576,8 @@ function buildCard(t, preview) {
   btn.dataset.act = "toggle";
   btn.className = t.done ? "" : "primary";
   btn.textContent = t.done ? "완료 취소" : "완료";
-  btn.setAttribute("aria-label", t.subject + " " + t.task + (t.done ? " 완료 취소" : " 완료"));
+  const name = t.task ? t.subject + " " + t.task : t.subject;
+  btn.setAttribute("aria-label", name + (t.done ? " 완료 취소" : " 완료"));
 
   const del = document.createElement("button");
   del.type = "button";
@@ -486,7 +585,7 @@ function buildCard(t, preview) {
   del.dataset.act = "ask-delete";
   del.className = "danger";
   del.textContent = "삭제";
-  del.setAttribute("aria-label", t.subject + " " + t.task + " 삭제");
+  del.setAttribute("aria-label", name + " 삭제");
 
   actions.append(btn, del);
   li.append(actions);
@@ -532,11 +631,16 @@ function render() {
 
   // 전시판 미리보기(샌드박스 안)에서는 브라우저가 저장을 막는다
   const inPreview = window.origin === "null" && location.protocol !== "file:";
-  storageMsg.textContent = canSave
-    ? "이 브라우저에 자동 저장됩니다."
-    : inPreview
-      ? "전시판 미리보기에서는 저장이 막혀 있어 새로고침하면 목록이 사라져요. 저장하려면 '새 탭 실행'으로 열어 주세요."
-      : "이 환경에서는 저장되지 않습니다. 새로고침하면 목록이 사라져요.";
+  // 저장이 되면 목록 아래에 작게, 안 되면 화면 맨 위 경고창으로 알린다
+  storageMsg.textContent = canSave ? "이 브라우저에 자동 저장됩니다." : "";
+  storageMsg.hidden = !canSave;
+  saveAlert.hidden = canSave;
+  if (!canSave) {
+    saveAlertTitle.textContent = inPreview ? "전시판 미리보기에서는 저장되지 않아요" : "이 화면에서는 저장되지 않아요";
+    saveAlertText.textContent = inPreview
+      ? "새로고침하거나 창을 닫으면 입력한 과제가 모두 사라져요. 저장하려면 전시판의 '새 탭 실행'으로 열어서 사용해 주세요."
+      : "브라우저가 저장을 막고 있어서 새로고침하면 입력한 과제가 모두 사라져요.";
+  }
 }
 
 // ===== 이벤트 연결 =====
@@ -549,6 +653,8 @@ document.getElementById("task-form").addEventListener("submit", function (e) {
     task: document.getElementById("in-task").value.trim(),
     due: document.getElementById("in-due").value,
     minutesText: document.getElementById("in-minutes").value.trim(),
+    // 숫자칸에 숫자가 아닌 글자를 넣으면 value가 ""가 되므로 따로 확인한다
+    minutesBad: document.getElementById("in-minutes").validity.badInput,
     priority: document.getElementById("in-priority").value
   };
 
@@ -570,7 +676,10 @@ document.getElementById("task-form").addEventListener("submit", function (e) {
     return;
   }
 
-  tasks.push(makeTask(values.subject, values.task, values.due, Number(values.minutesText), values.priority));
+  // 비운 항목은 기본값: 과제 내용 없음, 소요 시간 미정, 우선순위 없음
+  tasks.push(makeTask(values.subject, values.task, values.due,
+    values.minutesText === "" ? null : Number(values.minutesText),
+    values.priority || "none"));
   saveTasks();
   this.reset();
   showMessage(formMsg, "'" + values.subject + "' 과제를 추가했어요.", "ok");
