@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>디자인 시안 · 레이트 바이브 코딩</title>
-    <meta name="description" content="스타일 카드 30개 중 하나를 고르면 샘플 앱이 바뀌고, 그대로 붙여 넣을 디자인 수정 프롬프트가 완성됩니다." />
+    <meta name="description" content="스타일 카드 30개 중 하나를 고르고 2026 트렌드 기법 하나를 더하면 샘플 앱이 바뀌고, 그대로 붙여 넣을 디자인 수정 프롬프트가 완성됩니다." />
     <link rel="stylesheet" href="assets/style.css" />
     <style>
       @font-face {
@@ -371,6 +371,439 @@
         font-size: 14px;
         color: var(--muted);
       }
+      /* 2단계: 트렌드 카드 */
+      .trend-step {
+        margin-top: 32px;
+      }
+      #trends {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+        gap: 8px;
+      }
+      .trend-card {
+        display: grid;
+        gap: 4px;
+        align-content: start;
+        min-height: 44px;
+        padding: 10px 12px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--r-lg);
+        background: var(--canvas);
+        color: var(--ink);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .trend-card:hover {
+        border-color: var(--ink);
+      }
+      .trend-card[aria-pressed="true"] {
+        border-color: var(--ink);
+        box-shadow: 0 0 0 2px var(--ink);
+      }
+      .trend-card:focus-visible,
+      #trend-info button:focus-visible {
+        outline: 3px solid var(--focus);
+        outline-offset: 2px;
+      }
+      .trend-name {
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .trend-name b {
+        margin-right: 2px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 400;
+      }
+      .trend-pos {
+        justify-self: start;
+        padding: 1px 8px;
+        border: 1px solid var(--line-strong);
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .trend-def {
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--muted);
+        word-break: keep-all;
+      }
+      #trend-info {
+        margin-top: 12px;
+        padding: 14px 16px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--r-lg);
+        background: var(--tint);
+        font-size: 15px;
+        word-break: keep-all;
+      }
+      #trend-info[hidden] {
+        display: none;
+      }
+      #trend-info .trend-title {
+        margin: 0 0 8px;
+      }
+      #trend-info dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 12px;
+        margin: 0;
+      }
+      #trend-info dt {
+        color: var(--muted);
+      }
+      #trend-info dd {
+        margin: 0;
+      }
+      #trend-info .trend-note {
+        margin: 10px 0 0;
+        font-weight: 600;
+      }
+      #trend-info .trend-match {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 8px;
+        margin: 12px 0 0;
+        color: var(--muted);
+      }
+      #trend-info .font-chip {
+        color: var(--ink);
+      }
+      /* 샘플 앱의 트렌드 층: 평소엔 숨은 장식 요소를 트렌드가 켤 때만 보여 준다 */
+      #preview {
+        position: relative;
+        overflow: hidden;
+        min-width: 0;
+      }
+      .design-side,
+      .design-side > section {
+        min-width: 0;
+      }
+      #preview .p-banner,
+      #preview .p-sticker,
+      #preview .p-kicker,
+      #preview .p-marquee {
+        display: none;
+      }
+      /* T01 리퀴드 글래스: 버튼만 두꺼운 유리, 뒤에 강조색 빛 */
+      #preview[data-trend="T01"] {
+        background-image:
+          radial-gradient(circle at 85% 18%, color-mix(in srgb, var(--p-accent) 45%, transparent) 0, transparent 38%),
+          radial-gradient(circle at 10% 95%, color-mix(in srgb, var(--p-accent) 30%, transparent) 0, transparent 40%);
+        background-size: 100% 100%;
+      }
+      #preview[data-trend="T01"] .p-btn,
+      #preview[data-trend="T01"] .p-ghost {
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        background: color-mix(in srgb, var(--p-surface) 45%, transparent);
+        color: var(--p-text);
+        -webkit-backdrop-filter: blur(12px) saturate(160%);
+        backdrop-filter: blur(12px) saturate(160%);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.75),
+          inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+          0 8px 24px rgba(0, 0, 0, 0.12);
+      }
+      /* T02 벤토 그리드: 크기가 다른 칸이 맞물림 */
+      #preview[data-trend="T02"] {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      #preview[data-trend="T02"] > h2,
+      #preview[data-trend="T02"] > .p-sub,
+      #preview[data-trend="T02"] > .p-row,
+      #preview[data-trend="T02"] > .p-ghost {
+        grid-column: 1 / -1;
+      }
+      #preview[data-trend="T02"] .p-sub {
+        margin-bottom: 4px;
+      }
+      #preview[data-trend="T02"] .p-result {
+        grid-row: span 3;
+        display: grid;
+        align-content: end;
+        margin: 0;
+        border-radius: max(var(--p-radius), 16px);
+      }
+      #preview[data-trend="T02"] ul {
+        display: contents;
+      }
+      #preview[data-trend="T02"] li {
+        border-radius: max(var(--p-radius), 16px);
+      }
+      /* T03 다크 테크: 결과 뒤 은은한 빛, 카드 윗변 하이라이트 */
+      #preview[data-trend="T03"] {
+        background-image: radial-gradient(ellipse at 50% -10%, color-mix(in srgb, var(--p-accent) 28%, transparent), transparent 60%);
+        background-size: 100% 100%;
+      }
+      #preview[data-trend="T03"] .p-result {
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.08),
+          0 0 48px color-mix(in srgb, var(--p-accent) 30%, transparent);
+        font-variant-numeric: tabular-nums;
+      }
+      #preview[data-trend="T03"] li {
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      }
+      /* T04 에디토리얼: 머리말, 큰 명조 제목, 상자 대신 가는 줄 */
+      #preview[data-trend="T04"] .p-kicker {
+        display: block;
+        margin: 0 0 6px;
+        color: var(--p-mute);
+        font-size: 13px;
+        letter-spacing: 0.12em;
+      }
+      #preview[data-trend="T04"] h2 {
+        font-size: 34px;
+        line-height: 1.2;
+      }
+      #preview[data-trend="T04"] .p-sub {
+        margin-bottom: 20px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--p-border);
+      }
+      #preview[data-trend="T04"] .p-result {
+        margin: 20px 0;
+        padding: 0 0 0 14px;
+        border-left: 3px solid var(--p-accent);
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+      }
+      #preview[data-trend="T04"] .p-result strong {
+        font-size: 32px;
+      }
+      #preview[data-trend="T04"] ul {
+        gap: 0;
+      }
+      #preview[data-trend="T04"] li {
+        border: 0;
+        border-bottom: 1px solid var(--p-border);
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+      }
+      /* T05 키네틱 타이포: 큰 글자 띠가 흐름 */
+      #preview[data-trend="T05"] .p-marquee {
+        display: flex;
+        width: max-content;
+        margin: 6px 0 14px;
+        color: var(--p-accent-text);
+        font-family: var(--p-title-font);
+        font-size: 40px;
+        font-weight: 800;
+        line-height: 1.1;
+        white-space: nowrap;
+        animation: tr-marquee 15s linear infinite;
+      }
+      #preview[data-trend="T05"] .p-result em {
+        display: inline-block;
+        animation: tr-rise 2.4s ease-out infinite;
+      }
+      @keyframes tr-marquee {
+        to {
+          transform: translateX(-50%);
+        }
+      }
+      @keyframes tr-rise {
+        0% {
+          transform: translateY(60%);
+          opacity: 0;
+        }
+        20%,
+        100% {
+          transform: none;
+          opacity: 1;
+        }
+      }
+      /* T06 스크롤 3D(축소판): 목록 카드가 뒤로 눕혔다가 서며 다가옴 */
+      #preview[data-trend="T06"] ul {
+        perspective: 900px;
+      }
+      #preview[data-trend="T06"] li {
+        transform-origin: 50% 100%;
+        animation: tr-stand 3s ease-out infinite;
+      }
+      #preview[data-trend="T06"] li:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      #preview[data-trend="T06"] li:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes tr-stand {
+        0% {
+          transform: rotateX(25deg) translateY(12px);
+          opacity: 0.4;
+        }
+        35%,
+        100% {
+          transform: none;
+          opacity: 1;
+        }
+      }
+      /* T07 그레이니 그라데이션: 번진 색 + 입자 (바탕만) */
+      #preview[data-trend="T07"] {
+        background-image:
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E"),
+          radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--p-accent) 38%, transparent), transparent 50%),
+          radial-gradient(circle at 95% 60%, color-mix(in srgb, var(--p-block) 90%, transparent), transparent 55%);
+        background-size: 160px 160px, 100% 100%, 100% 100%;
+        background-position: 0 0;
+      }
+      /* T08 네오 브루탈리즘: 버튼·결과만 굵은 테두리 + 딱딱한 그림자 */
+      #preview[data-trend="T08"] .p-btn,
+      #preview[data-trend="T08"] .p-result {
+        border: 3px solid var(--p-text);
+        border-radius: 6px;
+        box-shadow: 4px 4px 0 var(--p-text);
+      }
+      /* T09 맥시멀리즘: 줄무늬 바탕, 스티커, 기울어진 카드 */
+      #preview[data-trend="T09"] {
+        background-image: repeating-linear-gradient(-45deg, var(--p-block) 0 14px, transparent 14px 28px);
+        background-size: auto;
+      }
+      #preview[data-trend="T09"] .p-sticker {
+        position: absolute;
+        display: block;
+        padding: 4px 10px;
+        border: 2px solid var(--p-text);
+        border-radius: 999px;
+        background: var(--p-accent);
+        color: var(--p-on-accent);
+        font-size: 13px;
+        font-weight: 800;
+      }
+      #preview[data-trend="T09"] .p-sticker-a {
+        top: 14px;
+        right: 14px;
+        transform: rotate(8deg);
+      }
+      #preview[data-trend="T09"] .p-sticker-b {
+        top: 52px;
+        right: 34px;
+        background: var(--p-surface);
+        color: var(--p-text);
+        transform: rotate(-8deg);
+      }
+      #preview[data-trend="T09"] h2,
+      #preview[data-trend="T09"] .p-sub {
+        display: table;
+        padding: 0 6px;
+        background: var(--p-bg);
+      }
+      #preview[data-trend="T09"] .p-result {
+        border: 3px solid var(--p-text);
+        transform: rotate(-1.5deg);
+      }
+      #preview[data-trend="T09"] li:nth-child(odd) {
+        transform: rotate(0.6deg);
+      }
+      #preview[data-trend="T09"] li:nth-child(even) {
+        transform: rotate(-0.6deg);
+      }
+      /* T10 레트로 픽셀: 제목·숫자만 도트, 계단 그림자 */
+      #preview[data-trend="T10"] h2,
+      #preview[data-trend="T10"] .p-result strong {
+        font-family: "Galmuri11", monospace;
+        text-shadow: 2px 2px 0 var(--p-border);
+      }
+      #preview[data-trend="T10"] .p-btn {
+        border-radius: 0;
+        box-shadow:
+          0 -2px 0 var(--p-text),
+          0 2px 0 var(--p-text),
+          -2px 0 0 var(--p-text),
+          2px 0 0 var(--p-text);
+      }
+      #preview[data-trend="T10"] li .box {
+        border-radius: 0;
+      }
+      /* T11 스위스: 왼쪽 격자, 번호, 가로줄만 */
+      #preview[data-trend="T11"] h2 {
+        font-size: 36px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+      }
+      #preview[data-trend="T11"] ul {
+        gap: 0;
+        counter-reset: sw;
+      }
+      #preview[data-trend="T11"] li {
+        border: 0;
+        border-top: 2px solid var(--p-text);
+        border-radius: 0;
+        background: none;
+        box-shadow: none;
+        counter-increment: sw;
+      }
+      #preview[data-trend="T11"] li::before {
+        content: counter(sw, decimal-leading-zero);
+        min-width: 28px;
+        font-weight: 800;
+      }
+      #preview[data-trend="T11"] .p-result,
+      #preview[data-trend="T11"] .p-input,
+      #preview[data-trend="T11"] .p-btn,
+      #preview[data-trend="T11"] .p-ghost {
+        border-radius: 0;
+        box-shadow: none;
+      }
+      /* T12 클레이: 버튼·체크·결과만 통통하게 */
+      #preview[data-trend="T12"] .p-btn,
+      #preview[data-trend="T12"] .p-result,
+      #preview[data-trend="T12"] li .box {
+        border-radius: 24px;
+        box-shadow:
+          6px 8px 18px color-mix(in srgb, var(--p-accent) 25%, transparent),
+          inset -4px -4px 8px rgba(0, 0, 0, 0.1),
+          inset 4px 4px 8px rgba(255, 255, 255, 0.6);
+      }
+      #preview[data-trend="T12"] li .box {
+        width: 22px;
+        height: 22px;
+        border: 0;
+        background: color-mix(in srgb, var(--p-accent) 22%, var(--p-surface));
+      }
+      #preview[data-trend="T12"] li.done .box {
+        background: var(--p-accent);
+      }
+      /* T13 Y2K 크롬: 배너 한 줄만 */
+      #preview[data-trend="T13"] .p-banner {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        margin: -20px -20px 16px;
+        padding: 10px;
+        background: #111111;
+        font-size: 20px;
+        font-weight: 800;
+      }
+      #preview[data-trend="T13"] .p-banner b,
+      #preview[data-trend="T13"] .p-banner i {
+        background: linear-gradient(180deg, #ffffff 0%, #b8c0cc 45%, #5b6472 50%, #e9edf2 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        font-style: normal;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #preview .p-marquee,
+        #preview li,
+        #preview .p-result em {
+          animation: none !important;
+        }
+      }
+      @media (max-width: 540px) {
+        #trends {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
       @media (max-width: 900px) {
         .design-layout {
           grid-template-columns: 1fr;
@@ -399,18 +832,29 @@
     <main id="main">
       <h1>디자인 시안</h1>
       <p class="intro">
-        카드 하나를 누르면 오른쪽 샘플 앱이 그 스타일로 바뀌어요. 마음에 드는 걸 골라 프롬프트를
-        복사한 뒤 수정 요청서에 붙여 넣으면 끝이에요.
+        카드 하나를 누르면 오른쪽 샘플 앱이 그 스타일로 바뀌어요. 원하면 요즘 홈페이지에서 쓰는 트렌드
+        기법을 하나 더해 보세요. 마음에 드는 조합의 프롬프트를 복사해 수정 요청서에 붙여 넣으면 끝이에요.
       </p>
       <div class="design-layout">
         <section aria-labelledby="pick-title">
           <h2 class="step-title" id="pick-title"><span>1</span>스타일 고르기 (30개)</h2>
           <div id="styles"></div>
+          <section class="trend-step" aria-labelledby="trend-title">
+            <h2 class="step-title" id="trend-title"><span>2</span>2026 트렌드 하나 더하기 (선택)</h2>
+            <p class="hint">시안이 색과 모양이라면, 트렌드는 배치·움직임·질감 기법이에요. 한 화면에 하나만 더해요.</p>
+            <div id="trends"></div>
+            <div id="trend-info" hidden></div>
+          </section>
         </section>
         <div class="design-side">
           <section aria-label="샘플 앱 미리보기">
             <div id="preview">
+              <p class="p-banner" aria-hidden="true"><i>✦</i><b>이번 주 완료 챌린지</b><i>✦</i></p>
+              <span class="p-sticker p-sticker-a" aria-hidden="true">NEW!</span>
+              <span class="p-sticker p-sticker-b" aria-hidden="true">★ 오늘</span>
+              <p class="p-kicker" aria-hidden="true">10월 17일 · 금요일</p>
               <h2>오늘 할 일 정리기</h2>
+              <div class="p-marquee" aria-hidden="true"><span>오늘 할 일 · 오늘 할 일 · 오늘 할 일 · 오늘 할 일 ·&nbsp;</span><span>오늘 할 일 · 오늘 할 일 · 오늘 할 일 · 오늘 할 일 ·&nbsp;</span></div>
               <p class="p-sub">해야 할 일을 적고 하나씩 지워 보세요.</p>
               <div class="p-row">
                 <span class="p-input">예) 수행평가 보고서</span>
@@ -429,16 +873,16 @@
             </div>
           </section>
           <section aria-labelledby="font-title">
-            <h2 class="step-title" id="font-title"><span>2</span>글꼴만 바꾸기 (선택)</h2>
+            <h2 class="step-title" id="font-title"><span>3</span>글꼴만 바꾸기 (선택)</h2>
             <div id="fonts"></div>
           </section>
           <section>
-            <label class="step-title" for="extra"><span>3</span>그 밖에 바꾸고 싶은 디자인 (선택)</label>
+            <label class="step-title" for="extra"><span>4</span>그 밖에 바꾸고 싶은 디자인 (선택)</label>
             <p class="hint">예) 결과 숫자를 더 크게, 버튼을 화면 아래쪽에</p>
             <textarea id="extra" rows="2"></textarea>
           </section>
           <section aria-labelledby="prompt-title">
-            <h2 class="step-title" id="prompt-title"><span>4</span>프롬프트 복사</h2>
+            <h2 class="step-title" id="prompt-title"><span>5</span>프롬프트 복사</h2>
             <p class="chosen">선택: <b id="chosen"></b></p>
             <textarea id="prompt" readonly aria-label="완성된 디자인 수정 프롬프트"></textarea>
             <div class="copy-row">
@@ -450,7 +894,7 @@
       </div>
       <p class="design-note">
         ○○풍 스타일의 색·모서리 값은 VoltAgent의 awesome-design-md(MIT 라이선스)가 공개 웹사이트에서
-        관찰해 모은 DESIGN.md를 참고했습니다. 시대·장르와 효과 스타일의 이름 목록은 styles.gallery를 참고했고, 색과 효과 값은 이 페이지에서 새로 정했습니다. 각 회사의 공식 디자인 시스템이 아니며, 작품에는 브랜드
+        관찰해 모은 DESIGN.md를 참고했습니다. 시대·장르와 효과 스타일의 이름 목록은 styles.gallery를 참고했고, 색과 효과 값은 이 페이지에서 새로 정했습니다. 2026 트렌드 13종과 쓰는 곳·피할 곳은 선생님이 정리한 홈페이지 트렌드 지침을 학생 작품에 맞게 옮겼습니다. 각 회사의 공식 디자인 시스템이 아니며, 작품에는 브랜드
         이름·로고 없이 색과 형태만 적용합니다. 글꼴: Wanted Sans·Paperlogy·고운돋움·고운바탕·갈무리·갈무리 모노(SIL OFL 1.1). 레트로 맥 스타일의 원래 시스템 글꼴(Chicago)은 무료 글꼴이 아니라서 한글 픽셀 글꼴 갈무리로 대신합니다.
       </p>
     </main>

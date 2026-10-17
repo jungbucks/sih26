@@ -315,11 +315,185 @@ export const GROUPS = [
   { name: "선생님 세트", hint: "설명·학습 페이지", ids: ["S11", "S12", "S13", "S14"] },
 ];
 
+// 2026 홈페이지 트렌드 13종(교사 제공 trend-webdesign 지침). 시안(색 세트) 위에 '기법 하나'를 더하는 층이다.
+// 홈페이지용 '업종' 추천을 학생 작품 종류로 옮겨 적었고, 사용 범위를 작은 앱 화면에 맞게 줄였다.
+// 지침의 원칙: 한 화면에 트렌드 하나, 가독성(4.5:1) 우선, 움직임은 prefers-reduced-motion에서 멈춤, 360px 확인.
+// lines(s)는 고른 시안 s의 색 값을 넣어 프롬프트 지시를 만든다. same = 같은 계열 시안(골라 두면 이미 비슷함).
+export const TRENDS = [
+  {
+    id: "T01", name: "리퀴드 글래스", pos: "가장 새로움", scope: "버튼·떠 있는 요소만",
+    def: "두께감과 가장자리 빛 반사가 있는 반투명 유리",
+    fits: "뽑기·타이머처럼 버튼이 주인공인 앱", avoid: "글을 오래 읽는 화면(유리 뒤 글자가 흐려져요)",
+    match: ["S1", "S3", "S25"], same: [], motion: true,
+    lines: (s) => [
+      "- 버튼과 화면 아래쪽에 떠 있는 도구 막대에만 적용하고, 글이 많은 카드와 입력칸은 지금처럼 불투명하게 둬",
+      `- 유리: background: color-mix(in srgb, ${s.surface} 45%, transparent); backdrop-filter: blur(12px) saturate(160%); border: 1px solid rgba(255,255,255,.6);`,
+      "- 두께감: box-shadow: inset 0 1px 0 rgba(255,255,255,.75), inset 0 -1px 0 rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.12);",
+      `- 유리 뒤가 비쳐 보이도록 페이지 바탕에 강조색 ${s.accent}을 옅게 번진 둥근 빛 1~2개(radial-gradient)로 깔아 줘`,
+      "- 버튼을 누르는 동안(:active) 살짝 눌리고(scale .97) 빛 반사가 움직이게. 유리 위 글자는 바탕과 대비 4.5:1 이상",
+    ],
+    dont: "모든 카드를 유리로 만들기, 글자 뒤에 강한 무늬 깔기",
+  },
+  {
+    id: "T02", name: "벤토 그리드", pos: "이미 흔함", scope: "결과·요약 영역",
+    def: "크기가 다른 둥근 칸이 도시락처럼 맞물린 격자",
+    fits: "계획표·기록장·대시보드처럼 보여 줄 숫자가 여러 개인 앱", avoid: "결과가 하나뿐인 앱(칸이 비어 보여요)",
+    match: ["S1", "S2", "S11"], same: [],
+    lines: (s) => [
+      "- 결과·요약 영역을 CSS grid로 바꿔 크기가 다른 칸 3~5개로 나눠 줘 (예: 가장 중요한 숫자 = 2칸 크기, 나머지 = 1칸)",
+      `- 칸 모서리는 모두 같게(${Math.max(s.radius, 16)}px), 칸 사이 간격도 모두 같게(12px). 바깥 테두리가 직사각형으로 딱 맞아야 해`,
+      "- 칸 하나에는 내용 하나만: 작은 이름표 + 큰 숫자 또는 짧은 목록",
+      "- 휴대폰(360px)에서는 2열 → 1열로 자연스럽게 내려오게",
+    ],
+    dont: "빈 칸 만들기, 칸마다 다른 모서리·간격 쓰기",
+  },
+  {
+    id: "T03", name: "다크 테크", pos: "이미 흔함", scope: "화면 전체",
+    def: "거의 검은 바탕에 은은한 빛, 결과 화면이 주인공",
+    fits: "시뮬레이터·게임·계산 결과를 보여 주는 앱", avoid: "식단·건강·생활 앱(차갑게 느껴져요)",
+    match: ["S3", "S8", "S27"], same: [], needDark: true,
+    lines: (s) => [
+      "- 바탕은 거의 검정(어두운 시안의 바탕색 그대로), 카드 위쪽 가장자리에만 1px 밝은 선(inset 0 1px 0 rgba(255,255,255,.08))",
+      `- 가장 중요한 결과 카드 뒤에만 강조색 ${s.accent}의 은은한 빛: box-shadow: 0 0 48px color-mix(in srgb, ${s.accent} 30%, transparent);`,
+      "- 화면 맨 위 제목 뒤에 아주 옅은 빛 번짐(radial-gradient) 하나. 빛은 2곳을 넘기지 마",
+      "- 숫자는 font-variant-numeric: tabular-nums; 로 폭을 맞춰 계기판처럼",
+    ],
+    dont: "네온을 여기저기 쓰기, 회색 글자를 너무 어둡게(대비 4.5:1 아래로) 두기",
+  },
+  {
+    id: "T04", name: "에디토리얼", pos: "떠오름", scope: "화면 전체",
+    def: "잡지 지면처럼 큰 명조 제목, 넉넉한 여백, 가는 줄",
+    fits: "다이어리·추천·소개·읽을거리 앱", avoid: "빨리 눌러야 하는 게임·계산기(정보가 느리게 읽혀요)",
+    match: ["S5", "S30", "S13"], same: [], font: "F3",
+    lines: (s) => [
+      "- 제목(h1)은 명조(고운바탕)로 크게(36~44px), 줄 간격 1.2. 제목 위에 작은 머리말(13px, 자간 넓게)을 한 줄",
+      `- 카드 상자를 없애고 항목 사이를 가는 줄(1px ${s.border})로만 나눠. 여백은 지금의 1.5배`,
+      "- 핵심 결과 숫자는 명조로 크게, 설명은 본문 글꼴로 작게 — 잡지의 큰 인용구처럼",
+      "- 왼쪽 정렬, 한 줄 길이는 40자 안팎으로 제한(max-width)",
+    ],
+    dont: "명조를 본문 작은 글씨까지 쓰기, 가운데 정렬 남발",
+  },
+  {
+    id: "T05", name: "키네틱 타이포", pos: "떠오름", scope: "첫 화면 제목 한 곳",
+    def: "아주 큰 글자가 움직이며 주인공이 되는 화면",
+    fits: "퀴즈·게임 시작 화면, 결과 발표 화면", avoid: "정보를 차분히 읽어야 하는 도구(산만해요)",
+    match: ["S9", "S21", "S8"], same: [], motion: true,
+    lines: (s) => [
+      `- 제목 아래에 작품 이름을 아주 크게(40px 이상, 굵게, 강조색 ${s.accentText}) 반복한 띠 하나를 두고 왼쪽으로 천천히 흐르게(15초 한 바퀴, CSS animation)`,
+      "- 핵심 결과 숫자가 바뀔 때 아래에서 위로 한 번 올라오며 나타나게(0.4초)",
+      "- 움직이는 곳은 이 두 곳뿐. 버튼·목록·입력칸은 가만히",
+      "- @media (prefers-reduced-motion: reduce)에서는 띠와 숫자 움직임을 모두 멈춰",
+      "- 흐르는 띠는 장식이니 aria-hidden=\"true\"",
+    ],
+    dont: "여러 줄이 동시에 움직이기, 글자가 읽기 전에 사라지기",
+  },
+  {
+    id: "T06", name: "스크롤 3D", pos: "떠오름", scope: "목록 한 곳 (축소판)",
+    def: "스크롤하면 장면이 입체로 움직이는 화면",
+    fits: "단계별 설명·카드 넘기기 앱", avoid: "한 파일 작품 대부분(진짜 3D는 무겁고 손이 많이 가요)",
+    match: ["S3", "S1", "S25"], same: [], motion: true,
+    lines: () => [
+      "- 진짜 3D 장면 대신 축소판으로: 목록 카드가 화면에 들어올 때 뒤로 눕혀 있다가(rotateX(25deg)) 똑바로 서며 다가오게",
+      "- 부모에 perspective: 900px; 카드는 IntersectionObserver로 화면에 들어오면 클래스를 붙여 transform 0.5초 전환",
+      "- 외부 라이브러리(three.js 등) 쓰지 마. CSS transform만",
+      "- 휴대폰에서는 기울기 각도를 절반으로, prefers-reduced-motion에서는 효과 없이 바로 보이게",
+    ],
+    dont: "버튼·입력칸까지 기울이기, 스크롤해야만 내용이 보이게 만들기",
+  },
+  {
+    id: "T07", name: "그레이니 그라데이션", pos: "범용 기법", scope: "페이지 바탕만 (다른 시안과 겹쳐도 됨)",
+    def: "번진 색 위에 필름 같은 자글자글한 입자",
+    fits: "명상·감성 기록·운세·날씨 앱", avoid: "글자 바로 뒤(입자가 글자를 지저분하게 해요)",
+    match: ["S5", "S12", "S29"], same: [],
+    lines: (s) => [
+      `- 페이지 바탕에 강조색 ${s.accent}와 ${s.block || s.surface}를 크게 번진 radial-gradient 2~3개로 깔아 줘 (옅게, 투명도 25~40%)`,
+      "- 그 위에 입자: SVG feTurbulence(baseFrequency .8) 노이즈를 data URI로 만들어 background-image에 겹치고 투명도 .15~.25",
+      "- 카드·입력칸 안에는 입자를 넣지 말고 지금처럼 깨끗한 바탕 유지",
+    ],
+    dont: "입자를 진하게, 무지개처럼 색 여러 개 섞기",
+  },
+  {
+    id: "T08", name: "네오 브루탈리즘", pos: "한풀 꺾임", scope: "버튼·결과 카드 포인트",
+    def: "굵은 검정 테두리, 번지지 않는 딱딱한 그림자, 쨍한 색",
+    fits: "퀴즈·코딩 연습·이벤트 앱", avoid: "건강·돈 관련 앱(믿음이 덜 가 보여요)",
+    match: ["S7", "S18", "S29"], same: ["S21"],
+    lines: (s) => [
+      `- 버튼과 결과 카드에만: border: 3px solid ${s.text}; box-shadow: 4px 4px 0 ${s.text}; (그림자는 번지지 않게 blur 0)`,
+      "- 버튼을 누르면(:active) 그림자만큼 이동: transform: translate(4px,4px); box-shadow: none;",
+      "- 모서리는 0~8px로 작게. 목록·입력칸은 지금 모양 유지",
+    ],
+    dont: "모든 요소에 테두리·그림자 넣기, 그림자를 흐리게(blur) 만들기",
+  },
+  {
+    id: "T09", name: "맥시멀리즘", pos: "취향 따라", scope: "화면 전체 (놀이용 앱만)",
+    def: "강한 색·스티커·무늬를 빼곡히 겹친 풍성함",
+    fits: "뽑기·꾸미기·파티 게임 앱", avoid: "계획표·계산기·정보 안내(정신없어 보여요)",
+    match: ["S18", "S29", "S20"], same: [],
+    lines: (s) => [
+      `- 페이지 바탕에 굵은 사선 줄무늬(repeating-linear-gradient, ${s.block || s.surface}와 바탕색, 줄 폭 14px)`,
+      "- 제목 옆에 기울어진 스티커 2개(예: 'NEW!', '★ 오늘의 운'): 둥근 배지, -8deg/6deg 회전, 장식이라 aria-hidden=\"true\"",
+      "- 결과 카드는 -1.5deg 기울이고 두꺼운 테두리, 목록 항목은 번갈아 ±0.6deg",
+      "- 그래도 본문 글자 뒤는 단색으로 두고 대비 4.5:1 유지. 버튼 크기·위치는 그대로",
+    ],
+    dont: "글자 뒤에 무늬 깔기, 스티커로 버튼 가리기",
+  },
+  {
+    id: "T10", name: "레트로 픽셀", pos: "떠오름", scope: "제목·아이콘 포인트",
+    def: "8비트 게임 같은 도트 글자와 각진 그림",
+    fits: "게임·기록 앱의 제목, 점수판", avoid: "본문 전체(작은 도트 글자는 읽기 힘들어요)",
+    match: ["S4", "S8", "S11"], same: ["S15", "S16", "S17"], font: "F5",
+    lines: (s) => [
+      "- 제목(h1·h2)과 점수·결과 숫자에만 픽셀 글꼴(갈무리)을 쓰고, 본문은 지금 글꼴 유지",
+      `- 제목에 계단 그림자: text-shadow: 2px 2px 0 ${s.border}, 4px 4px 0 ${s.text}20;`,
+      "- 아이콘은 이모지 대신 작은 도트 그림(SVG rect 격자, shape-rendering: crispEdges)으로 1~3개",
+      "- 버튼 모서리를 계단 모양으로: border-radius 0 + 바깥 box-shadow 4방향 2px",
+    ],
+    dont: "16px보다 작은 글자에 픽셀 글꼴 쓰기",
+  },
+  {
+    id: "T11", name: "스위스 스타일", pos: "유행 무관 기본기", scope: "화면 전체",
+    def: "엄격한 격자, 굵은 고딕, 장식 없음",
+    fits: "계산기·시간표·정보 정리 도구", avoid: "다정해야 하는 앱(차갑고 딱딱해요)",
+    match: ["S4", "S11", "S9"], same: ["S19"],
+    lines: (s) => [
+      "- 12칸 격자를 정하고 모든 요소의 왼쪽 끝을 격자선에 맞춰 줘. 가운데 정렬 금지",
+      "- 제목은 아주 굵고 크게(40px 이상), 자간 -0.02em. 나머지 글자 크기는 3단계만",
+      `- 목록 앞에 01·02·03 번호를 굵게, 항목 사이는 가로줄(2px ${s.text})로만 구분. 그림자·둥근 모서리 없음`,
+      `- 강조색 ${s.accent}은 한 곳(가장 중요한 버튼)에만`,
+    ],
+    dont: "그림자·그라데이션·아이콘 장식 넣기",
+  },
+  {
+    id: "T12", name: "클레이모피즘", pos: "한풀 꺾임", scope: "버튼·아이콘·결과 카드",
+    def: "찰흙처럼 말랑하고 통통한 파스텔 덩어리",
+    fits: "어린이·반려동물·습관 만들기 앱", avoid: "진지한 정보 도구(유치해 보일 수 있어요)",
+    match: ["S6", "S29", "S13"], same: ["S24"],
+    lines: (s) => [
+      `- 버튼·체크박스·결과 카드만 통통하게: border-radius 24px 이상, box-shadow: 8px 10px 20px color-mix(in srgb, ${s.accent} 25%, transparent), inset -4px -4px 8px rgba(0,0,0,.08), inset 4px 4px 8px rgba(255,255,255,.7);`,
+      "- 체크박스는 동그란 말랑 버튼으로, 체크하면 살짝 눌린 모양(inset 그림자 반대로)",
+      "- 목록·입력칸은 평평하게 두어 덩어리가 돋보이게",
+    ],
+    dont: "모든 요소를 부풀리기, 글자에 그림자 넣기",
+  },
+  {
+    id: "T13", name: "Y2K 크롬", pos: "한풀 꺾임", scope: "배너 한 줄 전용",
+    def: "크롬 금속 글자, 홀로그램, 반짝이",
+    fits: "이벤트·챌린지·음악 앱의 알림 띠", avoid: "화면 전체(배너로만 써야 촌스럽지 않아요)",
+    match: ["S3", "S4", "S9"], same: ["S22"],
+    lines: () => [
+      "- 화면 맨 위에 배너 한 줄만 추가: 어두운 바탕(#111) 위에 작품의 핵심 문구를 크롬 글자로",
+      "- 크롬 글자: background: linear-gradient(180deg,#fff 0%,#b8c0cc 45%,#5b6472 50%,#e9edf2 100%); -webkit-background-clip: text; color: transparent;",
+      "- 양 끝에 반짝이 ✦ 두 개(장식, aria-hidden). 배너 밖 화면은 지금 디자인 그대로",
+    ],
+    dont: "버튼·본문까지 크롬으로, 밝은 바탕 위에 크롬 글자(안 읽혀요)",
+  },
+];
+
 const byId = (list, id) => list.find((x) => x.id === id);
 
 // 스타일 기본 글꼴 위에 학생이 고른 글꼴을 덮는다. F4는 제목 전용이라 본문은 F1.
-export function resolveFonts(style, fontId) {
-  if (!fontId) return { body: style.font, title: style.titleFont || style.font };
+export function resolveFonts(style, fontId, trend) {
+  if (!fontId) return { body: style.font, title: (trend && trend.font) || style.titleFont || style.font };
   if (fontId === "F4") return { body: "F1", title: "F4" };
   return { body: fontId, title: fontId };
 }
@@ -339,17 +513,19 @@ function fontFace(id) {
 const stack = (id) =>
   `"${FONTS[id].family}", ${id === "F3" ? "serif" : id === "F6" ? "monospace" : "sans-serif"}`;
 
-export function buildPrompt(style, fontId, extra) {
-  const fonts = resolveFonts(style, fontId);
+export function buildPrompt(style, fontId, extra, trend) {
+  const fonts = resolveFonts(style, fontId, trend);
+  let n = 0;
+  const sec = (t) => `${++n}. ${t}`;
   const ids = [...new Set([fonts.body, fonts.title])];
   const fontLabel = fontId ? `${fontId} ${FONTS[fontId].name}` : "스타일 기본 글꼴";
   const shape = (r) => (r >= 999 ? "알약 모양(완전히 둥글게)" : r === 0 ? "각지게(0px)" : `${r}px`);
   const out = [
     "[디자인 수정 요청]",
-    `선택한 시안: ${style.id} ${style.name} · ${fontLabel}`,
+    `선택한 시안: ${style.id} ${style.name} · ${fontLabel}` + (trend ? ` · 트렌드 ${trend.id} ${trend.name}` : ""),
     `분위기: ${style.feel}`,
     "",
-    "1. 색 (이 값만 쓰고 다른 색은 더하지 마)",
+    sec("색 (이 값만 쓰고 다른 색은 더하지 마)"),
     `- 페이지 바탕 ${style.bg}, 카드·입력칸 바탕 ${style.surface}, 테두리 ${style.border}`,
     `- 글자 ${style.text}, 보조 글자 ${style.mute}`,
     `- 강조색 ${style.accent} (버튼 글자 ${style.onAccent}) — 가장 중요한 버튼과 핵심 결과 한두 곳에만`,
@@ -361,7 +537,7 @@ export function buildPrompt(style, fontId, extra) {
   if (style.block) out.push(`- 결과·요약 카드 하나에 색 블록 ${style.block}를 써도 좋아`);
   out.push(
     "",
-    "2. 모양",
+    sec("모양"),
     `- 카드 모서리 ${shape(style.radius)}, 버튼 모서리 ${shape(style.btnRadius)}`,
     `- 카드·입력칸 테두리 ${style.bw || 1}px ${style.border}`,
     `- 카드 그림자: ${style.shadow === "none" ? "쓰지 않기" : style.shadow}`,
@@ -379,9 +555,22 @@ export function buildPrompt(style, fontId, extra) {
         (style.patternPos ? ` background-position: ${style.patternPos};` : ""),
       "- 무늬는 페이지 바탕에만 깔고, 글자가 많은 카드 안에는 깔지 마",
     );
+  if (trend) {
+    out.push(
+      "",
+      sec(`2026 트렌드 기법: ${trend.name} — ${trend.def}`),
+      `- 적용 범위: ${trend.scope}. 위의 색·모양은 그대로 두고 이 기법만 더해 줘`,
+      ...trend.lines(style),
+      `- 하지 말 것: ${trend.dont}`,
+    );
+    if (trend.motion)
+      out.push("- 움직임은 @media (prefers-reduced-motion: reduce)에서 멈추고, 멈춘 상태로도 화면이 완성돼 보이게");
+    if (trend.font && !fontId)
+      out.push("- 이 트렌드의 제목 글꼴은 아래 '글꼴' 항목에 넣어 두었어");
+  }
   out.push(
     "",
-    "3. 글꼴 (전시판 공용 글꼴 — 아래 CSS를 그대로 넣어 줘)",
+    sec("글꼴 (전시판 공용 글꼴 — 아래 CSS를 그대로 넣어 줘)"),
     ...ids.flatMap(fontFace),
     `- 본문: font-family: ${stack(fonts.body)};`,
   );
@@ -389,18 +578,18 @@ export function buildPrompt(style, fontId, extra) {
   out.push(
     "- 글꼴을 못 불러와도 기본 글꼴로 정상 작동해야 해",
     "",
-    "4. 지킬 것",
+    sec("지킬 것"),
     "- 브랜드 이름·로고는 넣지 말고 색과 형태만 적용해 줘",
     "- 기능·문구·동작·저장 방식은 바꾸지 마",
     "- 글자와 바탕의 대비를 충분히 유지하고, 휴대폰 화면(360px)에서도 가로로 넘치지 않게",
   );
   const more = (extra || "").trim();
-  if (more) out.push("", "5. 그 밖에 바꾸고 싶은 디자인", `- ${more.replace(/\s*\n\s*/g, " / ")}`);
+  if (more) out.push("", sec("그 밖에 바꾸고 싶은 디자인"), `- ${more.replace(/\s*\n\s*/g, " / ")}`);
   return out.join("\n");
 }
 
-function applyPreview(el, style, fontId) {
-  const fonts = resolveFonts(style, fontId);
+function applyPreview(el, style, fontId, trend) {
+  const fonts = resolveFonts(style, fontId, trend);
   const set = (k, v) => el.style.setProperty(k, v);
   set("--p-bg", style.bg);
   set("--p-surface", style.surface);
@@ -426,6 +615,7 @@ function applyPreview(el, style, fontId) {
   set("--p-font", stack(fonts.body));
   set("--p-title-font", stack(fonts.title));
   el.dataset.style = style.id;
+  el.dataset.trend = trend ? trend.id : "";
 }
 
 const store = {
@@ -452,11 +642,14 @@ function init() {
   const chosen = document.getElementById("chosen");
   const copyBtn = document.getElementById("copy");
   const status = document.getElementById("copy-status");
+  const trendBox = document.getElementById("trends");
+  const trendInfo = document.getElementById("trend-info");
   if (!grid) return;
 
   const saved = store.get();
   let styleId = byId(STYLES, saved.style) ? saved.style : "S1";
   let fontId = FONTS[saved.font] ? saved.font : "";
+  let trendId = byId(TRENDS, saved.trend) ? saved.trend : "";
 
   for (const g of GROUPS) {
     const h = document.createElement("h3");
@@ -504,22 +697,69 @@ function init() {
     fontBox.append(b);
   }
 
+  for (const t of [{ id: "", name: "트렌드 없이", def: "고른 시안 그대로" }, ...TRENDS]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "trend-card";
+    b.dataset.id = t.id;
+    b.innerHTML =
+      `<span class="trend-name">${t.id ? `<b>${t.id.slice(1)}</b> ` : ""}${t.name}</span>` +
+      (t.pos ? `<span class="trend-pos">${t.pos}</span>` : "") +
+      `<span class="trend-def">${t.def}</span>`;
+    b.addEventListener("click", () => {
+      trendId = t.id;
+      render();
+    });
+    trendBox.append(b);
+  }
+
+  // 고른 트렌드의 설명: 어디에 쓰는지, 어디엔 피할지, 함께 쓰기 좋은 시안(누르면 바로 바뀜)
+  function renderTrendInfo(s, t) {
+    trendInfo.hidden = !t;
+    if (!t) return;
+    const notes = [];
+    if (t.same.includes(s.id))
+      notes.push(`지금 고른 시안(${s.id} ${s.name})이 이미 이 트렌드 계열이에요. 트렌드 없이 시안만 써도 충분해요.`);
+    if (t.needDark && !s.dark) notes.push("이 트렌드는 어두운 시안과 함께 써야 살아나요. 아래 시안 중 하나를 눌러 보세요.");
+    trendInfo.innerHTML =
+      `<p class="trend-title"><b>${t.name}</b> · 2026년 위치: ${t.pos}</p>` +
+      `<dl><dt>쓰는 곳</dt><dd>${t.scope}</dd><dt>어울리는 작품</dt><dd>${t.fits}</dd>` +
+      `<dt>피할 곳</dt><dd>${t.avoid}</dd></dl>` +
+      notes.map((x) => `<p class="trend-note">${x}</p>`).join("") +
+      `<p class="trend-match">함께 쓰기 좋은 시안 ` +
+      t.match
+        .map((id) => `<button type="button" class="font-chip" data-style="${id}">${id} ${byId(STYLES, id).name}</button>`)
+        .join("") +
+      "</p>";
+    for (const b of trendInfo.querySelectorAll("[data-style]"))
+      b.addEventListener("click", () => {
+        styleId = b.dataset.style;
+        render();
+      });
+  }
+
   function render() {
     const s = byId(STYLES, styleId);
-    applyPreview(preview, s, fontId);
+    const t = byId(TRENDS, trendId);
+    applyPreview(preview, s, fontId, t);
+    renderTrendInfo(s, t);
+    for (const b of trendBox.querySelectorAll(".trend-card"))
+      b.setAttribute("aria-pressed", String(b.dataset.id === trendId));
     preview.classList.toggle("is-dark", !!s.dark);
     for (const b of grid.querySelectorAll(".style-card"))
       b.setAttribute("aria-pressed", String(b.dataset.id === styleId));
     for (const b of fontBox.querySelectorAll(".font-chip"))
       b.setAttribute("aria-pressed", String(b.dataset.id === fontId));
-    chosen.textContent = `${s.id} ${s.name} · ${fontId ? fontId + " " + FONTS[fontId].name : "스타일 기본 글꼴"}`;
-    promptEl.value = buildPrompt(s, fontId, extra.value);
+    chosen.textContent =
+      `${s.id} ${s.name} · ${fontId ? fontId + " " + FONTS[fontId].name : "스타일 기본 글꼴"}` +
+      (t ? ` · 트렌드 ${t.name}` : "");
+    promptEl.value = buildPrompt(s, fontId, extra.value, t);
     status.textContent = "";
-    store.set({ style: styleId, font: fontId });
+    store.set({ style: styleId, font: fontId, trend: trendId });
   }
 
   extra.addEventListener("input", () => {
-    promptEl.value = buildPrompt(byId(STYLES, styleId), fontId, extra.value);
+    promptEl.value = buildPrompt(byId(STYLES, styleId), fontId, extra.value, byId(TRENDS, trendId));
   });
 
   copyBtn.addEventListener("click", async () => {
