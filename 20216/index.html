@@ -7,7 +7,7 @@
 <title>하루 기록 다이어리</title>
 <meta name="description" content="하루 활동 시간을 계획하고 실제 사용 시간을 기록해 차이를 돌아보는 다이어리">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="1회 개선">
+<meta name="status" content="2회 개선">
 
 <!-- ========== 2. 스타일 ========== -->
 <style>
@@ -112,6 +112,13 @@
     padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 12px; background: #fff; color: var(--ink);
   }
   .time-inputs input[aria-invalid="true"] { border-color: var(--warn); border-width: 2px; }
+  /* 실제 기록의 확인 상태 표시 */
+  .check-badge {
+    font-size: 0.85rem; padding: 0 10px; border-radius: 999px;
+    background: #fff; border: 1px dashed var(--line-strong); color: var(--ink-soft);
+  }
+  .check-badge.done { background: var(--ok-soft); border: 1px solid #bcd9c5; color: var(--ok); }
+  td.unchecked { color: var(--ink-soft); font-style: italic; }
   .row-msg { color: var(--warn); font-size: 0.95rem; margin-top: 4px; }
   .row-msg:empty { display: none; }
 
@@ -219,7 +226,7 @@
 
   <p class="notice warn" id="storageWarn" hidden>이 환경에서는 브라우저 저장 공간을 쓸 수 없어 기록이 저장되지 않아요. 계획과 시간 계산은 그대로 쓸 수 있지만, 페이지를 닫으면 입력한 내용이 사라져요.</p>
   <p class="notice warn" id="pruneNote" hidden></p>
-  <p class="notice">입력하면 바로 이 브라우저에 자동 저장돼요(24시간을 넘는 등 잘못된 입력은 저장하지 않아요). 다른 기기·다른 브라우저와는 공유되지 않고, 브라우저 저장 공간을 지우면 기록도 사라져요. 기록은 오늘을 포함한 달력상 최근 7일 것만 보관하고, 그보다 오래된 날짜의 기록은 자동으로 지워져요. 이름·학교 같은 개인정보는 입력받지 않아요.</p>
+  <p class="notice">입력하면 바로 이 브라우저에 자동 저장돼요(24시간을 넘는 등 잘못된 입력은 저장하지 않고, 입력칸을 벗어날 때 알려 줘요). 다른 기기·다른 브라우저와는 공유되지 않고, 브라우저 저장 공간을 지우면 기록도 사라져요. 기록은 오늘을 포함한 달력상 최근 7일 것만 보관하고, 그보다 오래된 날짜의 기록은 자동으로 지워져요. 이름·학교 같은 개인정보는 입력받지 않아요.</p>
 
   <div class="tabs" role="tablist" aria-label="메뉴">
     <button type="button" role="tab" id="tab-plan" aria-controls="panel-plan" aria-selected="true">하루 계획</button>
@@ -286,7 +293,7 @@
     <div class="actions">
       <button type="button" class="btn" id="actualResetBtn">마지막 저장 상태로 되돌리기</button>
     </div>
-    <p class="act-plan">실제 기록이 자동 저장돼도 계획은 바뀌지 않아요. 계획과 다른 활동에는 이유와 메모를 남길 수 있어요.</p>
+    <p class="act-plan">실제 기록이 자동 저장돼도 계획은 바뀌지 않아요. 계획과 다른 활동에는 이유와 메모를 남길 수 있어요. 시간·이유를 고치거나 '확인'을 누른 활동만 실제 기록이 되고, 손대지 않은 활동은 '미확인 · 기본값'으로 남아요.</p>
     <div class="msg" id="actualMsg" role="status"></div>
   </section>
 
@@ -317,6 +324,7 @@ const STORAGE_KEY = "sih26:20216:records";   // 이 작품 전용 저장 키
 const DAY_MINUTES = 24 * 60;                 // 하루 = 1,440분
 const KEEP_DAYS = 7;                         // 최근 7일만 보관
 const BASIC_ACTIVITIES = ["수면", "공부", "식사", "이동 및 통학", "휴식", "휴대폰 사용"];
+const UNCHECKED_TEXT = "기본값(미확인)";      // 기록 비교에서 손대지 않은 활동 표시
 const REASONS = ["예상보다 시간이 오래 걸림", "피곤함", "갑작스러운 일정", "휴대폰 사용", "기타"];
 
 // 예시 계획(참고용, 분 단위) — 합계 24시간
@@ -325,12 +333,15 @@ const EXAMPLE_PLAN = {
 };
 
 // ========== 5. 데이터·상태 ==========
-// records = { "2026-10-13": { plan: [{name, minutes}], actual: [{name, minutes, reason, memo}] } }
+// records = { "2026-10-13": { plan: [{name, minutes}], actual: [{name, minutes, reason, memo, confirmed}] } }
+// confirmed: 실제 기록에서 사용자가 직접 고치거나 '확인'을 누른 활동이면 true, 계획 값이 그대로 들어간 기본값이면 false
+// (이전 버전에서 저장된 기록에는 confirmed가 없는데, 그때는 저장된 실제 기록을 모두 확인한 것으로 봐요)
 let records = {};
 let canSave = true;          // 브라우저 저장 공간을 쓸 수 있는지
 let selectedDate = "";       // 화면 위쪽에서 고른 날짜 (YYYY-MM-DD)
 let planDraft = [];          // 하루 계획 화면에서 고치는 중인 값 [{name, h, m, custom}]
-let actualDraft = [];        // 실제 기록 화면에서 고치는 중인 값 [{name, h, m, custom, reason, memo}]
+let actualDraft = [];        // 실제 기록 화면에서 고치는 중인 값 [{name, h, m, custom, reason, memo, confirmed}]
+let typingRow = null;        // 지금 입력칸에 커서가 있는 줄 — 입력 중에는 잘못된 입력 경고를 미뤄 둔다
 let currentTab = "plan";
 let planBaseline = null;     // 이 날짜를 열었을 때의 계획 [{name, minutes}] — 자동 저장 뒤에도 '처음과 비교'용
 
@@ -383,13 +394,15 @@ function parseTime(hText, mText) {
 }
 
 // 여러 줄의 합계 계산. 잘못 입력된 줄 개수도 함께 돌려준다.
+// typingBad: 잘못된 줄 중 지금 입력 중인 줄(경고를 아직 보여 주지 않는 줄)의 개수
 function sumDraft(draft) {
-  let total = 0, badCount = 0;
+  let total = 0, badCount = 0, typingBad = 0;
   draft.forEach(function (row) {
     const r = parseTime(row.h, row.m);
-    if (r.error) badCount++; else total += r.minutes;
+    if (r.error) { badCount++; if (row === typingRow) typingBad++; }
+    else total += r.minutes;
   });
-  return { total: total, badCount: badCount };
+  return { total: total, badCount: badCount, typingBad: typingBad };
 }
 
 // 저장 공간 읽기 (막힌 환경이면 빈 기록으로 시작)
@@ -471,15 +484,20 @@ function makeActualDraft(key) {
   const plan = (day && day.plan) ? day.plan : null;
   const actual = (day && day.actual) ? day.actual : null;
   const rows = [];
-  function addRow(name, minutes, reason, memo) {
+  function addRow(name, minutes, reason, memo, confirmed) {
     rows.push({ name: name, h: String(Math.floor(minutes / 60)), m: String(minutes % 60),
-      custom: BASIC_ACTIVITIES.indexOf(name) < 0, reason: reason || "", memo: memo || "" });
+      custom: BASIC_ACTIVITIES.indexOf(name) < 0, reason: reason || "", memo: memo || "", confirmed: !!confirmed });
   }
   if (actual) {
-    actual.forEach(function (a) { addRow(a.name, a.minutes, a.reason, a.memo); });
-    // 실제 기록 저장 뒤 계획에 새로 생긴 활동은 계획 값으로 보여 준다
+    actual.forEach(function (a) {
+      const confirmed = a.confirmed !== false;   // 예전 기록(confirmed 없음)은 확인한 것으로
+      // 확인하지 않은 기본값은 지금 계획 값을 따라간다 (계획을 고친 뒤에도 '기본값 = 계획'이 되도록)
+      const pm = confirmed ? null : planMinutesOf(key, a.name);
+      addRow(a.name, pm === null ? a.minutes : pm, a.reason, a.memo, confirmed);
+    });
+    // 실제 기록 저장 뒤 계획에 새로 생긴 활동은 계획 값(미확인)으로 보여 준다
     if (plan) plan.forEach(function (p) {
-      if (!rows.some(function (r) { return r.name === p.name; })) addRow(p.name, p.minutes);
+      if (!rows.some(function (r) { return r.name === p.name; })) addRow(p.name, p.minutes, "", "", false);
     });
   } else if (plan) {
     plan.forEach(function (p) { addRow(p.name, p.minutes); });
@@ -504,9 +522,11 @@ function checkNewName(name, draft) {
   return "";
 }
 
-// 한 줄에 +30분 / -30분
+// 한 줄에 +30분 / -30분 — 시간·분 칸이 빈칸이면 0으로 보고 계산한다
 function stepRow(row, delta) {
-  const r = parseTime(row.h, row.m);
+  const hText = String(row.h).trim() === "" ? "0" : row.h;
+  const mText = String(row.m).trim() === "" ? "0" : row.m;
+  const r = parseTime(hText, mText);
   if (r.error) return r.error;
   const next = r.minutes + delta;
   if (next < 0) return "0분보다 줄일 수 없어요.";
@@ -598,6 +618,13 @@ function buildRow(draft, index, kind) {
     planInfo.textContent = pm === null ? (getDay(selectedDate) && getDay(selectedDate).plan ? "계획에 없음" : "계획 없음") : "계획 " + formatMinutes(pm);
     head.appendChild(planInfo);
   }
+  // 실제 기록: 확인 상태 표시 (직접 고치거나 '확인'을 누른 활동 / 손대지 않은 기본값)
+  let checkBadge = null;
+  if (kind === "actual") {
+    checkBadge = document.createElement("span");
+    checkBadge.className = "check-badge";
+    head.appendChild(checkBadge);
+  }
   wrap.appendChild(head);
 
   const line = document.createElement("div");
@@ -611,6 +638,11 @@ function buildRow(draft, index, kind) {
   const plus = makeButton("+30분", row.name + " 30분 늘리기");
   line.appendChild(minus);
   line.appendChild(plus);
+  let confirmBtn = null;
+  if (kind === "actual") {
+    confirmBtn = makeButton("확인", row.name + " 기본값 그대로 실제 기록으로 확인");
+    line.appendChild(confirmBtn);
+  }
   let removeBtn = null;
   if (row.custom) {
     removeBtn = makeButton("빼기", row.name + " 활동 빼기");
@@ -650,16 +682,32 @@ function buildRow(draft, index, kind) {
     reasonBox.appendChild(selLabel);
     reasonBox.appendChild(memoLabel);
     wrap.appendChild(reasonBox);
-    sel.addEventListener("change", function () { row.reason = sel.value; autoSave(kind); });
-    memo.addEventListener("input", function () { row.memo = memo.value; autoSave(kind); });
+    sel.addEventListener("change", function () { row.reason = sel.value; markConfirmed(); autoSave(kind); });
+    memo.addEventListener("input", function () { row.memo = memo.value; markConfirmed(); autoSave(kind); });
   }
 
+  // 실제 기록: 사용자가 이 활동을 직접 다루면 '확인함'으로 바꾼다
+  function markConfirmed() {
+    if (kind !== "actual") return;
+    row.confirmed = true;
+    refreshCheck();
+  }
+  function refreshCheck() {
+    if (!checkBadge) return;
+    checkBadge.textContent = row.confirmed ? "확인함" : "미확인 · 기본값";
+    checkBadge.classList.toggle("done", !!row.confirmed);
+    confirmBtn.hidden = !!row.confirmed;
+  }
+  refreshCheck();
+
   // 줄 상태(잘못된 입력 안내·이유 칸 표시) 갱신
+  // 입력칸에 커서가 있는 동안(입력 중)에는 경고를 숨기고, 칸을 벗어날 때 보여 준다
   function refreshRow() {
     const r = parseTime(row.h, row.m);
-    msg.textContent = r.error ? r.error : "";
-    hInput.input.setAttribute("aria-invalid", r.error ? "true" : "false");
-    mInput.input.setAttribute("aria-invalid", r.error ? "true" : "false");
+    const showError = r.error && row !== typingRow;
+    msg.textContent = showError ? r.error : "";
+    hInput.input.setAttribute("aria-invalid", showError ? "true" : "false");
+    mInput.input.setAttribute("aria-invalid", showError ? "true" : "false");
     if (reasonBox) {
       const pm = planMinutesOf(selectedDate, row.name);
       reasonBox.hidden = !(r.minutes !== undefined && pm !== null && r.minutes !== pm);
@@ -667,17 +715,53 @@ function buildRow(draft, index, kind) {
   }
   refreshRow();
 
-  hInput.input.addEventListener("input", function () { row.h = hInput.input.value; refreshRow(); updateTotals(kind); autoSave(kind); });
-  mInput.input.addEventListener("input", function () { row.m = mInput.input.value; refreshRow(); updateTotals(kind); autoSave(kind); });
+  let dirty = false;          // 입력 중에 바뀐 값이 있는지 (칸을 벗어날 때 확인·저장 안내)
+  let stepPressing = false;   // ±30분 버튼을 누르는 중이면 칸을 벗어날 때 경고를 띄우지 않음 (버튼이 바로 계산)
+  function onType(field, input) {
+    row[field] = input.value;
+    typingRow = row;
+    dirty = true;
+    markConfirmed();
+    refreshRow(); updateTotals(kind); autoSave(kind, true);
+  }
+  function onLeave() {
+    if (typingRow === row) typingRow = null;
+    if (stepPressing) return;
+    refreshRow(); updateTotals(kind);
+    if (dirty) { dirty = false; autoSave(kind); }
+  }
+  [[hInput.input, "h"], [mInput.input, "m"]].forEach(function (pair) {
+    const input = pair[0], field = pair[1];
+    input.addEventListener("focus", function () { typingRow = row; stepPressing = false; });
+    input.addEventListener("input", function () { onType(field, input); });
+    input.addEventListener("blur", onLeave);
+  });
   function step(delta) {
+    stepPressing = false;
+    dirty = false;
+    typingRow = (typingRow === row) ? null : typingRow;
     const err = stepRow(row, delta);
-    if (!err) { hInput.input.value = row.h; mInput.input.value = row.m; autoSave(kind); }
+    if (!err) { hInput.input.value = row.h; mInput.input.value = row.m; markConfirmed(); autoSave(kind); }
     refreshRow();
-    if (err) msg.textContent = err;
+    if (err) {
+      msg.textContent = err;
+      if (parseTime(row.h, row.m).error) autoSave(kind);   // 잘못된 칸이면 '저장 안 됨' 안내도 보여 준다
+    }
     updateTotals(kind);
   }
+  [minus, plus].forEach(function (b) {
+    b.addEventListener("pointerdown", function () { stepPressing = true; });
+  });
   minus.addEventListener("click", function () { step(-30); });
   plus.addEventListener("click", function () { step(30); });
+  if (confirmBtn) confirmBtn.addEventListener("click", function () {
+    // 기본값(계획 값)이 실제와 같다고 확인 — 잘못된 칸이 있으면 먼저 고치도록 안내
+    const r = parseTime(row.h, row.m);
+    if (r.error) { refreshRow(); msg.textContent = r.error; return; }
+    markConfirmed();
+    autoSave(kind);
+    if (!$("actualMsg").classList.contains("bad")) $("actualMsg").textContent = "'" + row.name + "' 활동을 " + formatMinutes(r.minutes) + "으로 확인하고 자동 저장했어요.";
+  });
   if (removeBtn) removeBtn.addEventListener("click", function () {
     draft.splice(index, 1);
     autoSave(kind);
@@ -740,9 +824,12 @@ function updateTotals(kind) {
   $(kind + "Bar").style.width = Math.min(100, sum.total / DAY_MINUTES * 100) + "%";
   box.classList.remove("over", "full");
   fill.hidden = true;
-  if (sum.badCount > 0) {
-    stateEl.textContent = "잘못 입력된 칸이 " + sum.badCount + "개 있어요. 그 칸은 합계에서 빠져 있어요. 안내에 따라 고쳐 주세요.";
+  const shownBad = sum.badCount - sum.typingBad;   // 입력 중인 칸은 아직 경고하지 않는다
+  if (shownBad > 0) {
+    stateEl.textContent = "잘못 입력된 칸이 " + shownBad + "개 있어요. 그 칸은 합계에서 빠져 있어요. 안내에 따라 고쳐 주세요.";
     box.classList.add("over");
+  } else if (sum.typingBad > 0) {
+    stateEl.textContent = "입력 중인 칸은 칸을 벗어나면 확인해서 합계에 넣어요.";
   } else if (sum.total === DAY_MINUTES) {
     stateEl.textContent = "딱 24시간이에요. 초과·" + leftWord + " 없음.";
     box.classList.add("full");
@@ -758,16 +845,20 @@ function updateTotals(kind) {
 }
 
 // 입력이 바뀔 때마다 바로 저장 (잘못된 입력이면 저장하지 않고 안내)
-function autoSave(kind) {
-  if (kind === "plan") savePlan(); else saveActual();
+// quiet = true: 입력 중이라 잘못된 입력이어도 경고를 띄우지 않는다 (칸을 벗어날 때 다시 확인)
+function autoSave(kind, quiet) {
+  if (kind === "plan") savePlan(quiet); else saveActual(quiet);
 }
 
 function renderStatusLines() {
   const day = getDay(selectedDate);
   $("planStatus").textContent = prettyDate(selectedDate) + " · " + (day && day.plan ? "저장된 계획이 있어요." : "아직 저장된 계획이 없어요.");
   let a = prettyDate(selectedDate) + " · ";
-  if (day && day.actual) a += "저장된 실제 기록이 있어요.";
-  else if (day && day.plan) a += "계획 시간을 기본값으로 보여 줘요. 실제로 다른 활동만 고쳐 주세요.";
+  if (day && day.actual) {
+    const unchecked = day.actual.filter(function (x) { return x.confirmed === false; }).length;
+    a += "저장된 실제 기록이 있어요." + (unchecked ? " 아직 확인하지 않은 기본값 활동이 " + unchecked + "개 있어요." : "");
+  }
+  else if (day && day.plan) a += "계획 시간을 기본값으로 보여 줘요. 실제로 다른 활동은 고치고, 계획대로 한 활동은 '확인'을 눌러 주세요.";
   else a += "이 날짜에는 계획이 없어요. 계획 없이 실제 시간만 기록할 수도 있어요.";
   $("actualStatus").textContent = a;
 }
@@ -783,7 +874,8 @@ function renderCompare() {
     b.setAttribute("aria-pressed", key === selectedDate ? "true" : "false");
     b.appendChild(document.createTextNode(prettyDate(key)));
     const s = document.createElement("small");
-    s.textContent = !day ? "기록 없음" : (day.plan ? "계획" : "계획 없음") + " · " + (day.actual ? "실제" : "실제 없음");
+    const someUnchecked = day && day.actual && day.actual.some(function (x) { return x.confirmed === false; });
+    s.textContent = !day ? "기록 없음" : (day.plan ? "계획" : "계획 없음") + " · " + (day.actual ? (someUnchecked ? "실제(일부 미확인)" : "실제") : "실제 없음");
     b.appendChild(s);
     b.addEventListener("click", function () { changeDate(key); });
     list.appendChild(b);
@@ -815,24 +907,28 @@ function renderCompare() {
   table.appendChild(thead);
   const tbody = document.createElement("tbody");
   const reasons = [];
+  let uncheckedCount = 0;      // 손대지 않은 기본값(미확인) 활동 수
   names.forEach(function (name) {
     const p = day.plan ? day.plan.find(function (a) { return a.name === name; }) : null;
     const ac = day.actual ? day.actual.find(function (a) { return a.name === name; }) : null;
+    const unchecked = ac && ac.confirmed === false;
+    if (unchecked) uncheckedCount++;
     const planText = !day.plan ? "계획 없음" : (p ? formatMinutes(p.minutes) : "계획에 없음");
-    const actualText = !day.actual ? "기록 없음" : (ac ? formatMinutes(ac.minutes) : "기록에 없음");
-    const diffText = (p && ac) ? formatDiff(ac.minutes - p.minutes) : "-";
+    const actualText = !day.actual ? "기록 없음" : (!ac ? "기록에 없음" : (unchecked ? UNCHECKED_TEXT : formatMinutes(ac.minutes)));
+    const diffText = (p && ac && !unchecked) ? formatDiff(ac.minutes - p.minutes) : "-";
     tbody.appendChild(makeTableRow([name, planText, actualText, diffText], "td"));
-    if (ac && (ac.reason || ac.memo)) reasons.push({ name: name, reason: ac.reason, memo: ac.memo });
+    if (ac && !unchecked && (ac.reason || ac.memo)) reasons.push({ name: name, reason: ac.reason, memo: ac.memo });
   });
   table.appendChild(tbody);
   const tfoot = document.createElement("tfoot");
   const planSum = day.plan ? day.plan.reduce(function (s, a) { return s + a.minutes; }, 0) : null;
-  const actualSum = day.actual ? day.actual.reduce(function (s, a) { return s + a.minutes; }, 0) : null;
+  // 실제 합계는 확인한 활동만 더한다 (기본값을 실제로 쓴 시간처럼 보이지 않도록)
+  const actualSum = day.actual ? day.actual.reduce(function (s, a) { return a.confirmed === false ? s : s + a.minutes; }, 0) : null;
   tfoot.appendChild(makeTableRow([
     "합계",
     planSum === null ? "-" : formatMinutes(planSum),
-    actualSum === null ? "-" : formatMinutes(actualSum),
-    (planSum !== null && actualSum !== null) ? formatDiff(actualSum - planSum) : "-"
+    actualSum === null ? "-" : formatMinutes(actualSum) + (uncheckedCount ? " (확인한 것만)" : ""),
+    (planSum !== null && actualSum !== null && uncheckedCount === 0) ? formatDiff(actualSum - planSum) : "-"
   ], "td"));
   table.appendChild(tfoot);
   const tableBox = document.createElement("div");   // 둥근 테두리 상자
@@ -843,7 +939,8 @@ function renderCompare() {
   // 미배분·미기록 안내
   const notes = [];
   if (planSum !== null && planSum < DAY_MINUTES) notes.push("계획 미배분 시간 " + formatMinutes(DAY_MINUTES - planSum));
-  if (actualSum !== null && actualSum < DAY_MINUTES) notes.push("미기록 시간 " + formatMinutes(DAY_MINUTES - actualSum));
+  if (uncheckedCount) notes.push("아직 확인하지 않은 기본값 활동 " + uncheckedCount + "개는 실제 합계와 차이에서 뺐어요. '실제 기록'에서 고치거나 '확인'을 누르면 실제 기록이 돼요");
+  else if (actualSum !== null && actualSum < DAY_MINUTES) notes.push("미기록 시간 " + formatMinutes(DAY_MINUTES - actualSum));
   if (notes.length) {
     const p = document.createElement("p");
     p.className = "act-plan";
@@ -884,6 +981,7 @@ function makeTableRow(cells, tag) {
     const cell = document.createElement(tag);
     cell.textContent = c;
     if (c === "계획 없음" || c === "기록 없음" || c === "계획에 없음" || c === "기록에 없음") cell.className = "none";
+    if (c === UNCHECKED_TEXT) cell.className = "unchecked";
     tr.appendChild(cell);
   });
   return tr;
@@ -901,6 +999,7 @@ function showTab(name) {
 // 날짜를 바꾸면 그 날짜의 계획·실제 기록을 다시 불러온다
 function changeDate(key) {
   selectedDate = key;
+  typingRow = null;
   const opened = getDay(key);
   planBaseline = (opened && opened.plan) ? opened.plan.map(function (a) { return { name: a.name, minutes: a.minutes }; }) : null;
   planDraft = makePlanDraft(key);
@@ -940,9 +1039,10 @@ function blockTooOld(msgId) {
   return true;
 }
 
-function savePlan() {
+function savePlan(quiet) {
   if (blockTooOld("planMsg")) return;
   const sum = sumDraft(planDraft);
+  if (quiet && (sum.badCount > 0 || sum.total > DAY_MINUTES)) { setMessage("planMsg", ""); return; }
   if (sum.badCount > 0) { setMessage("planMsg", "잘못 입력된 칸이 있어 자동 저장하지 않았어요. 빨간 안내가 있는 칸을 고치면 다시 저장돼요.", true); return; }
   if (sum.total > DAY_MINUTES) { setMessage("planMsg", "합계가 24시간보다 " + formatMinutes(sum.total - DAY_MINUTES) + " 많아 자동 저장하지 않았어요. 시간을 줄이면 다시 저장돼요.", true); return; }
   if (!records[selectedDate]) records[selectedDate] = {};
@@ -956,9 +1056,10 @@ function savePlan() {
   updateTotals("plan");
 }
 
-function saveActual() {
+function saveActual(quiet) {
   if (blockTooOld("actualMsg")) return;
   const sum = sumDraft(actualDraft);
+  if (quiet && (sum.badCount > 0 || sum.total > DAY_MINUTES)) { setMessage("actualMsg", ""); return; }
   if (sum.badCount > 0) { setMessage("actualMsg", "잘못 입력된 칸이 있어 자동 저장하지 않았어요. 빨간 안내가 있는 칸을 고치면 다시 저장돼요.", true); return; }
   if (sum.total > DAY_MINUTES) { setMessage("actualMsg", "합계가 24시간보다 " + formatMinutes(sum.total - DAY_MINUTES) + " 많아 자동 저장하지 않았어요. 시간을 줄이면 다시 저장돼요.", true); return; }
   if (!records[selectedDate]) records[selectedDate] = {};
@@ -967,7 +1068,8 @@ function saveActual() {
     const pm = planMinutesOf(selectedDate, row.name);
     const differs = pm !== null && pm !== minutes;
     // 계획과 다른 활동만 이유·메모를 저장 (사용자가 적은 그대로)
-    return { name: row.name, minutes: minutes, reason: differs ? row.reason : "", memo: differs ? row.memo.trim() : "" };
+    return { name: row.name, minutes: minutes, reason: differs ? row.reason : "", memo: differs ? row.memo.trim() : "",
+      confirmed: !!row.confirmed };   // 손대지 않은 활동은 '미확인(기본값)'으로 따로 남긴다
   });
   const removed = pruneOldRecords();
   const actualSaved = finishSave("actualMsg", "실제 기록", removed);
@@ -980,7 +1082,7 @@ function addActivity(kind) {
   const name = input.value.trim();
   const err = checkNewName(name, draft);
   if (err) { setMessage(kind + "Msg", err, true); return; }
-  draft.push({ name: name, h: "0", m: "0", custom: true, reason: "", memo: "" });
+  draft.push({ name: name, h: "0", m: "0", custom: true, reason: "", memo: "", confirmed: false });
   input.value = "";
   renderRows(kind);
   autoSave(kind);
@@ -993,6 +1095,7 @@ function fillFor(kind) {
   if (!draft[idx]) return;
   const err = fillRemaining(draft, idx);
   if (err) { setMessage(kind + "Msg", err, true); return; }
+  if (kind === "actual") draft[idx].confirmed = true;   // 직접 더한 활동은 확인한 기록
   renderRows(kind);
   autoSave(kind);
 }
