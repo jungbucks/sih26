@@ -88,15 +88,12 @@
         font-weight: 600;
         color: var(--muted);
       }
-      .style-group span {
-        margin-left: 6px;
-        font-weight: 400;
-      }
       .style-group:first-child {
         margin-top: 0;
       }
       .style-card {
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
         gap: 6px;
         min-height: 44px;
         padding: 12px;
@@ -115,8 +112,7 @@
         border-color: var(--ink);
         box-shadow: 0 0 0 2px var(--ink);
       }
-      .style-card:focus-visible,
-      .font-chip:focus-visible {
+      .style-card:focus-visible {
         outline: 3px solid var(--focus);
         outline-offset: 2px;
       }
@@ -173,38 +169,34 @@
         word-break: keep-all;
       }
       /* 샘플 앱: 모든 값이 --p-* 변수에서 온다 */
-      #preview {
+      .pv {
         padding: 20px;
         border: 1px solid var(--line-strong);
         border-radius: 20px;
         background-color: var(--p-bg);
-        background-image: var(--p-pattern, none);
-        background-size: var(--p-pattern-size, auto);
-        background-position: var(--p-pattern-pos, 0 0);
         color: var(--p-text);
         font-family: var(--p-font);
         line-height: 1.6;
         word-break: keep-all;
         transition: background 0.2s;
       }
-      #preview h2 {
+      .pv h2 {
         margin: 0;
         font-family: var(--p-title-font);
         font-size: 24px;
-        text-shadow: var(--p-title-shadow, none);
         font-weight: 700;
         line-height: 1.3;
       }
-      #preview .p-sub {
+      .pv .p-sub {
         margin: 4px 0 16px;
         font-size: 14px;
         color: var(--p-mute);
       }
-      #preview .p-row {
+      .pv .p-row {
         display: flex;
         gap: 8px;
       }
-      #preview .p-input {
+      .pv .p-input {
         flex: 1;
         min-width: 0;
         padding: 10px 12px;
@@ -214,7 +206,7 @@
         color: var(--p-mute);
         font-size: 15px;
       }
-      #preview .p-btn {
+      .pv .p-btn {
         padding: 10px 16px;
         border: var(--p-btn-border, 0);
         border-radius: var(--p-btn-radius);
@@ -226,42 +218,35 @@
         font-weight: 700;
         white-space: nowrap;
       }
-      #preview .p-result {
+      .pv .p-result {
         margin: 16px 0;
         padding: 16px;
         border-radius: var(--p-radius);
         background: var(--p-block);
         box-shadow: var(--p-shadow);
       }
-      #preview .p-result small {
+      .pv .p-result small {
         font-size: 13px;
         color: var(--p-mute);
       }
-      #preview .p-result strong {
+      .pv .p-result strong {
         display: block;
         font-family: var(--p-title-font);
         font-size: 28px;
         line-height: 1.3;
       }
-      #preview .p-result em {
+      .pv .p-result em {
         font-style: normal;
         color: var(--p-accent-text);
       }
-      #preview .p-input,
-      #preview .p-result,
-      #preview li,
-      #preview .p-ghost {
-        -webkit-backdrop-filter: blur(var(--p-blur, 0px));
-        backdrop-filter: blur(var(--p-blur, 0px));
-      }
-      #preview ul {
+      .pv ul {
         display: grid;
         gap: 8px;
         margin: 0 0 16px;
         padding: 0;
         list-style: none;
       }
-      #preview li {
+      .pv li {
         display: flex;
         align-items: center;
         gap: 10px;
@@ -272,22 +257,22 @@
         box-shadow: var(--p-shadow);
         font-size: 15px;
       }
-      #preview li .box {
+      .pv li .box {
         flex: none;
         width: 18px;
         height: 18px;
         border: 2px solid var(--p-mute);
         border-radius: 4px;
       }
-      #preview li.done .box {
+      .pv li.done .box {
         border-color: var(--p-accent);
         background: var(--p-accent);
       }
-      #preview li.done span:last-child {
+      .pv li.done span:last-child {
         color: var(--p-mute);
         text-decoration: line-through;
       }
-      #preview .p-ghost {
+      .pv .p-ghost {
         width: 100%;
         padding: 10px;
         border: var(--p-bw, 1px) solid var(--p-border);
@@ -297,26 +282,6 @@
         color: var(--p-text);
         font: inherit;
         font-size: 15px;
-      }
-      #fonts {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-      .font-chip {
-        min-height: 40px;
-        padding: 6px 14px;
-        border: 1px solid var(--line-strong);
-        border-radius: 999px;
-        background: var(--canvas);
-        color: var(--ink);
-        font-size: 15px;
-        cursor: pointer;
-      }
-      .font-chip[aria-pressed="true"] {
-        border-color: var(--ink);
-        background: var(--ink);
-        color: var(--canvas);
       }
       .chosen {
         margin: 0 0 8px;
@@ -377,6 +342,7 @@
       }
       .trend-card {
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
         gap: 4px;
         align-content: start;
         min-height: 44px;
@@ -460,19 +426,8 @@
         margin: 10px 0 0;
         font-weight: 600;
       }
-      #trend-info .trend-match {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 6px 8px;
-        margin: 12px 0 0;
-        color: var(--muted);
-      }
-      #trend-info .font-chip {
-        color: var(--ink);
-      }
       /* 샘플 앱의 트렌드 층: 평소엔 숨은 장식 요소를 트렌드가 켤 때만 보여 준다 */
-      #preview {
+      .pv {
         position: relative;
         overflow: hidden;
         min-width: 0;
@@ -481,21 +436,21 @@
       .design-side > section {
         min-width: 0;
       }
-      #preview .p-banner,
-      #preview .p-sticker,
-      #preview .p-kicker,
-      #preview .p-marquee {
+      .pv .p-banner,
+      .pv .p-sticker,
+      .pv .p-kicker,
+      .pv .p-marquee {
         display: none;
       }
       /* T01 리퀴드 글래스: 버튼만 두꺼운 유리, 뒤에 강조색 빛 */
-      #preview[data-trend="T01"] {
+      .pv[data-trend="T01"] {
         background-image:
           radial-gradient(circle at 85% 18%, color-mix(in srgb, var(--p-accent) 45%, transparent) 0, transparent 38%),
           radial-gradient(circle at 10% 95%, color-mix(in srgb, var(--p-accent) 30%, transparent) 0, transparent 40%);
         background-size: 100% 100%;
       }
-      #preview[data-trend="T01"] .p-btn,
-      #preview[data-trend="T01"] .p-ghost {
+      .pv[data-trend="T01"] .p-btn,
+      .pv[data-trend="T01"] .p-ghost {
         border: 1px solid rgba(255, 255, 255, 0.6);
         background: color-mix(in srgb, var(--p-surface) 45%, transparent);
         color: var(--p-text);
@@ -507,65 +462,65 @@
           0 8px 24px rgba(0, 0, 0, 0.12);
       }
       /* T02 벤토 그리드: 크기가 다른 칸이 맞물림 */
-      #preview[data-trend="T02"] {
+      .pv[data-trend="T02"] {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 10px;
       }
-      #preview[data-trend="T02"] > h2,
-      #preview[data-trend="T02"] > .p-sub,
-      #preview[data-trend="T02"] > .p-row,
-      #preview[data-trend="T02"] > .p-ghost {
+      .pv[data-trend="T02"] > h2,
+      .pv[data-trend="T02"] > .p-sub,
+      .pv[data-trend="T02"] > .p-row,
+      .pv[data-trend="T02"] > .p-ghost {
         grid-column: 1 / -1;
       }
-      #preview[data-trend="T02"] .p-sub {
+      .pv[data-trend="T02"] .p-sub {
         margin-bottom: 4px;
       }
-      #preview[data-trend="T02"] .p-result {
+      .pv[data-trend="T02"] .p-result {
         grid-row: span 3;
         display: grid;
         align-content: end;
         margin: 0;
         border-radius: max(var(--p-radius), 16px);
       }
-      #preview[data-trend="T02"] ul {
+      .pv[data-trend="T02"] ul {
         display: contents;
       }
-      #preview[data-trend="T02"] li {
+      .pv[data-trend="T02"] li {
         border-radius: max(var(--p-radius), 16px);
       }
       /* T03 다크 테크: 결과 뒤 은은한 빛, 카드 윗변 하이라이트 */
-      #preview[data-trend="T03"] {
+      .pv[data-trend="T03"] {
         background-image: radial-gradient(ellipse at 50% -10%, color-mix(in srgb, var(--p-accent) 28%, transparent), transparent 60%);
         background-size: 100% 100%;
       }
-      #preview[data-trend="T03"] .p-result {
+      .pv[data-trend="T03"] .p-result {
         box-shadow:
           inset 0 1px 0 rgba(255, 255, 255, 0.08),
           0 0 48px color-mix(in srgb, var(--p-accent) 30%, transparent);
         font-variant-numeric: tabular-nums;
       }
-      #preview[data-trend="T03"] li {
+      .pv[data-trend="T03"] li {
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
       }
       /* T04 에디토리얼: 머리말, 큰 명조 제목, 상자 대신 가는 줄 */
-      #preview[data-trend="T04"] .p-kicker {
+      .pv[data-trend="T04"] .p-kicker {
         display: block;
         margin: 0 0 6px;
         color: var(--p-mute);
         font-size: 13px;
         letter-spacing: 0.12em;
       }
-      #preview[data-trend="T04"] h2 {
+      .pv[data-trend="T04"] h2 {
         font-size: 34px;
         line-height: 1.2;
       }
-      #preview[data-trend="T04"] .p-sub {
+      .pv[data-trend="T04"] .p-sub {
         margin-bottom: 20px;
         padding-bottom: 14px;
         border-bottom: 1px solid var(--p-border);
       }
-      #preview[data-trend="T04"] .p-result {
+      .pv[data-trend="T04"] .p-result {
         margin: 20px 0;
         padding: 0 0 0 14px;
         border-left: 3px solid var(--p-accent);
@@ -573,13 +528,13 @@
         background: none;
         box-shadow: none;
       }
-      #preview[data-trend="T04"] .p-result strong {
+      .pv[data-trend="T04"] .p-result strong {
         font-size: 32px;
       }
-      #preview[data-trend="T04"] ul {
+      .pv[data-trend="T04"] ul {
         gap: 0;
       }
-      #preview[data-trend="T04"] li {
+      .pv[data-trend="T04"] li {
         border: 0;
         border-bottom: 1px solid var(--p-border);
         border-radius: 0;
@@ -587,7 +542,7 @@
         box-shadow: none;
       }
       /* T05 키네틱 타이포: 큰 글자 띠가 흐름 */
-      #preview[data-trend="T05"] .p-marquee {
+      .pv[data-trend="T05"] .p-marquee {
         display: flex;
         width: max-content;
         margin: 6px 0 14px;
@@ -599,9 +554,9 @@
         white-space: nowrap;
         animation: tr-marquee 15s linear infinite;
       }
-      #preview[data-trend="T05"] .p-result em {
+      .pv[data-trend="T05"] .p-result em {
         display: inline-block;
-        animation: tr-rise 2.4s ease-out infinite;
+        animation: tr-rise 0.6s ease-out 0.3s both;
       }
       @keyframes tr-marquee {
         to {
@@ -613,24 +568,23 @@
           transform: translateY(60%);
           opacity: 0;
         }
-        20%,
         100% {
           transform: none;
           opacity: 1;
         }
       }
       /* T06 스크롤 3D(축소판): 목록 카드가 뒤로 눕혔다가 서며 다가옴 */
-      #preview[data-trend="T06"] ul {
+      .pv[data-trend="T06"] ul {
         perspective: 900px;
       }
-      #preview[data-trend="T06"] li {
+      .pv[data-trend="T06"] li {
         transform-origin: 50% 100%;
-        animation: tr-stand 3s ease-out infinite;
+        animation: tr-stand 0.9s ease-out both;
       }
-      #preview[data-trend="T06"] li:nth-child(2) {
+      .pv[data-trend="T06"] li:nth-child(2) {
         animation-delay: 0.2s;
       }
-      #preview[data-trend="T06"] li:nth-child(3) {
+      .pv[data-trend="T06"] li:nth-child(3) {
         animation-delay: 0.4s;
       }
       @keyframes tr-stand {
@@ -638,14 +592,13 @@
           transform: rotateX(25deg) translateY(12px);
           opacity: 0.4;
         }
-        35%,
         100% {
           transform: none;
           opacity: 1;
         }
       }
       /* T07 그레이니 그라데이션: 번진 색 + 입자 (바탕만) */
-      #preview[data-trend="T07"] {
+      .pv[data-trend="T07"] {
         background-image:
           url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E"),
           radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--p-accent) 38%, transparent), transparent 50%),
@@ -654,18 +607,18 @@
         background-position: 0 0;
       }
       /* T08 네오 브루탈리즘: 버튼·결과만 굵은 테두리 + 딱딱한 그림자 */
-      #preview[data-trend="T08"] .p-btn,
-      #preview[data-trend="T08"] .p-result {
+      .pv[data-trend="T08"] .p-btn,
+      .pv[data-trend="T08"] .p-result {
         border: 3px solid var(--p-text);
         border-radius: 6px;
         box-shadow: 4px 4px 0 var(--p-text);
       }
       /* T09 맥시멀리즘: 줄무늬 바탕, 스티커, 기울어진 카드 */
-      #preview[data-trend="T09"] {
+      .pv[data-trend="T09"] {
         background-image: repeating-linear-gradient(-45deg, var(--p-block) 0 14px, transparent 14px 28px);
         background-size: auto;
       }
-      #preview[data-trend="T09"] .p-sticker {
+      .pv[data-trend="T09"] .p-sticker {
         position: absolute;
         display: block;
         padding: 4px 10px;
@@ -676,42 +629,42 @@
         font-size: 13px;
         font-weight: 800;
       }
-      #preview[data-trend="T09"] .p-sticker-a {
+      .pv[data-trend="T09"] .p-sticker-a {
         top: 14px;
         right: 14px;
         transform: rotate(8deg);
       }
-      #preview[data-trend="T09"] .p-sticker-b {
+      .pv[data-trend="T09"] .p-sticker-b {
         top: 52px;
         right: 34px;
         background: var(--p-surface);
         color: var(--p-text);
         transform: rotate(-8deg);
       }
-      #preview[data-trend="T09"] h2,
-      #preview[data-trend="T09"] .p-sub {
+      .pv[data-trend="T09"] h2,
+      .pv[data-trend="T09"] .p-sub {
         display: table;
         padding: 0 6px;
         background: var(--p-bg);
       }
-      #preview[data-trend="T09"] .p-result {
+      .pv[data-trend="T09"] .p-result {
         border: 3px solid var(--p-text);
         transform: rotate(-1.5deg);
       }
-      #preview[data-trend="T09"] li:nth-child(odd) {
+      .pv[data-trend="T09"] li:nth-child(odd) {
         transform: rotate(0.6deg);
       }
-      #preview[data-trend="T09"] li:nth-child(even) {
+      .pv[data-trend="T09"] li:nth-child(even) {
         transform: rotate(-0.6deg);
       }
       /* T10 레트로 픽셀: 제목·숫자만 도트, 계단 그림자 */
-      #preview[data-trend="T10"] h2,
-      #preview[data-trend="T10"] .p-result strong {
+      .pv[data-trend="T10"] h2,
+      .pv[data-trend="T10"] .p-result strong {
         font-family: "Galmuri11", monospace;
         font-weight: 400;
         text-shadow: 2px 2px 0 color-mix(in srgb, var(--p-accent) 45%, transparent);
       }
-      #preview[data-trend="T10"] .p-btn {
+      .pv[data-trend="T10"] .p-btn {
         border-radius: 0;
         box-shadow:
           0 -2px 0 var(--p-text),
@@ -719,21 +672,21 @@
           -2px 0 0 var(--p-text),
           2px 0 0 var(--p-text);
       }
-      #preview[data-trend="T10"] li .box {
+      .pv[data-trend="T10"] li .box {
         border-radius: 0;
       }
       /* T11 스위스: 왼쪽 격자, 번호, 가로줄만 */
-      #preview[data-trend="T11"] h2 {
+      .pv[data-trend="T11"] h2 {
         font-size: 36px;
         font-weight: 800;
         letter-spacing: -0.02em;
         line-height: 1.1;
       }
-      #preview[data-trend="T11"] ul {
+      .pv[data-trend="T11"] ul {
         gap: 0;
         counter-reset: sw;
       }
-      #preview[data-trend="T11"] li {
+      .pv[data-trend="T11"] li {
         border: 0;
         border-top: 2px solid var(--p-text);
         border-radius: 0;
@@ -741,39 +694,39 @@
         box-shadow: none;
         counter-increment: sw;
       }
-      #preview[data-trend="T11"] li::before {
+      .pv[data-trend="T11"] li::before {
         content: counter(sw, decimal-leading-zero);
         min-width: 28px;
         font-weight: 800;
       }
-      #preview[data-trend="T11"] .p-result,
-      #preview[data-trend="T11"] .p-input,
-      #preview[data-trend="T11"] .p-btn,
-      #preview[data-trend="T11"] .p-ghost {
+      .pv[data-trend="T11"] .p-result,
+      .pv[data-trend="T11"] .p-input,
+      .pv[data-trend="T11"] .p-btn,
+      .pv[data-trend="T11"] .p-ghost {
         border-radius: 0;
         box-shadow: none;
       }
       /* T12 클레이: 버튼·체크·결과만 통통하게 */
-      #preview[data-trend="T12"] .p-btn,
-      #preview[data-trend="T12"] .p-result,
-      #preview[data-trend="T12"] li .box {
+      .pv[data-trend="T12"] .p-btn,
+      .pv[data-trend="T12"] .p-result,
+      .pv[data-trend="T12"] li .box {
         border-radius: 24px;
         box-shadow:
           6px 8px 18px color-mix(in srgb, var(--p-accent) 25%, transparent),
           inset -4px -4px 8px rgba(0, 0, 0, 0.1),
           inset 4px 4px 8px rgba(255, 255, 255, 0.6);
       }
-      #preview[data-trend="T12"] li .box {
+      .pv[data-trend="T12"] li .box {
         width: 22px;
         height: 22px;
         border: 0;
         background: color-mix(in srgb, var(--p-accent) 22%, var(--p-surface));
       }
-      #preview[data-trend="T12"] li.done .box {
+      .pv[data-trend="T12"] li.done .box {
         background: var(--p-accent);
       }
       /* T13 Y2K 크롬: 배너 한 줄만 */
-      #preview[data-trend="T13"] .p-banner {
+      .pv[data-trend="T13"] .p-banner {
         display: flex;
         justify-content: center;
         align-items: center;
@@ -784,18 +737,194 @@
         font-size: 20px;
         font-weight: 800;
       }
-      #preview[data-trend="T13"] .p-banner b,
-      #preview[data-trend="T13"] .p-banner i {
+      .pv[data-trend="T13"] .p-banner b,
+      .pv[data-trend="T13"] .p-banner i {
         background: linear-gradient(180deg, #ffffff 0%, #b8c0cc 45%, #5b6472 50%, #e9edf2 100%);
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
         font-style: normal;
       }
+      .pv.is-dark[data-trend="T13"] .p-banner {
+        background: linear-gradient(180deg, #f5f7fa 0%, #b8c0cc 48%, #8d96a3 52%, #e9edf2 100%);
+      }
+      .pv.is-dark[data-trend="T13"] .p-banner b,
+      .pv.is-dark[data-trend="T13"] .p-banner i {
+        background: none;
+        color: #111111;
+      }
+      /* 휴대폰: 고르는 동안 보이는 작은 미리보기 (전체 미리보기가 화면에 보이면 숨김) */
+      .pv-dock {
+        display: none;
+      }
+      .pv-dock-frame {
+        display: block;
+        height: 196px;
+        overflow: hidden;
+        cursor: pointer;
+      }
+      .pv-mini {
+        width: 340px;
+        box-sizing: border-box;
+        border: 0;
+        border-radius: 0;
+        transform: scale(0.44);
+        transform-origin: top left;
+        pointer-events: none;
+      }
+      .pv-dock-link {
+        display: block;
+        padding: 8px;
+        border-top: 1px solid var(--line);
+        color: var(--ink);
+        font-size: 13px;
+        text-align: center;
+        text-decoration: none;
+      }
+      .pv-dock-link:focus-visible {
+        outline: 3px solid var(--focus);
+        outline-offset: -3px;
+      }
+      /* 트렌드 카드 견본: 모양만이 아니라 배치·질감·움직임의 차이를 작게 그린다 (색은 --m-*) */
+      .mini-extra {
+        position: absolute;
+        inset: 0;
+      }
+      .m-T01 {
+        background-image: radial-gradient(circle at 82% 40%, color-mix(in srgb, var(--m-accent) 60%, transparent), transparent 48%);
+      }
+      .m-T01 .mini-btn {
+        border: 1px solid rgba(255, 255, 255, 0.85) !important;
+        background: color-mix(in srgb, #ffffff 40%, transparent) !important;
+        box-shadow: inset 0 1px 0 #ffffff, 0 4px 10px rgba(0, 0, 0, 0.15) !important;
+      }
+      .m-T02 .mini-card,
+      .m-T05 .mini-card,
+      .m-T11 .mini-card {
+        display: none !important;
+      }
+      .mini-bento {
+        position: absolute;
+        inset: 6px 40% 6px 8px;
+        display: grid;
+        grid-template-columns: 1.3fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 3px;
+      }
+      .mini-bento b {
+        display: block;
+        border: 1px solid var(--m-border);
+        border-radius: 5px;
+        background: var(--m-surface);
+      }
+      .mini-bento b:first-child {
+        grid-row: span 2;
+        background: var(--m-block);
+      }
+      .m-T03 .mini-btn {
+        box-shadow: 0 0 14px color-mix(in srgb, var(--m-accent) 75%, transparent) !important;
+      }
+      .m-T04 .mini-card {
+        border: 0 !important;
+        border-bottom: 1px solid var(--m-mute) !important;
+        border-radius: 0 !important;
+        background: none !important;
+      }
+      .m-T04 .mini-title {
+        height: 11px !important;
+        border-radius: 1px !important;
+      }
+      .mini-kin {
+        position: absolute;
+        top: 50%;
+        left: -8px;
+        color: var(--m-accent-text);
+        font: 800 24px/1 "Paperlogy", sans-serif;
+        letter-spacing: -0.02em;
+        white-space: nowrap;
+        transform: translateY(-50%);
+      }
+      .m-T06 {
+        perspective: 120px;
+      }
+      .m-T06 .mini-card {
+        transform: rotateX(26deg);
+        transform-origin: 50% 100%;
+      }
+      .m-T07 {
+        background-image:
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E"),
+          radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--m-accent) 45%, transparent), transparent 60%),
+          radial-gradient(circle at 90% 90%, var(--m-block), transparent 60%);
+      }
+      .m-T09 {
+        background-image: repeating-linear-gradient(-45deg, var(--m-block) 0 6px, transparent 6px 12px);
+      }
+      .m-T09 .mini-card {
+        transform: rotate(-3deg);
+      }
+      .mini-sticker {
+        position: absolute;
+        top: 4px;
+        left: 50%;
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--m-text);
+        border-radius: 50%;
+        background: var(--m-accent);
+      }
+      .mini-swiss {
+        position: absolute;
+        inset: 8px 40% 8px 8px;
+        display: grid;
+        align-content: center;
+        gap: 3px;
+      }
+      .mini-swiss b {
+        display: block;
+        padding-top: 1px;
+        border-top: 2px solid var(--m-text);
+        color: var(--m-text);
+        font: 800 8px/1.3 sans-serif;
+      }
+      .m-T12 .mini-card {
+        border: 0 !important;
+        border-radius: 14px !important;
+        box-shadow:
+          4px 5px 10px color-mix(in srgb, var(--m-accent) 30%, transparent),
+          inset -2px -2px 4px rgba(0, 0, 0, 0.08),
+          inset 2px 2px 4px rgba(255, 255, 255, 0.7) !important;
+      }
+      .mini-banner {
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 0;
+        display: grid;
+        place-items: center;
+        height: 14px;
+        background: #111111;
+      }
+      .mini-banner b {
+        display: block;
+        width: 50%;
+        height: 6px;
+        border-radius: 3px;
+        background: linear-gradient(180deg, #ffffff, #b8c0cc 45%, #5b6472 50%, #e9edf2);
+      }
+      .m-T13.m-dark .mini-banner {
+        background: linear-gradient(180deg, #f5f7fa, #b8c0cc 48%, #8d96a3 52%, #e9edf2);
+      }
+      .m-T13.m-dark .mini-banner b {
+        background: #111111;
+      }
+      .m-T13 .mini-card {
+        top: 20px !important;
+      }
       @media (prefers-reduced-motion: reduce) {
-        #preview .p-marquee,
-        #preview li,
-        #preview .p-result em {
+        .pv .p-marquee,
+        .pv li,
+        .pv .p-result em {
           animation: none !important;
         }
       }
@@ -810,6 +939,29 @@
         }
         .design-side {
           position: static;
+          order: 2;
+        }
+        .design-pick {
+          display: contents;
+        }
+        .step-late {
+          order: 3;
+        }
+        .pv-dock {
+          position: fixed;
+          right: 12px;
+          bottom: 12px;
+          z-index: 20;
+          display: block;
+          width: 152px;
+          overflow: hidden;
+          border: 1px solid var(--line-strong);
+          border-radius: 14px;
+          background: var(--canvas);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+        }
+        .pv-dock[hidden] {
+          display: none;
         }
       }
       @media (max-width: 540px) {
@@ -842,15 +994,29 @@
             <div id="colors"></div>
           </section>
           <section aria-labelledby="trend-title">
-            <h2 class="step-title" id="trend-title"><span>2</span>2026 트렌드 고르기 (14개)</h2>
-            <p class="hint">모양·배치·움직임·글꼴을 정해요. 카드의 견본은 1에서 고른 색으로 그려져요.</p>
+            <h2 class="step-title" id="trend-title"><span>2</span>2026 트렌드 고르기 (기본 + 13종)</h2>
+            <p class="hint">모양·배치·움직임·글꼴을 정해요. 카드의 견본은 1에서 고른 색으로 그려져요. '떠오름·한풀 꺾임'은 요즘 유행의 흐름일 뿐이니, 내 작품에 어울리면 무엇이든 좋아요.</p>
             <div id="trends"></div>
-            <div id="trend-info" hidden></div>
+            <div id="trend-info" hidden aria-live="polite"></div>
+          </section>
+          <section class="step-late">
+            <label class="step-title" for="extra"><span>3</span>그 밖에 바꾸고 싶은 디자인 (선택)</label>
+            <p class="hint">예) 결과 숫자를 더 크게, 버튼을 화면 아래쪽에</p>
+            <textarea id="extra" rows="2"></textarea>
+          </section>
+          <section class="step-late" aria-labelledby="prompt-title">
+            <h2 class="step-title" id="prompt-title"><span>4</span>프롬프트 복사</h2>
+            <p class="chosen" aria-live="polite">선택: <b id="chosen"></b></p>
+            <textarea id="prompt" readonly aria-label="완성된 디자인 수정 프롬프트"></textarea>
+            <div class="copy-row">
+              <button id="copy" class="button primary" type="button">프롬프트 복사</button>
+              <span id="copy-status" role="status"></span>
+            </div>
           </section>
         </div>
         <div class="design-side">
           <section aria-label="샘플 앱 미리보기">
-            <div id="preview">
+            <div id="preview" class="pv">
               <p class="p-banner" aria-hidden="true"><i>✦</i><b>이번 주 완료 챌린지</b><i>✦</i></p>
               <span class="p-sticker p-sticker-a" aria-hidden="true">NEW!</span>
               <span class="p-sticker p-sticker-b" aria-hidden="true">★ 오늘</span>
@@ -874,21 +1040,11 @@
               <button class="p-ghost" type="button" tabindex="-1">완료한 일 지우기</button>
             </div>
           </section>
-          <section>
-            <label class="step-title" for="extra"><span>3</span>그 밖에 바꾸고 싶은 디자인 (선택)</label>
-            <p class="hint">예) 결과 숫자를 더 크게, 버튼을 화면 아래쪽에</p>
-            <textarea id="extra" rows="2"></textarea>
-          </section>
-          <section aria-labelledby="prompt-title">
-            <h2 class="step-title" id="prompt-title"><span>4</span>프롬프트 복사</h2>
-            <p class="chosen">선택: <b id="chosen"></b></p>
-            <textarea id="prompt" readonly aria-label="완성된 디자인 수정 프롬프트"></textarea>
-            <div class="copy-row">
-              <button id="copy" class="button primary" type="button">프롬프트 복사</button>
-              <span id="copy-status" role="status"></span>
-            </div>
-          </section>
         </div>
+      </div>
+      <div class="pv-dock" id="pv-dock" hidden>
+        <div class="pv-dock-frame" id="pv-dock-frame" aria-hidden="true"><div class="pv pv-mini" id="preview-mini" inert></div></div>
+        <a class="pv-dock-link" href="#preview">미리보기 크게 보기</a>
       </div>
       <p class="design-note">
         컬러셋은 VoltAgent의 awesome-design-md(MIT 라이선스)가 공개 웹사이트에서 관찰해 모은 DESIGN.md, 선생님 디자인 지침의

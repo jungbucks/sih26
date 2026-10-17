@@ -33,7 +33,6 @@ export const FONTS = {
     file: "Paperlogy-7Bold.woff2",
     weight: "700",
     feel: "힘 있는 제목 (본문은 고딕)",
-    titleOnly: true,
   },
   F5: {
     name: "픽셀 글꼴",
@@ -42,13 +41,6 @@ export const FONTS = {
     bold: "Galmuri11-Bold.woff2",
     weight: "400",
     feel: "옛 컴퓨터·게임 화면",
-  },
-  F6: {
-    name: "코딩 글꼴(고정폭)",
-    family: "GalmuriMono11",
-    file: "GalmuriMono11.woff2",
-    weight: "400",
-    feel: "모든 글자 폭이 같은 터미널 화면",
   },
 };
 
@@ -236,10 +228,10 @@ export const TRENDS = [
     def: "잡지 지면처럼 큰 명조 제목, 넉넉한 여백, 가는 줄",
     fits: "다이어리·추천·소개·읽을거리 앱", avoid: "빨리 눌러야 하는 게임·계산기(정보가 느리게 읽혀요)",
     font: "F1", titleFont: "F3",
-    shape: () => ({ radius: 0, btnRadius: 2, shadow: "none" }),
+    shape: () => ({ radius: 0, btnRadius: 2, shadow: "none", boxless: "1px 가는 줄" }),
     lines: (c) => [
       "- 제목(h1)은 명조로 크게(36~44px), 줄 간격 1.2. 제목 위에 작은 머리말(13px, 자간 넓게)을 한 줄",
-      `- 카드 상자를 없애고 항목 사이를 가는 줄(1px ${c.border})로만 나눠. 여백은 지금의 1.5배`,
+      "- 여백은 지금의 1.5배로 넉넉하게",
       "- 핵심 결과 숫자는 명조로 크게, 설명은 본문 글꼴로 작게 — 잡지의 큰 인용구처럼",
       "- 왼쪽 정렬, 한 줄 길이는 40자 안팎으로 제한(max-width)",
     ],
@@ -331,11 +323,11 @@ export const TRENDS = [
     def: "엄격한 격자, 굵은 고딕, 장식 없음",
     fits: "계산기·시간표·정보 정리 도구", avoid: "다정해야 하는 앱(차갑고 딱딱해요)",
     font: "F1",
-    shape: () => ({ radius: 0, btnRadius: 0, shadow: "none" }),
+    shape: () => ({ radius: 0, btnRadius: 0, shadow: "none", boxless: "2px 가로줄" }),
     lines: (c) => [
       "- 12칸 격자를 정하고 모든 요소의 왼쪽 끝을 격자선에 맞춰 줘. 가운데 정렬 금지",
       "- 제목은 아주 굵고 크게(40px 이상), 자간 -0.02em. 나머지 글자 크기는 3단계만",
-      `- 목록 앞에 01·02·03 번호를 굵게, 항목 사이는 가로줄(2px ${c.text})로만 구분`,
+      "- 목록 앞에 01·02·03 번호를 굵게",
       "- 강조색은 한 곳(가장 중요한 버튼)에만",
     ],
     dont: "그림자·그라데이션·아이콘 장식 넣기",
@@ -362,12 +354,19 @@ export const TRENDS = [
     fits: "이벤트·챌린지·음악 앱의 알림 띠", avoid: "화면 전체(배너로만 써야 촌스럽지 않아요)",
     font: "F2",
     shape: (c) => ({ radius: 24, btnRadius: 999, shadow: "none", btnShadow: `inset 0 2px 0 rgba(255,255,255,.45), 0 4px 12px color-mix(in srgb, ${c.accent} 35%, transparent)` }),
-    lines: () => [
-      "- 화면 맨 위에 배너 한 줄만 추가: 어두운 바탕(#111) 위에 작품의 핵심 문구를 크롬 글자로",
-      "- 크롬 글자: background: linear-gradient(180deg,#fff 0%,#b8c0cc 45%,#5b6472 50%,#e9edf2 100%); -webkit-background-clip: text; color: transparent;",
-      "- 양 끝에 반짝이 ✦ 두 개(장식, aria-hidden). 배너 밖 화면은 기본 모양 그대로",
-    ],
-    dont: "버튼·본문까지 크롬으로, 밝은 바탕 위에 크롬 글자(안 읽혀요)",
+    lines: (c) =>
+      c.isDark
+        ? [
+            "- 화면 맨 위에 배너 한 줄만 추가: 페이지가 어두우니 배너 바탕을 크롬 금속으로 — background: linear-gradient(180deg,#f5f7fa 0%,#b8c0cc 48%,#8d96a3 52%,#e9edf2 100%);",
+            "- 배너 글자는 작품의 핵심 문구를 #111111 굵게(대비 충분)",
+            "- 양 끝에 반짝이 ✦ 두 개(장식, aria-hidden). 배너 밖 화면은 위 2번 모양 그대로",
+          ]
+        : [
+            "- 화면 맨 위에 배너 한 줄만 추가: 어두운 바탕(#111111) 위에 작품의 핵심 문구를 크롬 글자로",
+            "- 크롬 글자: background: linear-gradient(180deg,#fff 0%,#b8c0cc 45%,#5b6472 50%,#e9edf2 100%); -webkit-background-clip: text; color: transparent;",
+            "- 양 끝에 반짝이 ✦ 두 개(장식, aria-hidden). 배너 밖 화면은 위 2번 모양 그대로",
+          ],
+    dont: "버튼·본문까지 크롬으로, 밝은 바탕 위에 크롬 글자 쓰기(안 읽혀요)",
   },
 ];
 
@@ -386,7 +385,7 @@ function fontFace(id) {
 }
 
 const stack = (id) =>
-  `"${FONTS[id].family}", ${id === "F3" ? "serif" : id === "F6" ? "monospace" : "sans-serif"}`;
+  `"${FONTS[id].family}", ${id === "F3" ? "serif" : "sans-serif"}`;
 
 export function buildPrompt(color, trend, extra) {
   const c = resolveColors(color, trend);
@@ -400,9 +399,13 @@ export function buildPrompt(color, trend, extra) {
   const out = [
     "[디자인 수정 요청]",
     `선택: 컬러셋 ${color.id} ${color.name}` + (c.flipped ? "(어두운 바탕)" : "") + ` · 트렌드 ${isBase ? "없음(기본)" : `${trend.id} ${trend.name}`}`,
-    `분위기: ${color.feel}` + (isBase ? "" : ` + ${trend.def}`),
+    `분위기: ${c.flipped ? `'${color.name}' 색을 어두운 바탕으로 바꾼 화면` : color.feel}` + (isBase ? "" : ` + ${trend.def}`),
     "",
-    sec("색 (이 값만 쓰고 다른 색은 더하지 마)"),
+    sec(
+      isBase
+        ? "색 (이 값만 쓰고 다른 색은 더하지 마)"
+        : "색 (이 값만 써. 3번 트렌드 기법에 적힌 효과용 색 — 그림자·빛·유리·무늬·배너 — 만 예외)",
+    ),
     `- 페이지 바탕 ${c.bg}, 카드·입력칸 바탕 ${c.surface}, 테두리 ${c.border}`,
     `- 글자 ${c.text}, 보조 글자 ${c.mute}`,
     `- 강조색 ${c.accent} (버튼 글자 ${c.onAccent}) — 가장 중요한 버튼과 핵심 결과 한두 곳에만`,
@@ -411,13 +414,13 @@ export function buildPrompt(color, trend, extra) {
   if (c.accentText !== c.accent) out.push(`- 바탕 위에 강조 글자를 쓸 때는 ${c.accentText}`);
   out.push(`- 결과·요약 카드 하나에 색 블록 ${c.block}를 써도 좋아`);
   const bw = sh.bw || 1;
-  out.push(
-    "",
-    sec("모양"),
-    `- 카드 모서리 ${shape(sh.radius)}, 버튼 모서리 ${shape(sh.btnRadius)}`,
-    `- 카드·입력칸 테두리 ${bw}px ${sh.borderColor || c.border}`,
-    `- 카드 그림자: ${sh.shadow === "none" ? "쓰지 않기" : sh.shadow}`,
-  );
+  out.push("", sec("모양"), `- 카드 모서리 ${shape(sh.radius)}, 버튼 모서리 ${shape(sh.btnRadius)}`);
+  if (sh.boxless)
+    out.push(
+      `- 목록·결과는 상자(테두리·바탕) 없이 항목 사이 ${sh.boxless}(${sh.boxless.startsWith("2") ? c.text : c.border})로만 나눠. 입력칸만 1px ${c.border} 테두리`,
+    );
+  else out.push(`- 카드·입력칸 테두리 ${bw}px ${sh.borderColor || c.border}`);
+  out.push(`- 카드 그림자: ${sh.shadow === "none" ? "쓰지 않기" : sh.shadow}`);
   if (sh.btnBorder) out.push(`- 버튼에도 ${bw}px ${sh.borderColor || c.border} 테두리`);
   if (sh.btnShadow) out.push(`- 버튼 그림자: ${sh.btnShadow}`);
   if (!isBase) {
@@ -479,6 +482,7 @@ function applyPreview(el, color, trend) {
 const store = {
   get() {
     try {
+      localStorage.removeItem("sih26-design");
       return JSON.parse(localStorage.getItem("sih26-design-v2") || "{}");
     } catch {
       return {};
@@ -492,10 +496,21 @@ const store = {
 };
 
 // 견본: 컬러셋 카드는 그 색의 미니 화면, 트렌드 카드는 '지금 고른 색'으로 그 트렌드 모양을 그린다.
-function miniHtml(c, sh) {
+const MINI_EXTRA = {
+  T02: '<span class="mini-bento"><b></b><b></b><b></b></span>',
+  T05: '<span class="mini-kin">오늘 할 일 오늘</span>',
+  T09: '<span class="mini-sticker"></span>',
+  T11: '<span class="mini-swiss"><b>01</b><b>02</b><b>03</b></span>',
+  T13: '<span class="mini-banner"><b></b></span>',
+};
+function miniHtml(c, sh, tid = "T00") {
   const bw = sh.bw || 1;
+  const vars =
+    `--m-surface:${c.surface};--m-text:${c.text};--m-mute:${c.mute};--m-border:${sh.borderColor || c.border};` +
+    `--m-accent:${c.accent};--m-accent-text:${c.accentText};--m-block:${c.block}`;
   return (
-    `<span class="mini" aria-hidden="true" style="background:${c.bg}">` +
+    `<span class="mini m-${tid}${c.isDark ? " m-dark" : ""}" aria-hidden="true" style="background-color:${c.bg};${vars}">` +
+    (MINI_EXTRA[tid] || "") +
     `<span class="mini-card" style="background:${c.surface};border:${bw}px solid ${sh.borderColor || c.border};border-radius:${Math.min(sh.radius, 10)}px;box-shadow:${sh.shadow}">` +
     `<i class="mini-title" style="background:${c.text}"></i><i class="mini-line" style="background:${c.mute}"></i></span>` +
     `<i class="mini-btn" style="background:${c.accent};border-radius:${sh.btnRadius >= 999 ? 999 : Math.min(sh.btnRadius, 6)}px;` +
@@ -513,7 +528,25 @@ function init() {
   const chosen = document.getElementById("chosen");
   const copyBtn = document.getElementById("copy");
   const status = document.getElementById("copy-status");
+  const dock = document.getElementById("pv-dock");
+  const mini = document.getElementById("preview-mini");
   if (!colorBox) return;
+
+  const syncDock = () => {
+    mini.innerHTML = preview.innerHTML;
+    mini.style.cssText = preview.style.cssText;
+    mini.className = preview.className + " pv-mini";
+    mini.dataset.trend = preview.dataset.trend;
+  };
+  let previewOnScreen = false;
+  let touched = false; // 처음 열었을 때는 숨기고, 학생이 한 번 고른 뒤부터 보여 준다
+  const showDock = () => (dock.hidden = previewOnScreen || !touched);
+  if ("IntersectionObserver" in window)
+    new IntersectionObserver((es) => {
+      previewOnScreen = es[0].isIntersecting;
+      showDock();
+    }).observe(preview);
+  document.getElementById("pv-dock-frame").addEventListener("click", () => preview.scrollIntoView({ block: "center" }));
 
   const saved = store.get();
   let colorId = byId(COLORS, saved.color) ? saved.color : "C1";
@@ -546,7 +579,7 @@ function init() {
     b.className = "trend-card";
     b.dataset.id = t.id;
     b.innerHTML =
-      `<span class="trend-mini"></span>` +
+      `<span class="trend-mini" aria-hidden="true"></span>` +
       `<span class="trend-name">${t.name}</span>` +
       (t.pos ? `<span class="trend-pos">${t.pos}</span>` : "") +
       `<span class="trend-def">${t.def}</span>`;
@@ -581,14 +614,21 @@ function init() {
     for (const b of trendBox.querySelectorAll(".trend-card")) {
       const tt = byId(TRENDS, b.dataset.id);
       const c = resolveColors(col, tt);
-      b.querySelector(".trend-mini").outerHTML = `<span class="trend-mini">${miniHtml(c, tt.shape(c))}</span>`;
+      b.querySelector(".trend-mini").innerHTML = miniHtml(c, tt.shape(c), tt.id);
       b.setAttribute("aria-pressed", String(b.dataset.id === trendId));
     }
     chosen.textContent = `${col.name} · ${t.id === "T00" ? "트렌드 없음(기본)" : t.name}`;
     promptEl.value = buildPrompt(col, t, extra.value);
     status.textContent = "";
     store.set({ color: colorId, trend: trendId });
+    syncDock();
   }
+  const pick = () => {
+    touched = true;
+    showDock();
+  };
+  colorBox.addEventListener("click", pick);
+  trendBox.addEventListener("click", pick);
 
   extra.addEventListener("input", () => {
     promptEl.value = buildPrompt(byId(COLORS, colorId), byId(TRENDS, trendId), extra.value);
