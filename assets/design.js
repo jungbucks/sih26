@@ -204,7 +204,7 @@ export const TRENDS = [
     lines: () => [
       "- 결과·요약 영역을 CSS grid로 바꿔 크기가 다른 칸 3~5개로 나눠 줘 (가장 중요한 숫자 = 2칸 크기, 나머지 = 1칸)",
       "- 칸 모서리는 모두 18px, 칸 사이 간격도 모두 12px. 바깥 테두리가 직사각형으로 딱 맞아야 해",
-      "- 칸 하나에는 내용 하나만: 작은 이름표 + 큰 숫자 또는 짧은 목록",
+      "- 칸 하나에는 내용 하나만. 칸에 넣을 제목·숫자는 이미 화면에 있는 것을 그대로 쓰고, 새 이름표를 만들지 마",
       "- 휴대폰(360px)에서는 2열 → 1열로 자연스럽게 내려오게",
     ],
     dont: "빈 칸 만들기, 칸마다 다른 모서리·간격 쓰기",
@@ -230,7 +230,7 @@ export const TRENDS = [
     font: "F1", titleFont: "F3",
     shape: () => ({ radius: 0, btnRadius: 2, shadow: "none", boxless: "1px 가는 줄" }),
     lines: (c) => [
-      "- 제목(h1)은 명조로 크게(36~44px), 줄 간격 1.2. 제목 위에 작은 머리말(13px, 자간 넓게)을 한 줄",
+      "- 제목(h1)은 명조로 크게(36~44px), 줄 간격 1.2. 제목 위에 작은 머리말이 이미 있으면 13px·자간 넓게(없으면 새로 만들지 마)",
       "- 여백은 지금의 1.5배로 넉넉하게",
       "- 핵심 결과 숫자는 명조로 크게, 설명은 본문 글꼴로 작게 — 잡지의 큰 인용구처럼",
       "- 왼쪽 정렬, 한 줄 길이는 40자 안팎으로 제한(max-width)",
@@ -244,10 +244,10 @@ export const TRENDS = [
     font: "F1", titleFont: "F4", motion: true,
     shape: () => ({ radius: 8, btnRadius: 999, shadow: "none" }),
     lines: (c) => [
-      `- 제목 아래에 작품 이름을 아주 크게(40px 이상, 굵게, ${c.accentText}) 반복한 띠 하나를 두고 왼쪽으로 천천히 흐르게(15초 한 바퀴, CSS animation)`,
+      `- 제목 아래에 지금 제목 글자를 아주 크게(40px 이상, 굵게, ${c.accentText}) 반복한 장식 띠 하나를 두고 왼쪽으로 천천히 흐르게(15초 한 바퀴, CSS animation)`,
       "- 핵심 결과 숫자가 바뀔 때 아래에서 위로 한 번 올라오며 나타나게(0.4초)",
       "- 움직이는 곳은 이 두 곳뿐. 버튼·목록·입력칸은 가만히",
-      "- 흐르는 띠는 장식이니 aria-hidden=\"true\"",
+      "- 흐르는 띠는 장식이니 aria-hidden=\"true\" (아래 '새 글 금지'의 예외)",
     ],
     dont: "여러 줄이 동시에 움직이기, 글자가 읽기 전에 사라지기",
   },
@@ -298,7 +298,7 @@ export const TRENDS = [
     shape: (c) => ({ radius: 16, btnRadius: 999, bw: 2, borderColor: c.text, btnBorder: true, shadow: `3px 3px 0 ${c.text}`, btnShadow: `3px 3px 0 ${c.text}` }),
     lines: (c) => [
       `- 페이지 바탕에 굵은 사선 줄무늬(repeating-linear-gradient, ${c.block}와 바탕색, 줄 폭 14px)`,
-      "- 제목 옆에 기울어진 스티커 2개(예: 'NEW!', '★ 오늘'): 둥근 배지, -8deg/6deg 회전, 장식이라 aria-hidden=\"true\"",
+      "- 제목 옆에 기울어진 장식 스티커 2개(예: 'NEW!', '★'): 둥근 배지, -8deg/6deg 회전, aria-hidden=\"true\" (장식이라 아래 '새 글 금지'의 예외)",
       "- 결과 카드는 -1.5deg 기울이고, 목록 항목은 번갈아 ±0.6deg",
       "- 그래도 제목·본문 글자 뒤는 단색으로 두고 대비 4.5:1 유지. 버튼 크기·위치는 그대로",
     ],
@@ -313,7 +313,7 @@ export const TRENDS = [
     lines: (c) => [
       "- 픽셀 글꼴(갈무리)은 제목(h1·h2)과 점수·결과 숫자에만, 본문은 고딕 유지",
       `- 제목은 보통 굵기(400)로, 계단 그림자: text-shadow: 2px 2px 0 color-mix(in srgb, ${c.accent} 45%, transparent);`,
-      "- 아이콘은 이모지 대신 작은 도트 그림(SVG rect 격자, shape-rendering: crispEdges)으로 1~3개",
+      "- 제목 옆에 작은 도트 그림(SVG rect 격자, shape-rendering: crispEdges) 장식 1~3개. 스크립트가 만드는 이모지·글자는 그대로 둬",
       `- 버튼 테두리를 계단 모양으로: box-shadow: 0 -2px 0 ${c.text}, 0 2px 0 ${c.text}, -2px 0 0 ${c.text}, 2px 0 0 ${c.text};`,
     ],
     dont: "16px보다 작은 글자에 픽셀 글꼴 쓰기",
@@ -358,11 +358,11 @@ export const TRENDS = [
       c.isDark
         ? [
             "- 화면 맨 위에 배너 한 줄만 추가: 페이지가 어두우니 배너 바탕을 크롬 금속으로 — background: linear-gradient(180deg,#f5f7fa 0%,#b8c0cc 48%,#8d96a3 52%,#e9edf2 100%);",
-            "- 배너 글자는 작품의 핵심 문구를 #111111 굵게(대비 충분)",
+            "- 배너 글자는 지금 작품 제목을 한 번 더 #111111 굵게(장식이라 aria-hidden=\"true\", '새 글 금지'의 예외)",
             "- 양 끝에 반짝이 ✦ 두 개(장식, aria-hidden). 배너 밖 화면은 위 2번 모양 그대로",
           ]
         : [
-            "- 화면 맨 위에 배너 한 줄만 추가: 어두운 바탕(#111111) 위에 작품의 핵심 문구를 크롬 글자로",
+            "- 화면 맨 위에 배너 한 줄만 추가: 어두운 바탕(#111111) 위에 지금 작품 제목을 한 번 더 크롬 글자로(장식이라 aria-hidden=\"true\", '새 글 금지'의 예외)",
             "- 크롬 글자: background: linear-gradient(180deg,#fff 0%,#b8c0cc 45%,#5b6472 50%,#e9edf2 100%); -webkit-background-clip: text; color: transparent;",
             "- 양 끝에 반짝이 ✦ 두 개(장식, aria-hidden). 배너 밖 화면은 위 2번 모양 그대로",
           ],
@@ -403,23 +403,30 @@ export function buildPrompt(color, trend, extra) {
     "",
     sec(
       isBase
-        ? "색 (이 값만 쓰고 다른 색은 더하지 마)"
-        : "색 (이 값만 써. 3번 트렌드 기법에 적힌 효과용 색 — 그림자·빛·유리·무늬·배너 — 만 예외)",
+        ? "색 (이 값만 써. 아래 '의미 색'만 예외)"
+        : "색 (이 값만 써. 아래 '의미 색'과 3번 트렌드 기법에 적힌 효과용 색 — 그림자·빛·유리·무늬·배너 — 만 예외)",
     ),
-    `- 페이지 바탕 ${c.bg}, 카드·입력칸 바탕 ${c.surface}, 테두리 ${c.border}`,
+    `- 페이지 바탕 ${c.bg}, 카드·입력칸 바탕 ${c.surface}, 옅은 구분선 ${c.border} (테두리를 어디에 쓸지는 2번)`,
     `- 글자 ${c.text}, 보조 글자 ${c.mute}`,
-    `- 강조색 ${c.accent} (버튼 글자 ${c.onAccent}) — 가장 중요한 버튼과 핵심 결과 한두 곳에만`,
+    `- 강조색 ${c.accent} (버튼 글자 ${c.onAccent}) — 가장 중요한 버튼과 핵심 결과에만. 같은 역할 버튼이 카드마다 있으면 모두 같은 강조색이어도 돼`,
+    "- 의미 색: 원래 화면에 이미 있던 의미 색(예: 성공·완료 초록, 실패·오류·삭제 빨강, 경고 노랑)은 같은 색 계열 그대로 남겨 둬. 원래 없던 의미 색을 새로 만들거나 하나를 둘로 나누지는 마",
+    "- 의미 색이 강조색과 헷갈릴 만큼 비슷하면 의미 색 쪽 밝기를 바꿔 구분해. 의미 색 위·옆 글자도 대비 4.5:1 이상",
   ];
   if (c.btnLarge) out.push("- 강조색 버튼의 글자는 19px 이상 굵게 (이 색 위 글자는 큰 글자여야 읽기 쉬워요)");
   if (c.accentText !== c.accent) out.push(`- 바탕 위에 강조 글자를 쓸 때는 ${c.accentText}`);
-  out.push(`- 결과·요약 카드 하나에 색 블록 ${c.block}를 써도 좋아`);
+  if (!sh.boxless) out.push(`- 결과·요약 카드 하나에 색 블록 ${c.block}를 써도 좋아`);
   const bw = sh.bw || 1;
   out.push("", sec("모양"), `- 카드 모서리 ${shape(sh.radius)}, 버튼 모서리 ${shape(sh.btnRadius)}`);
   if (sh.boxless)
     out.push(
-      `- 목록·결과는 상자(테두리·바탕) 없이 항목 사이 ${sh.boxless}(${sh.boxless.startsWith("2") ? c.text : c.border})로만 나눠. 입력칸만 1px ${c.border} 테두리`,
+      `- 목록·결과는 상자(테두리·바탕) 없이 항목 사이 ${sh.boxless}(${sh.boxless.startsWith("2") ? c.text : c.border})로만 나눠. 입력칸·선택칸·보조 버튼만 1px ${c.mute} 테두리`,
     );
-  else out.push(`- 카드·입력칸 테두리 ${bw}px ${sh.borderColor || c.border}`);
+  else
+    out.push(
+      `- 카드(내용을 묶는 큰 상자) 테두리 ${bw}px ${sh.borderColor || c.border}`,
+      `- 입력칸·선택칸·보조 버튼 테두리 ${bw}px ${sh.borderColor || c.mute} (어디에 입력·누르는지 잘 보이게)`,
+      `- 목록 안 작은 항목이 많으면 그 테두리는 1px ${c.border}로 옅게 해도 돼`,
+    );
   out.push(`- 카드 그림자: ${sh.shadow === "none" ? "쓰지 않기" : sh.shadow}`);
   if (sh.btnBorder) out.push(`- 버튼에도 ${bw}px ${sh.borderColor || c.border} 테두리`);
   if (sh.btnShadow) out.push(`- 버튼 그림자: ${sh.btnShadow}`);
@@ -439,14 +446,15 @@ export function buildPrompt(color, trend, extra) {
     "",
     sec("글꼴 (전시판 공용 글꼴 — 아래 CSS를 그대로 넣어 줘)"),
     ...ids.flatMap(fontFace),
-    `- 본문: font-family: ${stack(fonts.body)};`,
+    `- 본문: font-family: ${stack(fonts.body)}; (원래 있던 대체 글꼴 목록 — 예: "Malgun Gothic" — 이 있으면 마지막 sans-serif/serif 앞에 그대로 남겨 둬)`,
   );
   if (fonts.title !== fonts.body) out.push(`- 제목(h1·h2): font-family: ${stack(fonts.title)};`);
   out.push(
     "- 글꼴을 못 불러와도 기본 글꼴로 정상 작동해야 해",
     "",
     sec("지킬 것"),
-    "- 기능·문구·동작·저장 방식은 바꾸지 마",
+    "- 기능·문구·동작·저장 방식은 바꾸지 마. 새 글(이름표·제목·설명)도 더하지 마",
+    "- 되도록 CSS만 바꿔. 배치 때문에 꼭 필요하면 기존 요소를 감싸는 태그 정도만 더하고, 계산·저장·화면을 그리는 스크립트는 고치지 마",
     "- 글자와 바탕의 대비를 충분히 유지하고, 휴대폰 화면(360px)에서도 가로로 넘치지 않게",
   );
   const more = (extra || "").trim();
@@ -463,6 +471,7 @@ function applyPreview(el, color, trend) {
   set("--p-text", c.text);
   set("--p-mute", c.mute);
   set("--p-border", sh.borderColor || c.border);
+  set("--p-field", sh.borderColor || c.mute);
   set("--p-accent", c.accent);
   set("--p-on-accent", c.onAccent);
   set("--p-accent-text", c.accentText);
