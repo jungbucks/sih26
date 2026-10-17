@@ -6,7 +6,7 @@
 <title>피곤함까지 고려하는 할 일 순서 정하기</title>
 <meta name="description" content="오늘 컨디션(보통/피곤함)과 마감일, 소요 시간을 보고 수행평가·숙제의 순서를 정해 주는 할 일 우선순위 큐">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="PRD">
+<meta name="status" content="1회 개선">
 <style>
   /* ===== 스타일 ===== */
   :root {
@@ -141,6 +141,37 @@
   }
   .confirm-box[hidden] { display: none; }
   .save-state { color: var(--muted); font-size: 0.9rem; margin-top: 8px; }
+  /* 중요 체크박스·태그 */
+  .check-field { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 600; cursor: pointer; }
+  .check-field input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+  .tag-important {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: #fff4d6;
+    border: 1px solid #e0b84a;
+    color: #7a5600;
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1.6;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  .tag-urgent {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: var(--warn-soft);
+    border: 1px solid var(--warn);
+    color: var(--warn);
+    font-size: 0.85rem;
+    font-weight: 700;
+    line-height: 1.6;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
 </style>
 </head>
 <body>
@@ -179,6 +210,10 @@
           <input id="task-min" type="number" min="1" max="600" step="5" value="30" inputmode="numeric">
         </div>
       </div>
+      <label class="check-field" for="task-important">
+        <input id="task-important" type="checkbox">
+        중요 ⭐ (점수 비중이 크거나 준비가 오래 걸리는 과제)
+      </label>
       <button type="submit" class="btn" id="add-btn">추가</button>
       <p class="msg" id="form-msg" role="status" aria-live="polite"></p>
     </form>
@@ -221,6 +256,8 @@
 const STORAGE_KEY = "sih26:20812:data";
 const MAX_TASKS = 15;          // 화면 과부하를 막기 위한 최대 개수
 const TIRED_HOUR_WEIGHT = 2;   // 피곤 모드: 남은 1시간 = 소요 2분 만큼의 무게
+const URGENT_HOURS = 2;        // 피곤 모드에서도 마감이 이만큼 이내면 최우선
+const IMPORTANT_BONUS_HOURS = 24; // 중요 표시: 마감이 24시간 더 가까운 것처럼 계산
 
 // 오늘/내일 기준으로 예시 데이터를 만든다
 function makeSampleTasks() {
@@ -230,8 +267,8 @@ function makeSampleTasks() {
   tomorrow18.setDate(tomorrow18.getDate() + 1);
   tomorrow18.setHours(18, 0, 0, 0);
   return [
-    { id: newId(), name: "정보 수행평가 제출", due: tomorrow18.getTime(), minutes: 30 },
-    { id: newId(), name: "영어 단어 암기", due: today22.getTime(), minutes: 10 }
+    { id: newId(), name: "정보 수행평가 제출", due: tomorrow18.getTime(), minutes: 30, important: false },
+    { id: newId(), name: "영어 단어 암기", due: today22.getTime(), minutes: 10, important: false }
   ];
 }
 
@@ -255,14 +292,20 @@ function loadState() {
     if (raw) {
       const data = JSON.parse(raw);
       state.mode = data.mode === "tired" ? "tired" : "normal";
-      state.queue = Array.isArray(data.queue) ? data.queue : [];
-      state.done = Array.isArray(data.done) ? data.done : [];
+      state.queue = Array.isArray(data.queue) ? data.queue.map(normalizeTask) : [];
+      state.done = Array.isArray(data.done) ? data.done.map(normalizeTask) : [];
       return;
     }
   } catch (e) {
     canSave = false;
   }
   state.queue = makeSampleTasks();
+}
+
+// 예전 버전에 저장된 할 일에는 important 값이 없으므로 '중요 아님'으로 맞춘다
+function normalizeTask(task) {
+  task.important = task.important === true;
+  return task;
 }
 
 function saveState() {
@@ -279,19 +322,33 @@ function hoursLeft(task, now) {
   return Math.max(0, (task.due - now) / 3600000);
 }
 
+// 피곤 모드에서 '마감 임박'(2시간 이내, 이미 지난 일 포함)인지
+function isUrgent(task, now) {
+  return (task.due - now) <= URGENT_HOURS * 3600000;
+}
+
 // 우선순위 점수: 작을수록 먼저 해야 할 일
 function priorityScore(task, now) {
   if (state.mode === "normal") {
-    return task.due; // 보통: 마감이 빠른 순
+    // 보통: 마감이 빠른 순. 중요한 일은 마감이 24시간 더 가까운 것처럼 계산
+    return task.due - (task.important ? IMPORTANT_BONUS_HOURS * 3600000 : 0);
   }
   // 피곤함: 소요 시간이 짧을수록, 마감이 가까울수록 점수가 작아짐
-  return task.minutes + hoursLeft(task, now) * TIRED_HOUR_WEIGHT;
+  // 중요한 일은 남은 시간 24시간만큼(24×2점) 가산점
+  return task.minutes + hoursLeft(task, now) * TIRED_HOUR_WEIGHT
+    - (task.important ? IMPORTANT_BONUS_HOURS * TIRED_HOUR_WEIGHT : 0);
 }
 
 // 우선순위 큐 재정렬 (추가·컨디션 변경·완료·삭제 때마다 호출)
 function sortQueue() {
   const now = Date.now();
   state.queue.sort(function (a, b) {
+    if (state.mode === "tired") {
+      // 피곤함이어도 마감 2시간 이내인 일은 맨 위에, 그 안에서는 마감 빠른 순
+      const ua = isUrgent(a, now), ub = isUrgent(b, now);
+      if (ua !== ub) return ua ? -1 : 1;
+      if (ua && ub) return a.due - b.due;
+    }
     const diff = priorityScore(a, now) - priorityScore(b, now);
     return diff !== 0 ? diff : a.due - b.due;
   });
@@ -312,10 +369,10 @@ function validateInput(name, dueText, minutesText) {
   return null;
 }
 
-function addTask(name, dueText, minutesText) {
+function addTask(name, dueText, minutesText, important) {
   const error = validateInput(name, dueText, minutesText);
   if (error) return error;
-  state.queue.push({ id: newId(), name: name, due: new Date(dueText).getTime(), minutes: Number(minutesText) });
+  state.queue.push({ id: newId(), name: name, due: new Date(dueText).getTime(), minutes: Number(minutesText), important: important === true });
   sortQueue();
   saveState();
   return null;
@@ -383,6 +440,24 @@ function makeMeta(task) {
   return meta;
 }
 
+// [중요 ⭐] 태그, 피곤 모드 마감 임박 태그
+function makeTags(task) {
+  const tags = [];
+  if (task.important) {
+    const t = document.createElement("span");
+    t.className = "tag-important";
+    t.textContent = "[중요 ⭐]";
+    tags.push(t);
+  }
+  if (state.mode === "tired" && isUrgent(task, Date.now())) {
+    const u = document.createElement("span");
+    u.className = "tag-urgent";
+    u.textContent = "마감 임박";
+    tags.push(u);
+  }
+  return tags;
+}
+
 function makeButton(text, cls, label, handler) {
   const b = document.createElement("button");
   b.type = "button";
@@ -398,7 +473,8 @@ function renderMode() {
   $("mode-tired").setAttribute("aria-pressed", state.mode === "tired");
   $("rule-text").textContent = state.mode === "normal"
     ? "지금 규칙: 마감이 가장 가까운 일부터 보여 줘요."
-    : "지금 규칙: 마감이 조금 남았더라도 소요 시간이 짧은 쉬운 일을 위로 올려요. (소요 분 + 남은 시간×2 가 작은 순)";
+    : "지금 규칙: 마감이 2시간 이내로 남은 일은 마감 빠른 순으로 맨 위에 두고, 나머지는 소요 시간이 짧은 쉬운 일을 위로 올려요. (소요 분 + 남은 시간×2 가 작은 순)";
+  $("rule-text").textContent += " 중요 ⭐ 표시한 일은 마감이 24시간 더 가까운 것처럼 계산해서 위로 올려요.";
 }
 
 function renderTop() {
@@ -419,6 +495,7 @@ function renderTop() {
   const name = document.createElement("div");
   name.className = "name";
   name.textContent = task.name;
+  name.append.apply(name, makeTags(task));
   const actions = document.createElement("div");
   actions.className = "actions";
   actions.style.marginTop = "10px";
@@ -442,7 +519,7 @@ function renderList() {
     const name = document.createElement("span");
     name.className = "name";
     name.textContent = task.name;
-    title.append(rank, name);
+    title.append.apply(title, [rank, name].concat(makeTags(task)));
     info.append(title, makeMeta(task));
     const actions = document.createElement("div");
     actions.className = "actions";
@@ -501,13 +578,14 @@ function showFormMsg(text, type) {
 $("add-form").addEventListener("submit", function (e) {
   e.preventDefault();
   const name = $("task-name").value.trim();
-  const error = addTask(name, $("task-due").value, $("task-min").value.trim());
+  const error = addTask(name, $("task-due").value, $("task-min").value.trim(), $("task-important").checked);
   if (error) {
     showFormMsg("⚠ " + error, "error");
     return;
   }
   showFormMsg("'" + name + "'을(를) 추가했어요.", "info");
   $("task-name").value = "";
+  $("task-important").checked = false;
   $("task-name").focus();
   render();
 });
