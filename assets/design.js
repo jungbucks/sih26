@@ -121,6 +121,24 @@ export const COLORS = [
     dark: { accent: "#ff90e8", accentText: "#ff9fe9", block: "#3a2a00" },
   },
   {
+    id: "C13", name: "회색과 빨강", feel: "무채색 위 빨강 하나, 포스터처럼 단호함",
+    bg: "#f2f2f0", surface: "#ffffff", text: "#111111", mute: "#555555", border: "#dcdcd8",
+    accent: "#d10511", accentText: "#c00410", block: "#fde8e8",
+    dark: { accent: "#f04444", accentText: "#ff8a8a", block: "#3a1717" },
+  },
+  {
+    id: "C14", name: "하늘과 코랄", feel: "시원한 하늘색 바탕에 따뜻한 산호색",
+    bg: "#f0f7fc", surface: "#ffffff", text: "#0f2a3d", mute: "#4d6475", border: "#d4e6f2",
+    accent: "#c4412c", accentText: "#b03a27", block: "#ffe3dc",
+    dark: { accent: "#f0735d", accentText: "#ffa999", block: "#3a221d" },
+  },
+  {
+    id: "C15", name: "신문지와 남색", feel: "누런 신문지에 진한 남색 잉크",
+    bg: "#f4f1ea", surface: "#fbf9f4", text: "#1b1b1b", mute: "#5a564e", border: "#d9d3c7",
+    accent: "#1e3a8a", accentText: "#1e3a8a", block: "#e4e9f5",
+    dark: { accent: "#6b8bff", accentText: "#a9bcff", block: "#1b2440" },
+  },
+  {
     id: "C11", name: "밤하늘과 보라", feel: "어두운 남색 바탕에 은은한 보랏빛", isDark: true,
     bg: "#0b1026", surface: "#151b38", text: "#f1f5ff", mute: "#b5bdd8", border: "#2a3358",
     accent: "#8b9cff", accentText: "#a5b4fc", block: "#1e2850",
@@ -129,6 +147,11 @@ export const COLORS = [
     id: "C12", name: "먹과 형광 초록", feel: "까만 무대 위 초록 재생 버튼", isDark: true,
     bg: "#121212", surface: "#1c1c1c", text: "#ffffff", mute: "#b3b3b3", border: "#2e2e2e",
     accent: "#1ed760", accentText: "#1ed760", block: "#16291d",
+  },
+  {
+    id: "C16", name: "먹과 노랑", feel: "까만 바탕에 경고등처럼 쨍한 노랑", isDark: true,
+    bg: "#111111", surface: "#1c1c1a", text: "#f5f5f0", mute: "#b8b6ad", border: "#33322d",
+    accent: "#ffd600", accentText: "#ffd600", block: "#2a2610",
   },
 ];
 
