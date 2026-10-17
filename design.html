@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>디자인 시안 · 레이트 바이브 코딩</title>
-    <meta name="description" content="스타일 카드 30개 중 하나를 고르고 2026 트렌드 기법 하나를 더하면 샘플 앱이 바뀌고, 그대로 붙여 넣을 디자인 수정 프롬프트가 완성됩니다." />
+    <meta name="description" content="컬러셋 하나와 2026 트렌드 하나를 고르면 샘플 앱이 그 조합으로 바뀌고, 그대로 붙여 넣을 디자인 수정 프롬프트가 완성됩니다." />
     <link rel="stylesheet" href="assets/style.css" />
     <style>
       @font-face {
@@ -72,7 +72,11 @@
         color: var(--canvas);
         font-size: 13px;
       }
-      #styles {
+      .design-pick {
+        display: grid;
+        gap: 32px;
+      }
+      #colors {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
         gap: 10px;
@@ -243,12 +247,6 @@
         font-style: normal;
         color: var(--p-accent-text);
       }
-      #preview[data-style="S7"] .p-result small {
-        color: var(--p-text);
-      }
-      #preview[data-style="S7"] .p-result em {
-        text-decoration: underline;
-      }
       #preview .p-input,
       #preview .p-result,
       #preview li,
@@ -372,9 +370,6 @@
         color: var(--muted);
       }
       /* 2단계: 트렌드 카드 */
-      .trend-step {
-        margin-top: 32px;
-      }
       #trends {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
@@ -415,6 +410,10 @@
         color: var(--muted);
         font-size: 13px;
         font-weight: 400;
+      }
+      .trend-mini .mini {
+        height: 44px;
+        margin-bottom: 2px;
       }
       .trend-pos {
         justify-self: start;
@@ -709,7 +708,8 @@
       #preview[data-trend="T10"] h2,
       #preview[data-trend="T10"] .p-result strong {
         font-family: "Galmuri11", monospace;
-        text-shadow: 2px 2px 0 var(--p-border);
+        font-weight: 400;
+        text-shadow: 2px 2px 0 color-mix(in srgb, var(--p-accent) 45%, transparent);
       }
       #preview[data-trend="T10"] .p-btn {
         border-radius: 0;
@@ -813,7 +813,7 @@
         }
       }
       @media (max-width: 540px) {
-        #styles {
+        #colors {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         .style-feel {
@@ -832,20 +832,22 @@
     <main id="main">
       <h1>디자인 시안</h1>
       <p class="intro">
-        카드 하나를 누르면 오른쪽 샘플 앱이 그 스타일로 바뀌어요. 원하면 요즘 홈페이지에서 쓰는 트렌드
-        기법을 하나 더해 보세요. 마음에 드는 조합의 프롬프트를 복사해 수정 요청서에 붙여 넣으면 끝이에요.
+        먼저 색을 고르고, 그다음 요즘 홈페이지에서 쓰는 트렌드를 골라 보세요. 트렌드는 고른 색으로 입혀져서
+        오른쪽 샘플 앱에 바로 보여요. 마음에 드는 조합의 프롬프트를 복사해 수정 요청서에 붙여 넣으면 끝이에요.
       </p>
       <div class="design-layout">
-        <section aria-labelledby="pick-title">
-          <h2 class="step-title" id="pick-title"><span>1</span>스타일 고르기 (30개)</h2>
-          <div id="styles"></div>
-          <section class="trend-step" aria-labelledby="trend-title">
-            <h2 class="step-title" id="trend-title"><span>2</span>2026 트렌드 하나 더하기 (선택)</h2>
-            <p class="hint">시안이 색과 모양이라면, 트렌드는 배치·움직임·질감 기법이에요. 한 화면에 하나만 더해요.</p>
+        <div class="design-pick">
+          <section aria-labelledby="pick-title">
+            <h2 class="step-title" id="pick-title"><span>1</span>색 고르기 (컬러셋 12개)</h2>
+            <div id="colors"></div>
+          </section>
+          <section aria-labelledby="trend-title">
+            <h2 class="step-title" id="trend-title"><span>2</span>2026 트렌드 고르기 (14개)</h2>
+            <p class="hint">모양·배치·움직임·글꼴을 정해요. 카드의 견본은 1에서 고른 색으로 그려져요.</p>
             <div id="trends"></div>
             <div id="trend-info" hidden></div>
           </section>
-        </section>
+        </div>
         <div class="design-side">
           <section aria-label="샘플 앱 미리보기">
             <div id="preview">
@@ -872,17 +874,13 @@
               <button class="p-ghost" type="button" tabindex="-1">완료한 일 지우기</button>
             </div>
           </section>
-          <section aria-labelledby="font-title">
-            <h2 class="step-title" id="font-title"><span>3</span>글꼴만 바꾸기 (선택)</h2>
-            <div id="fonts"></div>
-          </section>
           <section>
-            <label class="step-title" for="extra"><span>4</span>그 밖에 바꾸고 싶은 디자인 (선택)</label>
+            <label class="step-title" for="extra"><span>3</span>그 밖에 바꾸고 싶은 디자인 (선택)</label>
             <p class="hint">예) 결과 숫자를 더 크게, 버튼을 화면 아래쪽에</p>
             <textarea id="extra" rows="2"></textarea>
           </section>
           <section aria-labelledby="prompt-title">
-            <h2 class="step-title" id="prompt-title"><span>5</span>프롬프트 복사</h2>
+            <h2 class="step-title" id="prompt-title"><span>4</span>프롬프트 복사</h2>
             <p class="chosen">선택: <b id="chosen"></b></p>
             <textarea id="prompt" readonly aria-label="완성된 디자인 수정 프롬프트"></textarea>
             <div class="copy-row">
@@ -893,9 +891,9 @@
         </div>
       </div>
       <p class="design-note">
-        ○○풍 스타일의 색·모서리 값은 VoltAgent의 awesome-design-md(MIT 라이선스)가 공개 웹사이트에서
-        관찰해 모은 DESIGN.md를 참고했습니다. 시대·장르와 효과 스타일의 이름 목록은 styles.gallery를 참고했고, 색과 효과 값은 이 페이지에서 새로 정했습니다. 2026 트렌드 13종과 쓰는 곳·피할 곳은 선생님이 정리한 홈페이지 트렌드 지침을 학생 작품에 맞게 옮겼습니다. 각 회사의 공식 디자인 시스템이 아니며, 작품에는 브랜드
-        이름·로고 없이 색과 형태만 적용합니다. 글꼴: Wanted Sans·Paperlogy·고운돋움·고운바탕·갈무리·갈무리 모노(SIL OFL 1.1). 레트로 맥 스타일의 원래 시스템 글꼴(Chicago)은 무료 글꼴이 아니라서 한글 픽셀 글꼴 갈무리로 대신합니다.
+        컬러셋은 VoltAgent의 awesome-design-md(MIT 라이선스)가 공개 웹사이트에서 관찰해 모은 DESIGN.md, 선생님 디자인 지침의
+        4세트, styles.gallery의 스타일 이름을 참고해 이 페이지에서 새로 정한 색입니다. 2026 트렌드 13종과 쓰는 곳·피할 곳은
+        선생님이 정리한 홈페이지 트렌드 지침을 학생 작품에 맞게 옮겼습니다. 글꼴: Wanted Sans·Paperlogy·고운돋움·고운바탕·갈무리(SIL OFL 1.1).
       </p>
     </main>
   </body>
