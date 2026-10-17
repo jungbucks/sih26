@@ -6,7 +6,7 @@
 <title>등교 준비물 체크리스트</title>
 <meta name="description" content="날짜와 과목별로 준비물을 적고, 챙긴 것을 체크해 빠뜨림을 줄이는 체크리스트">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="1회 개선">
+<meta name="status" content="2회 개선">
 <style>
   /* ===== 색과 기본 글꼴 ===== */
   :root {
@@ -99,21 +99,21 @@
   .subject-name { font-weight: 700; font-size: 1.08rem; }
   .btns { display: flex; gap: 6px; flex-wrap: wrap; }
   ul.items { list-style: none; margin: 8px 0 0; padding: 0; }
-  /* 준비물 한 줄: 아직 안 챙긴 것 = 주황 테두리, 챙긴 것 = 초록 바탕 (색 + 기호 + 글자 3가지로 구분) */
+  /* 준비물 한 줄: 아직 안 챙긴 것 = 기본(흰) 바탕 + 빈 체크박스, 챙긴 것 = 초록 바탕 + 체크 표시 (색 + 기호 + 글자로 함께 구분) */
   ul.items li {
     display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
     padding: 8px 10px; margin-bottom: 6px;
-    border: 1px solid #ecd9a0; border-left: 6px solid #d99a1e;
-    border-radius: 10px; background: #fffdf5;
+    border: 1px solid var(--line); border-left: 6px solid var(--line);
+    border-radius: 10px; background: var(--card);
   }
-  ul.items li.done { border-color: #b7d9cd; border-left-color: var(--accent); background: var(--accent-soft); }
+  ul.items li.done { border-color: #9fcfbe; border-left-color: var(--accent); background: #d9eee6; }
   ul.items li.empty { border: 1px dashed var(--line); background: transparent; }
   ul.items li.target { outline: 3px solid var(--danger); outline-offset: 1px; }
   .check { display: flex; align-items: center; gap: 10px; flex: 1 1 160px; min-width: 0; font-weight: 600; margin: 0; cursor: pointer; }
   .check input { width: 24px; height: 24px; flex: none; accent-color: var(--accent); }
   .state-tag {
     font-size: 14px; font-weight: 700; padding: 1px 10px; border-radius: 999px; flex: none;
-    border: 1px solid #d99a1e; color: #7a5200; background: #fff;
+    border: 1px solid #b9c0c8; color: var(--muted); background: #fff;
   }
   li.done .state-tag { border-color: var(--accent); color: #fff; background: var(--accent); }
   li.done .item-name { color: var(--muted); font-weight: 400; text-decoration: line-through; }
@@ -382,6 +382,7 @@ function cleanLoaded(obj) {
 
 // 바꾼 뒤 저장하고 화면에 결과 문구를 보여 주는 공통 함수
 function commit(okText) {
+  $("reset-confirm").textContent = ""; // 목록이 바뀌면 열려 있던 초기화 확인 창은 닫아요(내용이 달라졌으니까)
   const saved = saveData();
   showSaveState(saved, okText);
   render();
@@ -845,24 +846,29 @@ function askReset(kind) {
       setMsg("reset-msg", "지울 목록이 없어요. 이 날짜에는 저장된 준비물이 없어요.", "info");
       return;
     }
-    const c = countItems(currentDate);
-    text = "이 날짜의 목록을 모두 지울까요? 다른 날짜의 목록은 그대로 남아요.";
-    rows = [["날짜", formatDate(currentDate)],
-      ["과목", getSubjects(currentDate).length + "개 (" + getSubjects(currentDate).map(function (s) { return s.name; }).join(", ") + ")"],
+    const day = currentDate; // 확인 창을 연 그 날짜만 지워요
+    const c = countItems(day);
+    text = formatDate(day) + "의 목록을 모두 지울까요? 다른 날짜의 목록은 그대로 남아요.";
+    rows = [["날짜", formatDate(day)],
+      ["과목", getSubjects(day).length + "개 (" + getSubjects(day).map(function (s) { return s.name; }).join(", ") + ")"],
       ["준비물", c.total + "개 (챙김 " + c.done + "개)"]];
-    yesText = "이 날짜 목록 지우기";
+    yesText = "삭제";
     action = function () {
-      delete allData[currentDate];
+      delete allData[day];
       area.textContent = "";
       commit("이 날짜의 목록을 지웠어요.");
       setMsg("reset-msg", "이 날짜의 목록을 지웠어요.", "ok");
     };
   } else {
     const days = Object.keys(allData).length;
-    text = "이 프로그램에 저장된 모든 날짜의 목록과 체크 상태가 삭제돼요. 다른 사이트의 데이터는 건드리지 않아요.";
+    if (days === 0) {
+      setMsg("reset-msg", "지울 데이터가 없어요. 저장된 날짜 목록이 하나도 없어요.", "info");
+      return;
+    }
+    text = "주의: 지금 보고 있는 날짜만이 아니라, 저장된 모든 날짜(" + days + "일치)의 과목·준비물·체크 상태가 한꺼번에 삭제돼요. 다른 사이트의 데이터는 건드리지 않아요.";
     rows = [["범위", "모든 날짜 (" + days + "일치)"],
-      ["날짜", days ? Object.keys(allData).sort().map(formatDate).join(", ") : "(저장된 목록 없음)"]];
-    yesText = "전체 데이터 삭제";
+      ["날짜", Object.keys(allData).sort().map(formatDate).join(", ")]];
+    yesText = "삭제";
     action = function () {
       allData = {};
       let ok = true;
