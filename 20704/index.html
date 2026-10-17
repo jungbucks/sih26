@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>은행 대기표 호출 시스템</title>
-<meta name="description" content="번호표를 뽑으면 큐(선입선출)에 줄을 서고, 직원이 호출하면 맨 앞 번호를 전광판에 큰 글씨로 불러 주는 은행 창구 대기표 시스템">
+<meta name="description" content="번호표를 뽑으면 큐(선입선출)에 줄을 서고, 직원이 1·2번 창구에서 호출하면 맨 앞 번호와 창구를 전광판에 큰 글씨로 불러 주는 은행 창구 대기표 시스템">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="1회 개선">
+<meta name="status" content="2회 개선">
 <style>
   /* ===== 색과 기본 글꼴 (은행 콘셉트: 네이비·블루) ===== */
   :root {
@@ -138,25 +138,80 @@
   .staff .tag { background: #444b5a; color: #fff; }
   .staff .role { color: #b9c0cc; }
   .staff-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  @media (max-width: 560px) { .staff-buttons { grid-template-columns: 1fr; } }
+  .staff-buttons .btn-reset { grid-column: 1 / -1; }
   .btn-staff { background: #ffffff; color: var(--navy); border: 2px solid #ffffff; }
   .btn-staff:hover { background: #dfe6f3; }
   .btn-reset { background: transparent; color: #ffb4a8; border: 2px solid #ffb4a8; font-size: 1rem; }
   .btn-reset:hover { background: #3a2f33; }
   .staff .result { color: var(--staff-text); }
 
-  /* 초기화 확인 상자 (confirm 창 대신 화면 안에서 묻기) */
-  .confirm-box {
-    margin-top: 12px;
-    padding: 14px;
-    border-radius: 10px;
-    background: #3a2f33;
+  /* ===== 화면 위에 뜨는 창(모달) 공통: confirm·alert 대신 페이지 안에서 띄운다 ===== */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(5, 10, 25, .6);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 24px 16px;
+    overflow-y: auto;
+    z-index: 10;
+  }
+  .overlay[hidden] { display: none; }
+
+  /* 영업 마감 비밀번호(PIN) 창 */
+  .pin-box {
+    width: 100%; max-width: 22rem;
+    margin-top: 10vh;
+    padding: 20px;
+    border-radius: 14px;
+    background: var(--staff-bg);
+    color: var(--staff-text);
     border: 2px solid #ffb4a8;
   }
-  .confirm-box p { margin: 0 0 10px; font-weight: 700; }
+  .pin-box h2 { margin: 0 0 6px; }
+  .pin-box p { margin: 0 0 10px; }
+  .pin-box label { display: block; font-weight: 700; margin-bottom: 6px; }
+  .pin-input {
+    font: inherit; font-size: 1.6rem; letter-spacing: .5em; text-align: center;
+    width: 100%; min-height: 56px; padding: 0 8px;
+    border-radius: 10px; border: 2px solid #8a93a5;
+    background: #fff; color: var(--text);
+  }
+  .pin-input:focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }
+  .pin-error { color: #ffb4a8; font-weight: 700; min-height: 1.7em; margin: 8px 0 10px !important; }
   .confirm-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .btn-danger { background: var(--danger); color: #fff; border: 2px solid var(--danger); min-height: 48px; font-size: 1rem; }
   .btn-cancel { background: transparent; color: var(--staff-text); border: 2px solid #8a93a5; min-height: 48px; font-size: 1rem; }
+
+  /* 종이 영수증 모양 번호표 */
+  .ticket {
+    width: 100%; max-width: 18rem;
+    background: #fffdf6;
+    color: #222;
+    padding: 20px 20px 16px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .35);
+    /* 아래쪽을 톱니 모양으로 잘라 뜯어낸 종이처럼 보이게 함 */
+    --tooth: 8px;
+    padding-bottom: calc(16px + var(--tooth));
+    -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(var(--tooth) * 2) 100%;
+            mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / calc(var(--tooth) * 2) 100%;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .ticket.drop { animation: slideDown .6s cubic-bezier(.2, .8, .3, 1); }
+    @keyframes slideDown {
+      from { transform: translateY(-120%); }
+      to { transform: translateY(0); }
+    }
+  }
+  .ticket-logo { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; color: var(--navy); }
+  .ticket-sub { margin: 2px 0 0; font-size: .85rem; color: #666; }
+  .ticket hr { border: 0; border-top: 2px dashed #bbb; margin: 12px 0; }
+  .ticket-label { margin: 0; font-size: .95rem; color: #555; }
+  .ticket-num { margin: 0; font-size: 4.2rem; font-weight: 800; line-height: 1.1; color: var(--navy); }
+  .ticket-num small { font-size: 1.6rem; }
+  .ticket-row { display: flex; justify-content: space-between; gap: 8px; margin: 0; font-size: .98rem; text-align: left; }
+  .ticket-note { margin: 0 0 12px; font-size: .85rem; color: #666; }
+  .ticket .btn-primary { min-height: 48px; font-size: 1rem; }
 
   .save-note { font-size: .9rem; color: var(--muted); margin: 8px 0 0; }
 </style>
@@ -207,18 +262,11 @@
   <!-- ===== 직원용 구역 (하단, 어두운 박스) ===== -->
   <section class="panel staff" aria-labelledby="staffTitle">
     <h2 class="zone-title" id="staffTitle"><span class="tag">직원 전용</span> 창구 관리</h2>
-    <p class="role">고객은 누르지 마세요. 줄의 맨 앞 고객을 창구로 부릅니다.</p>
+    <p class="role">고객은 누르지 마세요. 줄의 맨 앞 고객을 해당 창구로 부릅니다.</p>
     <div class="staff-buttons">
-      <button type="button" class="btn-staff" id="callBtn">다음 고객 호출</button>
-      <button type="button" class="btn-reset" id="resetBtn" aria-controls="confirmBox" aria-expanded="false">영업 마감 / 대기열 초기화</button>
-    </div>
-    <!-- 초기화 확인: 전시판(iframe)에서는 confirm 창이 막혀서 화면 안에서 묻는다 -->
-    <div class="confirm-box" id="confirmBox" role="alertdialog" aria-labelledby="confirmMsg" hidden>
-      <p id="confirmMsg">정말 대기열을 초기화하시겠습니까? 대기 중인 번호와 호출 기록이 모두 지워지고 1번부터 다시 시작합니다.</p>
-      <div class="confirm-buttons">
-        <button type="button" class="btn-danger" id="confirmYes">초기화</button>
-        <button type="button" class="btn-cancel" id="confirmNo">취소</button>
-      </div>
+      <button type="button" class="btn-staff call-btn" data-window="1">1번 창구 호출</button>
+      <button type="button" class="btn-staff call-btn" data-window="2">2번 창구 호출</button>
+      <button type="button" class="btn-reset" id="resetBtn" aria-haspopup="dialog">영업 마감 / 대기열 초기화</button>
     </div>
     <p class="result" id="callResult" aria-live="polite"></p>
   </section>
@@ -226,6 +274,48 @@
   <p class="save-note" id="saveNote" aria-live="polite"></p>
 </main>
 
+<!-- ===== 영업 마감 비밀번호 창: 전시판(iframe)에서는 confirm·prompt 창이 막혀서 화면 안에서 묻는다 ===== -->
+<div class="overlay" id="pinOverlay" hidden>
+  <form class="pin-box" id="pinForm" role="dialog" aria-modal="true" aria-labelledby="pinTitle" aria-describedby="pinMsg" novalidate>
+    <h2 id="pinTitle">직원 확인</h2>
+    <p id="pinMsg">대기 중인 번호와 호출 기록이 모두 지워지고 1번부터 다시 시작합니다. 직원 비밀번호를 입력해야 초기화돼요.</p>
+    <label for="pinInput">비밀번호 (숫자 4자리)</label>
+    <input class="pin-input" id="pinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="4" aria-describedby="pinError">
+    <p class="pin-error" id="pinError" role="alert"></p>
+    <div class="confirm-buttons">
+      <button type="submit" class="btn-danger" id="pinOk">확인</button>
+      <button type="button" class="btn-cancel" id="pinCancel">취소</button>
+    </div>
+  </form>
+</div>
+
+<!-- ===== 종이 영수증 모양 번호표 ===== -->
+<div class="overlay" id="ticketOverlay" hidden>
+  <div class="ticket" id="ticket" role="dialog" aria-modal="true" aria-labelledby="ticketLabel">
+    <div class="ticket-logo">
+      <svg width="28" height="28" viewBox="0 0 44 44" aria-hidden="true">
+        <circle cx="22" cy="22" r="21" fill="#0f2b5c"/>
+        <path d="M22 9 L35 16 H9 Z" fill="#ffffff"/>
+        <rect x="12" y="18" width="3" height="12" fill="#ffffff"/>
+        <rect x="18" y="18" width="3" height="12" fill="#ffffff"/>
+        <rect x="23" y="18" width="3" height="12" fill="#ffffff"/>
+        <rect x="29" y="18" width="3" height="12" fill="#ffffff"/>
+        <rect x="9" y="31" width="26" height="4" fill="#ffffff"/>
+      </svg>
+      상일 은행
+    </div>
+    <p class="ticket-sub">순번 대기표</p>
+    <hr>
+    <p class="ticket-label" id="ticketLabel">내 대기 번호</p>
+    <p class="ticket-num"><span id="ticketNum">0</span><small>번</small></p>
+    <hr>
+    <p class="ticket-row"><span>앞에 남은 대기 인원</span><b id="ticketAhead">0명</b></p>
+    <p class="ticket-row"><span>발급 시간</span><b id="ticketTime">-</b></p>
+    <hr>
+    <p class="ticket-note">전광판에 내 번호와 창구 번호가 나오면 해당 창구로 와 주세요.</p>
+    <button type="button" class="btn-primary" id="ticketOk">확인</button>
+  </div>
+</div>
 <script>
   // ===== 설정 =====
   const RECENT_MAX = 5;          // 최근 호출 목록에 보여 줄 최대 개수
@@ -254,10 +344,13 @@
   }
 
   // ===== 데이터·상태 =====
+  const WINDOW_COUNT = 2;            // 창구 수 (1번·2번 창구)
+  const STAFF_PIN = "1234";          // 영업 마감 비밀번호 (초기값)
+  const TICKET_AUTO_CLOSE = 8;       // 번호표 창이 저절로 닫히기까지 걸리는 초
   const waitingQueue = new Queue();  // 기다리는 번호들
   let nextNumber = FIRST_NUMBER;     // 다음에 발급할 번호
   let lastIssued = null;             // 마지막으로 발급한 번호
-  const recentCalls = [];            // 최근 호출 번호 (앞쪽이 최신)
+  const recentCalls = [];            // 최근 호출 기록 { w: 창구 번호, n: 고객 번호 } (앞쪽이 최신)
 
   // ===== 저장·불러오기 (localStorage) =====
   // 전시판 미리보기(sandbox iframe)에서는 저장이 막힌다. 그래도 프로그램은 그대로 작동한다.
@@ -268,12 +361,23 @@
   // 양의 정수인지 검사 (저장 데이터가 이상할 때 대비)
   function isPositiveInt(n) { return Number.isInteger(n) && n > 0; }
 
+  // 저장된 호출 기록 한 칸을 { w, n } 모양으로 맞춘다.
+  // 예전 버전은 창구 없이 번호만 저장했으므로, 숫자만 있으면 창구를 null(모름)로 둔다.
+  function normalizeCall(item) {
+    if (isPositiveInt(item)) return { w: null, n: item };
+    if (item && typeof item === "object" && isPositiveInt(item.n)) {
+      const w = Number.isInteger(item.w) && item.w >= 1 && item.w <= WINDOW_COUNT ? item.w : null;
+      return { w: w, n: item.n };
+    }
+    return null;
+  }
+
   function saveState() {
     const data = {
       queue: waitingQueue.toArray(),
       nextNumber: nextNumber,
       lastIssued: lastIssued,
-      recentCalls: recentCalls.slice()
+      recentCalls: recentCalls.map(c => ({ w: c.w, n: c.n }))
     };
     const text = JSON.stringify(data);
     try {
@@ -310,9 +414,11 @@
       return false;
     }
     const queue = Array.isArray(data.queue) ? data.queue.filter(isPositiveInt) : [];
-    const recent = Array.isArray(data.recentCalls) ? data.recentCalls.filter(isPositiveInt).slice(0, RECENT_MAX) : [];
+    const recent = Array.isArray(data.recentCalls)
+      ? data.recentCalls.map(normalizeCall).filter(c => c !== null).slice(0, RECENT_MAX)
+      : [];
     // 다음 번호는 이미 나온 번호들보다 커야 중복이 생기지 않는다
-    const maxSeen = Math.max(0, ...queue, ...recent, isPositiveInt(data.lastIssued) ? data.lastIssued : 0);
+    const maxSeen = Math.max(0, ...queue, ...recent.map(c => c.n), isPositiveInt(data.lastIssued) ? data.lastIssued : 0);
     nextNumber = isPositiveInt(data.nextNumber) ? Math.max(data.nextNumber, maxSeen + 1) : maxSeen + 1;
     lastIssued = isPositiveInt(data.lastIssued) ? data.lastIssued : (maxSeen > 0 ? maxSeen : null);
     queue.forEach(n => waitingQueue.enqueue(n));
@@ -342,13 +448,15 @@
     return number;
   }
 
-  // 다음 고객 호출: 큐 맨 앞 번호를 꺼낸다. 비어 있으면 null.
-  function callNextCustomer() {
+  // 창구 호출: 큐 맨 앞 번호를 꺼내 그 창구로 부른다. 비어 있으면 null.
+  // 창구가 여러 개여도 줄은 하나이므로, 어느 창구가 부르든 가장 먼저 온 고객이 나간다.
+  function callNextCustomer(windowNo) {
     const number = waitingQueue.dequeue();
     if (number === null) return null;
-    recentCalls.unshift(number);
+    const call = { w: windowNo, n: number };
+    recentCalls.unshift(call);
     if (recentCalls.length > RECENT_MAX) recentCalls.pop();
-    return number;
+    return call;
   }
 
   // 영업 마감: 모든 상태를 처음으로 되돌린다.
@@ -362,6 +470,7 @@
   // ===== 화면 갱신 =====
   const board = document.getElementById("board");
   const callText = document.getElementById("callText");
+  const issueBtn = document.getElementById("issueBtn");
   const issueResult = document.getElementById("issueResult");
   const callResult = document.getElementById("callResult");
   const waitingCountEl = document.getElementById("waitingCount");
@@ -370,7 +479,13 @@
   const recentList = document.getElementById("recentList");
   const recentEmpty = document.getElementById("recentEmpty");
   const resetBtn = document.getElementById("resetBtn");
-  const confirmBox = document.getElementById("confirmBox");
+  const pinOverlay = document.getElementById("pinOverlay");
+  const pinForm = document.getElementById("pinForm");
+  const pinInput = document.getElementById("pinInput");
+  const pinError = document.getElementById("pinError");
+  const ticketOverlay = document.getElementById("ticketOverlay");
+  const ticketEl = document.getElementById("ticket");
+  const ticketOk = document.getElementById("ticketOk");
 
   function renderStatus() {
     waitingCountEl.textContent = waitingQueue.size();
@@ -381,23 +496,35 @@
       : "대기열(앞 → 뒤): " + list.map(n => n + "번").join(", ");
   }
 
+  // 최근 호출 목록 한 칸: "(1번) 3번" 형태. 예전 기록처럼 창구를 모르면 번호만.
+  function callLabel(call) {
+    return (call.w ? "(" + call.w + "번) " : "") + call.n + "번";
+  }
+
   function renderRecent() {
     recentList.replaceChildren();
-    recentCalls.forEach(n => {
+    recentCalls.forEach(c => {
       const li = document.createElement("li");
-      li.textContent = n + "번";
+      li.textContent = callLabel(c);
       recentList.appendChild(li);
     });
     recentEmpty.hidden = recentCalls.length > 0;
   }
 
-  // 전광판에 큰 글씨로 표시한다. flash가 true면 반짝이게 한다.
-  function showCall(number, flash) {
+  // 전광판에 "1번 창구 3번 고객님"처럼 큰 글씨로 표시한다. flash가 true면 반짝이게 한다.
+  function showCall(call, flash) {
     callText.replaceChildren();
     const num = document.createElement("span");
     num.className = "num";
-    num.textContent = number + "번";
-    callText.append(num, " 고객님 창구로 오세요!");
+    num.textContent = call.n + "번";
+    if (call.w) {
+      const win = document.createElement("span");
+      win.className = "num";
+      win.textContent = call.w + "번 창구";
+      callText.append(win, " ", num, " 고객님");
+    } else {
+      callText.append(num, " 고객님 창구로 오세요!");
+    }
     board.classList.remove("is-empty", "flash");
     board.classList.add("is-calling");
     if (!flash) return;
@@ -411,59 +538,145 @@
     callText.textContent = message;
   }
 
-  function openConfirm(open) {
-    confirmBox.hidden = !open;
-    resetBtn.setAttribute("aria-expanded", String(open));
+  // ===== 종이 번호표 창 =====
+  let ticketTimer = null;
+  let ticketLeft = 0;
+
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function formatTime(d) {
+    return d.getFullYear() + "." + pad2(d.getMonth() + 1) + "." + pad2(d.getDate()) +
+      " " + pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+  }
+
+  function updateTicketButton() {
+    ticketOk.textContent = "확인 (" + ticketLeft + "초 뒤 자동으로 닫힘)";
+  }
+
+  function openTicket(number, ahead) {
+    document.getElementById("ticketNum").textContent = number;
+    document.getElementById("ticketAhead").textContent = ahead + "명";
+    document.getElementById("ticketTime").textContent = formatTime(new Date());
+    ticketOverlay.hidden = false;
+    ticketEl.classList.remove("drop");
+    void ticketEl.offsetWidth;       // 뽑을 때마다 내려오는 연출을 처음부터
+    ticketEl.classList.add("drop");
+    ticketLeft = TICKET_AUTO_CLOSE;
+    updateTicketButton();
+    clearInterval(ticketTimer);
+    ticketTimer = setInterval(() => {
+      ticketLeft--;
+      if (ticketLeft <= 0) closeTicket();
+      else updateTicketButton();
+    }, 1000);
+    ticketOk.focus();
+  }
+
+  function closeTicket() {
+    clearInterval(ticketTimer);
+    ticketTimer = null;
+    if (ticketOverlay.hidden) return;
+    ticketOverlay.hidden = true;
+    issueBtn.focus();
+  }
+
+  // ===== 영업 마감 비밀번호 창 =====
+  function openPin() {
+    pinInput.value = "";
+    pinError.textContent = "";
+    pinOverlay.hidden = false;
+    pinInput.focus();
+  }
+
+  function closePin() {
+    if (pinOverlay.hidden) return;
+    pinOverlay.hidden = true;
+    resetBtn.focus();
   }
 
   // ===== 이벤트 연결 =====
-  document.getElementById("issueBtn").addEventListener("click", () => {
+  issueBtn.addEventListener("click", () => {
     const number = issueTicket();
+    const ahead = waitingQueue.size() - 1;
     issueResult.replaceChildren();
     const strong = document.createElement("strong");
     strong.textContent = number + "번";
-    issueResult.append("발급된 번호: ", strong, " (앞에 " + (waitingQueue.size() - 1) + "명 대기)");
+    issueResult.append("발급된 번호: ", strong, " (앞에 " + ahead + "명 대기)");
     renderStatus();
     saveState();
+    openTicket(number, ahead);
   });
 
-  document.getElementById("callBtn").addEventListener("click", () => {
-    const number = callNextCustomer();
-    if (number === null) {
-      showBoardMessage("대기 중인 고객이 없습니다");
-      callResult.textContent = "안내: 대기 중인 고객이 없습니다. 번호표가 발급되면 다시 눌러 주세요.";
-    } else {
-      showCall(number, true);
-      callResult.textContent = number + "번을 호출했습니다. 남은 대기 " + waitingQueue.size() + "명";
-      saveState();
-    }
-    renderStatus();
-    renderRecent();
+  ticketOk.addEventListener("click", closeTicket);
+  // 번호표 바깥(어두운 부분)을 눌러도 닫힌다
+  ticketOverlay.addEventListener("click", e => { if (e.target === ticketOverlay) closeTicket(); });
+
+  document.querySelectorAll(".call-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const windowNo = Number(btn.dataset.window);
+      const call = callNextCustomer(windowNo);
+      if (call === null) {
+        showBoardMessage("대기 중인 고객이 없습니다");
+        callResult.textContent = "안내: 대기 중인 고객이 없습니다. 번호표가 발급되면 다시 눌러 주세요.";
+      } else {
+        showCall(call, true);
+        callResult.textContent = windowNo + "번 창구로 " + call.n + "번을 호출했습니다. 남은 대기 " + waitingQueue.size() + "명";
+        saveState();
+      }
+      renderStatus();
+      renderRecent();
+    });
   });
 
-  // 영업 마감 버튼: 바로 지우지 않고 확인 상자를 먼저 연다
-  resetBtn.addEventListener("click", () => {
-    openConfirm(confirmBox.hidden);
-    if (!confirmBox.hidden) document.getElementById("confirmNo").focus();
+  // 영업 마감 버튼: 바로 지우지 않고 비밀번호 창을 먼저 연다
+  resetBtn.addEventListener("click", openPin);
+
+  // 숫자 말고 다른 글자는 입력되지 않게 걸러 낸다
+  pinInput.addEventListener("input", () => {
+    const digits = pinInput.value.replace(/\D/g, "").slice(0, 4);
+    if (digits !== pinInput.value) pinInput.value = digits;
+    pinError.textContent = "";
   });
 
-  document.getElementById("confirmNo").addEventListener("click", () => {
-    openConfirm(false);
+  document.getElementById("pinCancel").addEventListener("click", () => {
+    closePin();
     callResult.textContent = "초기화를 취소했어요. 대기열은 그대로입니다.";
-    resetBtn.focus();
   });
 
-  document.getElementById("confirmYes").addEventListener("click", () => {
+  pinForm.addEventListener("submit", e => {
+    e.preventDefault();
+    const pin = pinInput.value;
+    if (!/^\d{4}$/.test(pin)) {
+      pinError.textContent = "숫자 4자리를 입력해 주세요.";
+      pinInput.focus();
+      return;
+    }
+    if (pin !== STAFF_PIN) {
+      // 틀리면 초기화하지 않고 다시 입력할 수 있게 비워 둔다
+      pinError.textContent = "비밀번호가 올바르지 않습니다";
+      pinInput.value = "";
+      pinInput.focus();
+      return;
+    }
     resetAll();
     const cleared = clearSaved();
-    openConfirm(false);
+    closePin();
     showBoardMessage("아직 호출한 고객이 없습니다");
     issueResult.textContent = "";
     callResult.textContent = "영업을 마감하고 대기열을 초기화했어요. 다음 번호표는 1번부터 발급됩니다.";
     if (cleared) saveNote.textContent = "저장된 기록도 지웠어요.";
     renderStatus();
     renderRecent();
-    resetBtn.focus();
+  });
+
+  // Esc 키로 떠 있는 창을 닫는다
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    if (!pinOverlay.hidden) {
+      closePin();
+      callResult.textContent = "초기화를 취소했어요. 대기열은 그대로입니다.";
+    } else if (!ticketOverlay.hidden) {
+      closeTicket();
+    }
   });
 
   // ===== 시작: 저장된 상태가 있으면 이어서 보여 준다 =====
