@@ -6,7 +6,7 @@
 <title>수행평가 D-Day 챙기미</title>
 <meta name="description" content="수행평가 마감일을 D-Day순으로 정렬해 급한 것부터 보여 주고, 완료한 항목을 따로 관리하는 개인 정리 도구">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="1회 개선">
+<meta name="status" content="2회 개선">
 <style>
   :root {
     --bg: #f6f7f9;
@@ -116,6 +116,9 @@
   .confirm-box p { margin: 0 0 10px; font-weight: 600; }
   .confirm-box .actions { margin-top: 0; }
   .inline-confirm { font-weight: 600; color: var(--warn); }
+  /* 다른 카드 수정 중일 때 묻는 상자 */
+  .switch-box { grid-column: 1 / -1; margin-top: 8px; }
+  .switch-box .note { margin: 0 0 10px; font-weight: 400; font-size: 0.95rem; color: var(--warn); }
   .save-state { font-size: 0.9rem; color: var(--muted); margin: 0 0 4px; }
   .save-state.warn { color: var(--warn); font-weight: 600; }
   /* 카드 안 수정 칸 */
@@ -210,6 +213,7 @@ let canSave = true;        // 브라우저 저장이 가능한지
 let pendingDeleteId = null; // 삭제 확인 중인 항목의 id
 let editingId = null;       // 수정 중인 항목의 id (한 번에 하나만)
 let editDraft = null;       // 수정 칸에 입력 중인 값 (저장 전까지는 여기에만 둔다)
+let pendingSwitchId = null; // 다른 카드 수정 중에 [수정]을 눌러, 이동할지 묻고 있는 카드의 id
 
 // ===== 처리 함수 =====
 
@@ -447,6 +451,11 @@ function makeCard(item) {
 
   const actions = document.createElement("div");
   actions.className = "actions";
+  if (pendingSwitchId === item.id && editingId !== null) {
+    // 다른 카드를 수정하는 중: 그 내용을 어떻게 할지 화면 안에서 묻는다
+    li.append(badge, head, meta, makeSwitchBox(item));
+    return li;
+  }
   if (pendingDeleteId === item.id) {
     // 삭제 확인 (화면 안에서 한 번 더 묻기)
     const q = document.createElement("span");
@@ -467,6 +476,38 @@ function makeCard(item) {
 
   li.append(badge, head, meta, actions);
   return li;
+}
+
+// "수정 중인 내용이 있어요" 확인 상자: 저장하고 이동 / 저장하지 않고 이동 / 취소
+function makeSwitchBox(item) {
+  const editing = assignments.find(function (a) { return a.id === editingId; });
+  const box = document.createElement("div");
+  box.className = "confirm-box switch-box";
+  box.setAttribute("role", "alertdialog");
+  const msg = document.createElement("p");
+  msg.id = "switchMsg";
+  msg.textContent = "수정 중인 내용이 있습니다. '" + (editing ? editing.title : "수정 중인 카드") +
+    "' 카드를 저장하고 이 카드를 수정할까요, 아니면 저장하지 않고 수정할까요?";
+  box.setAttribute("aria-labelledby", "switchMsg");
+  box.appendChild(msg);
+
+  // 수정 중인 칸에 필수 항목이 비어 있으면 저장할 수 없으니 그 버튼은 끈다
+  const missing = missingFields(readDraft());
+  const saveBtn = makeButton("저장하고 이동", "switch-save", item.id, "primary");
+  if (missing.length > 0) {
+    saveBtn.disabled = true;
+    const note = document.createElement("p");
+    note.className = "note";
+    note.textContent = "수정 중인 카드에 비어 있는 필수 항목(" + missing.join(", ") + ")이 있어 지금은 저장할 수 없어요.";
+    box.appendChild(note);
+  }
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  actions.append(saveBtn,
+    makeButton("저장하지 않고 이동", "switch-discard", item.id, ""),
+    makeButton("취소", "switch-cancel", item.id, ""));
+  box.appendChild(actions);
+  return box;
 }
 
 // 카드 안 수정 칸 만들기 (값은 editDraft에서 가져온다)
@@ -588,7 +629,9 @@ function handleListClick(e) {
   const id = Number(b.dataset.id);
   const action = b.dataset.action;
   pendingDeleteId = null; // 다른 버튼을 누르면 삭제 확인은 닫는다
+  pendingSwitchId = null; // 이동 확인도 닫는다
   let focusAfter = null;  // 다시 그린 뒤 포커스를 둘 버튼
+  let focusEdit = false;  // 다시 그린 뒤 수정 칸 첫 입력으로 갈지
   if (action === "done") setDone(id, true);
   else if (action === "restore") setDone(id, false);
   else if (action === "delete") pendingDeleteId = id;
@@ -596,14 +639,28 @@ function handleListClick(e) {
     deleteAssignment(id);
     if (editingId === id) { editingId = null; editDraft = null; }
   }
-  else if (action === "edit") startEdit(id);
+  else if (action === "edit") {
+    if (editingId !== null && editingId !== id) pendingSwitchId = id; // 다른 카드 수정 중 → 먼저 묻기
+    else { startEdit(id); focusEdit = true; }
+  }
+  else if (action === "switch-save") {
+    // 수정 중이던 카드를 저장한 뒤 새 카드 수정 시작 (필수 항목이 비면 저장 안 함)
+    if (!updateAssignment(editingId, readDraft())) { pendingSwitchId = id; render(); return; }
+    startEdit(id); focusEdit = true;
+  }
+  else if (action === "switch-discard") { startEdit(id); focusEdit = true; } // 저장하지 않고 새 카드로
+  else if (action === "switch-cancel") { focusEdit = true; } // 원래 카드 수정 그대로 유지
   else if (action === "cancel-edit") { editingId = null; editDraft = null; focusAfter = id; }
   else if (action === "save-edit") {
     if (!updateAssignment(id, readDraft())) return; // 필수 항목이 비면 저장하지 않음
     editingId = null; editDraft = null; focusAfter = id;
   }
   render();
-  if (action === "edit") {
+  if (pendingSwitchId !== null) {
+    // 확인 상자의 첫 번째로 누를 수 있는 버튼으로 이동
+    const sw = document.querySelector('.switch-box button:not(:disabled)');
+    if (sw) sw.focus();
+  } else if (focusEdit) {
     const first = document.getElementById("editSubject");
     if (first) first.focus();
   } else if (focusAfter !== null) {
@@ -613,7 +670,7 @@ function handleListClick(e) {
   }
 }
 
-// [수정]을 누르면 지금 값을 복사해 수정 칸에 채운다 (다른 카드 수정 중이었다면 그건 닫힘)
+// [수정]을 누르면 지금 값을 복사해 수정 칸에 채운다 (다른 카드 수정 중이면 먼저 확인 상자로 묻는다)
 function startEdit(id) {
   const item = assignments.find(function (a) { return a.id === id; });
   if (!item) return;
@@ -666,7 +723,7 @@ document.getElementById("resetNo").addEventListener("click", function () {
 document.getElementById("resetYes").addEventListener("click", function () {
   resetAll();
   pendingDeleteId = null;
-  editingId = null; editDraft = null;
+  editingId = null; editDraft = null; pendingSwitchId = null;
   document.getElementById("resetConfirm").hidden = true;
   render();
   document.getElementById("resetHint").textContent = "초기화했어요. 예시 데이터 2개로 다시 시작합니다.";
