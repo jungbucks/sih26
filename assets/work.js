@@ -23,7 +23,7 @@ function setNav(a, p, label) {
 function renderFeedback(f) {
   $("feedback").hidden = !f;
   if (!f) return;
-  $("feedback-stage").textContent = `${f.stage}${f.design ? " [디자인]" : ""} 기준 · 개선 제안 ${f.items.length}개`;
+  $("feedback-stage").textContent = `${f.stage}${f.design ? " · 디자인" : ""} 기준 · 개선 제안 ${f.items.length}개`;
   $("feedback-list").replaceChildren(
     ...f.items.map((it, i) => {
       const li = el("li", undefined, "feedback-card");
@@ -51,7 +51,7 @@ function renderHistory(p) {
           : `${date(v.createdAt)} ~ ${date(v.updatedAt)}`;
       li.append(
         el("span", v.version, "history-version"),
-        el("span", (v.stage || "기록") + (v.design ? " [디자인]" : ""), "history-stage"),
+        el("span", (v.stage || "기록") + (v.design ? " · 디자인" : ""), "history-stage"),
         el("span", when, "history-date"),
       );
       if (i === list.length - 1) li.append(el("span", "현재", "history-now"));
@@ -86,7 +86,7 @@ async function init() {
     );
     $("title").textContent = p.title;
     $("description").textContent = p.description;
-    $("meta").textContent = [p.status, p.design && `[디자인] ${p.design.label}`, date(p.updatedAt)]
+    $("meta").textContent = [p.status, p.design && `디자인 (${p.design.label})`, date(p.updatedAt)]
       .filter(Boolean)
       .join(" · ");
     $("changes").textContent = p.changes || "";

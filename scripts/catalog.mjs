@@ -92,7 +92,7 @@ export async function feedback(root) {
       throw bad("design");
     out[id] = {
       stage,
-      // 디자인 라운드 의견이면 true → "2회 개선 [디자인] 기준"
+      // 디자인 라운드 의견이면 true → "2회 개선 · 디자인 기준"
       ...(entry.design && { design: true }),
       items: items.map((it) => {
         if (!it || typeof it.title !== "string" || typeof it.body !== "string")

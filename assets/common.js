@@ -18,12 +18,24 @@ export function date(value) {
       }).format(new Date(value))
     : "수정일 미확인";
 }
-// 디자인 개선을 반영한 작품: 진행 단계 옆 [디자인] 글로 칩 (빛 = 학생이 고른 강조색)
+// 디자인 개선을 반영한 작품: 진행 단계 옆 '디자인' 칩 (바탕·빛 = 학생이 고른 강조색)
 export function designBadge(d) {
-  const b = el("span", "[디자인]", "student-design");
+  const b = el("span", "디자인", "student-design");
   b.title = d.label;
-  if (d.accent) b.style.setProperty("--design-accent", d.accent);
+  if (d.accent) {
+    b.style.setProperty("--design-accent", d.accent);
+    b.style.setProperty("--design-ink", inkOn(d.accent));
+  }
   return b;
+}
+// 바탕색 위 글자색: 흰색·먹 중 대비가 큰 쪽
+function inkOn(hex) {
+  const lin = (i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const L = 0.2126 * lin(1) + 0.7152 * lin(3) + 0.0722 * lin(5);
+  return 1.05 / (L + 0.05) >= (L + 0.05) / 0.05 ? "#ffffff" : "#0b0b0f";
 }
 export function shot(p) {
   const box = el("div");
