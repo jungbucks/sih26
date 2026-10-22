@@ -7,7 +7,7 @@
 <title>무드픽(Mood Pick)</title>
 <meta name="description" content="지금 기분과 원하는 이야기 분위기를 고르거나 직접 적으면 영화·드라마·웹툰·책·웹소설 중에서 작품을 추천하고, 감상 전 주의 사항과 즐겨찾기·감상 완료 보관함을 제공하는 프로그램">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="1회 개선">
+  <meta name="status" content="2회 개선">
 
 <!-- ===== 2. 스타일 ===== -->
 <style>
@@ -470,7 +470,9 @@ let storageWorks = true;       // localStorage 사용 가능 여부
 let storageProblem = "";       // "" | "sandbox"(전시판 미리보기) | "blocked"(막힘) | "unreadable"(기록 읽기 실패) | "verify"(저장 확인 실패)
 let lastSaveOk = false;        // 마지막 저장을 다시 읽어서 확인했는지
 let currentVaultTab = "favorite";
-let lastCondition = null;      // 마지막으로 추천받은 조건 (상태 변경 후 결과 다시 그리기용)
+let lastResult = null;         // 마지막 추천 결과 { condition, ids, message, restored } — 버튼을 눌러도 그대로 유지
+// 마지막으로 고른 조건을 기억하는 키 (보관함 기록과 따로 저장 → 기존 기록 모양은 그대로)
+const LAST_CHOICE_KEY = "sih26:20615:last-choice";
 
 // ===== 6. 처리 함수 =====
 
@@ -524,6 +526,26 @@ function saveState() {
   }
 }
 
+// 마지막으로 고른 조건(선택지·직접 입력한 말) 저장 → 새로고침해도 같은 조건으로 결과를 다시 보여 줌
+function saveLastChoice(choice) {
+  try { localStorage.setItem(LAST_CHOICE_KEY, JSON.stringify(choice)); } catch (error) { /* 저장 못 해도 추천은 그대로 */ }
+}
+// 저장된 조건 읽기: 모양이 이상하면 쓰지 않음(지우지는 않음)
+function loadLastChoice() {
+  try {
+    const data = JSON.parse(localStorage.getItem(LAST_CHOICE_KEY));
+    if (!data || typeof data !== "object") return null;
+    const okKey = (list, key) => key === OTHER_KEY || list.some(x => x.key === key);
+    if (!CATEGORIES.some(x => x.key === data.category) || !okKey(EMOTIONS, data.emotion) || !okKey(MOODS, data.mood)) return null;
+    const emotionText = typeof data.emotionText === "string" ? data.emotionText.trim().slice(0, 30) : "";
+    const moodText = typeof data.moodText === "string" ? data.moodText.trim().slice(0, 30) : "";
+    if ((data.emotion === OTHER_KEY && !emotionText) || (data.mood === OTHER_KEY && !moodText)) return null;
+    return { category: data.category, emotion: data.emotion, mood: data.mood, emotionText, moodText };
+  } catch (error) {
+    return null;
+  }
+}
+
 function findWork(id) {
   return WORKS.find(w => w.id === id);
 }
@@ -565,10 +587,12 @@ function makeCondition(list, wordMap, value, text) {
 }
 
 // 작품이 조건 하나와 맞는지: 맞은 태그와 맞은 키워드를 돌려줌
+// primary: 고른 태그가 작품의 대표 태그(태그 목록의 첫 번째)와 같은지
 function matchCondition(work, condition, tagField) {
   const tagHits = work[tagField].filter(key => condition.keys.includes(key));
   const wordHits = condition.free ? (work.keywords || []).filter(kw => condition.words.includes(kw)) : [];
-  return { tagHits, wordHits, matched: tagHits.length > 0 || wordHits.length > 0 };
+  const primary = work[tagField].length > 0 && condition.keys.includes(work[tagField][0]);
+  return { tagHits, wordHits, primary, matched: tagHits.length > 0 || wordHits.length > 0 };
 }
 
 // 추천 점수 계산: 감정 일치 1점 + 분위기 일치 1점
@@ -577,17 +601,20 @@ function scoreWork(work, emotion, mood) {
   const moodMatch = matchCondition(work, mood, "moods");
   return {
     movie: work, emotionMatch, moodMatch,
-    score: (emotionMatch.matched ? 1 : 0) + (moodMatch.matched ? 1 : 0)
+    score: (emotionMatch.matched ? 1 : 0) + (moodMatch.matched ? 1 : 0),
+    primary: (emotionMatch.primary ? 1 : 0) + (moodMatch.primary ? 1 : 0),
+    wordCount: emotionMatch.wordHits.length + moodMatch.wordHits.length
   };
 }
 
-// 고른 카테고리에서, 감상 완료 작품을 빼고 점수 높은 순으로 정렬 (같은 점수는 데이터 순서 유지)
+// 고른 카테고리에서, 감상 완료 작품을 빼고 점수 높은 순으로 정렬
+// 같은 점수일 때 순서: ① 고른 조건이 대표 태그인 수 ② 직접 입력 키워드 일치 수 ③ 데이터 순서
 function getRecommendations(condition) {
   const scored = WORKS
     .filter(work => work.category === condition.category)
     .map((work, index) => ({ ...scoreWork(work, condition.emotion, condition.mood), index }))
     .filter(item => !watchedIds.includes(item.movie.id));
-  scored.sort((a, b) => (b.score - a.score) || (a.index - b.index));
+  scored.sort((a, b) => (b.score - a.score) || (b.primary - a.primary) || (b.wordCount - a.wordCount) || (a.index - b.index));
   return scored;
 }
 
@@ -596,7 +623,8 @@ function describeHit(condition, hit, list) {
   const parts = [];
   if (hit.tagHits.length > 0) {
     const tagText = hit.tagHits.map(key => labelOf(list, key)).join(", ");
-    parts.push(condition.free ? `태그 '${tagText}'로 해석해 일치` : "일치");
+    const primaryText = hit.primary ? ", 대표 태그" : "";
+    parts.push(condition.free ? `태그 '${tagText}'로 해석해 일치${primaryText}` : `일치${primaryText}`);
   }
   if (hit.wordHits.length > 0) parts.push(`키워드 '${hit.wordHits.join(", ")}' 일치`);
   return parts.join(", ");
@@ -693,53 +721,89 @@ function freeConditionHasMatch(results, field) {
   return results.some(item => item[field].matched);
 }
 
-// 추천 결과 그리기
-function renderResults() {
-  const summary = document.getElementById("resultSummary");
-  const list = document.getElementById("resultList");
-  list.innerHTML = "";
-  if (!lastCondition) return;
+// 직접 입력한 말을 어떻게 해석했는지 문장으로 (해석 못 했으면 그렇다고 분명히 알림)
+function describeFreeInput(name, condition, list) {
+  if (!condition.free) return "";
+  const found = [
+    ...condition.keys.map(key => `${name} '${labelOf(list, key)}'`),
+    ...condition.words.map(word => `키워드 '${word}'`)
+  ];
+  if (found.length === 0) {
+    return `${name} 직접 입력 '${condition.text}'은(는) 프로그램이 아는 말 목록에 없어 해석하지 못했어요. 이 조건은 어떤 작품과도 일치로 치지 않았어요.`;
+  }
+  return `${name} 직접 입력 '${condition.text}' → ${found.join(", ")}(으)로 해석했어요.`;
+}
 
-  const condition = lastCondition;
+// 추천받기를 누른 순간의 결과 만들기: 보여 줄 작품 id 목록과 안내 문장
+// (이 목록은 '추천받기'를 다시 누를 때까지 그대로 둠 → 버튼을 눌러도 결과가 바뀌거나 사라지지 않음)
+function makeResult(condition) {
   const categoryLabel = labelOf(CATEGORIES, condition.category);
   const totalInCategory = WORKS.filter(w => w.category === condition.category).length;
   const watchedInCategory = watchedIds.filter(id => findWork(id).category === condition.category).length;
   const allScored = getRecommendations(condition);
-  const usesFreeText = condition.emotion.free || condition.mood.free;
+  const result = { condition, ids: [], message: "" };
 
   if (allScored.length === 0) {
-    summary.textContent = `'${categoryLabel}' 카테고리의 작품 ${totalInCategory}편을 모두 감상 완료로 표시해서 추천할 작품이 없어요. 보관함의 '감상 완료 목록'에서 일부 작품을 미감상으로 바꾸거나 다른 카테고리를 골라 보세요.`;
-    return;
+    result.message = `'${categoryLabel}' 카테고리의 작품 ${totalInCategory}편을 모두 감상 완료로 표시해서 추천할 작품이 없어요. 보관함의 '감상 완료 목록'에서 일부 작품을 미감상으로 바꾸거나 다른 카테고리를 골라 보세요.`;
+    return result;
   }
 
-  // 직접 입력을 썼으면 관련 없는 작품(0점)은 보여 주지 않음
-  const pool = usesFreeText ? allScored.filter(item => item.score > 0) : allScored;
-  const results = pool.slice(0, MAX_RESULTS);
+  // 관련 없는 작품(0점)은 보여 주지 않음 → 맞는 작품이 적으면 적은 대로 보여 줌
+  const results = allScored.filter(item => item.score > 0).slice(0, MAX_RESULTS);
+  result.ids = results.map(item => item.movie.id);
 
-  // 직접 입력한 말과 맞는 작품이 없을 때 알려 줄 문장
-  const freeNotes = [];
-  if (condition.emotion.free && !freeConditionHasMatch(allScored, "emotionMatch")) {
-    freeNotes.push(`감정 ${condition.emotion.label}과(와) 맞는 '${categoryLabel}' 작품이 부족해요.`);
-  }
-  if (condition.mood.free && !freeConditionHasMatch(allScored, "moodMatch")) {
-    freeNotes.push(`분위기 ${condition.mood.label}과(와) 맞는 '${categoryLabel}' 작품이 부족해요.`);
-  }
-  const hint = "다른 말로 적어 보거나(예: 외로움, 설렘, 스릴, 판타지, 로맨스, 가족) 다른 카테고리를 골라 보세요.";
+  // 직접 입력 해석 결과와, 해석은 했지만 맞는 작품이 없을 때 알려 줄 문장
+  const freeNotes = [
+    describeFreeInput("감정", condition.emotion, EMOTIONS),
+    describeFreeInput("분위기", condition.mood, MOODS)
+  ].filter(Boolean);
+  [["emotion", "emotionMatch", "감정"], ["mood", "moodMatch", "분위기"]].forEach(([key, field, name]) => {
+    const c = condition[key];
+    const understood = c.keys.length > 0 || c.words.length > 0;
+    if (c.free && understood && !freeConditionHasMatch(allScored, field)) {
+      freeNotes.push(`${name} ${c.label}과(와) 맞는 '${categoryLabel}' 작품이 부족해요.`);
+    }
+  });
+  const usesFreeText = condition.emotion.free || condition.mood.free;
+  const hint = usesFreeText
+    ? "다른 말로 적어 보거나(예: 외로움, 설렘, 스릴, 판타지, 로맨스, 가족) 다른 카테고리를 골라 보세요."
+    : "다른 감정·분위기나 다른 카테고리를 골라 보세요.";
+  const conditionText = `감정 ${condition.emotion.free ? condition.emotion.label : `'${condition.emotion.label}'`}, 분위기 ${condition.mood.free ? condition.mood.label : `'${condition.mood.label}'`}`;
+  const notesText = freeNotes.length > 0 ? " " + freeNotes.join(" ") : "";
 
   if (results.length === 0) {
-    summary.textContent = `${freeNotes.join(" ")} 관련 없는 작품을 억지로 추천하지 않고 비워 두었어요. ${hint}`;
-    return;
+    result.message = `[${categoryLabel}] ${conditionText} 조건과 맞는 작품이 없어요.${notesText} 관련 없는 작품을 억지로 추천하지 않고 비워 두었어요. ${hint}`;
+    return result;
   }
 
   const best = results[0].score;
-  let message = `[${categoryLabel}] 감정 ${condition.emotion.free ? condition.emotion.label : `'${condition.emotion.label}'`}, 분위기 ${condition.mood.free ? condition.mood.label : `'${condition.mood.label}'`} 조건으로 ${categoryLabel} ${totalInCategory}편 중 ${results.length}편을 골랐어요. `;
-  if (best === 2) message += "두 조건이 모두 맞는 작품부터 보여 드립니다.";
-  else if (best === 1) message += "두 조건이 모두 맞는 작품은 없어서, 한 조건이 맞는 가장 가까운 작품부터 보여 드립니다.";
-  else message += "조건이 맞는 작품이 없어서 목록 순서대로 보여 드립니다. 각 작품의 일치하지 않는 조건을 확인해 주세요.";
-  if (freeNotes.length > 0) message += ` ${freeNotes.join(" ")} 그래서 다른 조건이 맞는 작품만 보여 드려요. ${hint}`;
-  else if (usesFreeText && results.length < MAX_RESULTS) message += ` 조건에 맞는 작품이 ${results.length}편뿐이에요.`;
+  let message = `[${categoryLabel}] ${conditionText} 조건으로 ${categoryLabel} ${totalInCategory}편 중 ${results.length}편을 골랐어요. `;
+  if (best === 2) message += "두 조건이 모두 맞는 작품부터 보여 드려요.";
+  else message += "두 조건이 모두 맞는 작품은 없어서, 한 조건이 맞는 작품만 보여 드려요.";
+  message += " 점수가 같으면 고른 조건이 작품의 대표 태그(맨 앞 태그)인 작품을 먼저 보여 드려요.";
+  message += notesText;
+  if (results.length < MAX_RESULTS) message += ` 조건에 맞는 작품이 ${results.length}편뿐이에요. ${hint}`;
   if (watchedInCategory > 0) message += ` (감상 완료한 ${watchedInCategory}편은 제외했어요.)`;
-  summary.textContent = message;
+  result.message = message;
+  return result;
+}
+
+// 추천 결과 그리기 (마지막으로 만든 결과를 그대로 다시 그림)
+function renderResults() {
+  const summary = document.getElementById("resultSummary");
+  const list = document.getElementById("resultList");
+  list.innerHTML = "";
+  if (!lastResult) return;
+
+  const condition = lastResult.condition;
+  summary.textContent = (lastResult.restored
+    ? "새로고침 전에 고른 조건으로 다시 추천했어요. "
+    : "") + lastResult.message;
+
+  const results = lastResult.ids
+    .map(id => findWork(id))
+    .filter(Boolean)
+    .map(work => scoreWork(work, condition.emotion, condition.mood));
 
   results.forEach((item, i) => {
     const m = item.movie;
@@ -762,6 +826,10 @@ function renderResults() {
     caution.append(makeText("strong", "", "감상 전 주의 사항"), makeText("span", "", m.caution || "관련 정보 확인 필요"));
     card.appendChild(caution);
 
+    // 결과를 본 뒤 감상 완료로 표시한 작품은 카드를 없애지 않고 표시만 함
+    if (watchedIds.includes(m.id)) {
+      card.appendChild(makeText("p", "notice", "감상 완료로 표시했어요. 이 카드는 그대로 두고, 다음에 '추천받기'를 누를 때부터 추천에서 빠져요."));
+    }
     card.appendChild(makeActionButtons(m));
     list.appendChild(card);
   });
@@ -769,8 +837,8 @@ function renderResults() {
 
 // 저장 상태 안내 문장
 function storageText() {
-  if (storageProblem === "sandbox") return "전시판 미리보기 화면에서는 브라우저가 저장을 막아서 즐겨찾기와 감상 완료 기록이 새로고침하면 사라져요. 기록을 남기려면 '새 탭 실행'으로 열어 주세요.";
-  if (storageProblem === "blocked") return "이 환경에서는 브라우저 저장 기능을 쓸 수 없어 상태가 저장되지 않음: 즐겨찾기와 감상 완료는 지금 화면에서만 유지되고 새로고침하면 사라집니다.";
+  if (storageProblem === "sandbox") return "전시판 미리보기 화면에서는 브라우저가 저장을 막아요. 그래서 새로고침하거나 전시판의 '다시 시작'을 누르면 고른 조건, 추천 결과, 즐겨찾기·감상 완료 기록이 모두 처음으로 돌아가요. 기록을 남기려면 '새 탭 실행'으로 열어 주세요.";
+  if (storageProblem === "blocked") return "이 환경에서는 브라우저 저장 기능을 쓸 수 없어 상태가 저장되지 않음: 고른 조건, 추천 결과, 즐겨찾기와 감상 완료는 지금 화면에서만 유지되고 새로고침하면 처음으로 돌아갑니다.";
   if (storageProblem === "verify") return "기록을 저장했지만 다시 읽어 확인하지 못했어요. 새로고침하면 기록이 사라질 수 있어요.";
   if (storageProblem === "unreadable") return "이전에 저장된 기록을 읽을 수 없어 빈 보관함으로 시작했어요. 읽지 못한 기록은 지우지 않고 따로 보관해 두었어요.";
   return "";
@@ -839,6 +907,32 @@ function updateOtherBoxes() {
   });
 }
 
+// 고른 값(선택지 key·직접 입력한 말) → 추천에 쓰는 조건
+function conditionFromChoice(choice) {
+  return {
+    category: choice.category,
+    emotion: makeCondition(EMOTIONS, EMOTION_WORDS, choice.emotion, choice.emotionText.replace(/\s+/g, " ")),
+    mood: makeCondition(MOODS, MOOD_WORDS, choice.mood, choice.moodText.replace(/\s+/g, " "))
+  };
+}
+
+// 새로고침 전에 고른 조건을 화면(선택지·입력칸)에 다시 채우고 결과도 다시 보여 줌
+function restoreLastChoice() {
+  const choice = loadLastChoice();
+  if (!choice) return;
+  const form = document.getElementById("conditionForm");
+  [["category", choice.category], ["emotion", choice.emotion], ["mood", choice.mood]].forEach(([group, value]) => {
+    const input = form.querySelector(`input[name="${group}"][value="${value}"]`);
+    if (input) input.checked = true;
+  });
+  document.getElementById("emotionOtherInput").value = choice.emotionText;
+  document.getElementById("moodOtherInput").value = choice.moodText;
+  updateOtherBoxes();
+  lastResult = makeResult(conditionFromChoice(choice));
+  lastResult.restored = true;
+  renderResults();
+}
+
 // 추천받기 버튼
 function handleRecommend(event) {
   event.preventDefault();
@@ -868,11 +962,9 @@ function handleRecommend(event) {
     return;
   }
   formMessage.textContent = "";
-  lastCondition = {
-    category: categoryInput.value,
-    emotion: makeCondition(EMOTIONS, EMOTION_WORDS, emotionInput.value, emotionText),
-    mood: makeCondition(MOODS, MOOD_WORDS, moodInput.value, moodText)
-  };
+  const choice = { category: categoryInput.value, emotion: emotionInput.value, mood: moodInput.value, emotionText, moodText };
+  lastResult = makeResult(conditionFromChoice(choice));
+  saveLastChoice(choice);
   renderResults();
   const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   document.getElementById("result").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
@@ -884,9 +976,15 @@ function handleActionClick(event) {
   if (!button) return;
   const id = button.dataset.id;
   if (!findWork(id)) return;
-  if (button.dataset.action === "favorite") toggleFavorite(id);
-  if (button.dataset.action === "watched") toggleWatched(id);
+  const action = button.dataset.action;
+  const listId = event.currentTarget.id;
+  if (action === "favorite") toggleFavorite(id);
+  if (action === "watched") toggleWatched(id);
   renderAll();
+  // 다시 그린 뒤에도 방금 누른 버튼에 초점을 돌려줌 (화면이 처음으로 튀지 않도록)
+  const again = document.querySelector(`#${listId} button[data-action="${action}"][data-id="${id}"]`);
+  if (again) again.focus({ preventScroll: true });
+  else document.getElementById(currentVaultTab === "favorite" ? "showFavoriteTab" : "showWatchedTab").focus({ preventScroll: true });
 }
 
 function startApp() {
@@ -903,6 +1001,7 @@ function startApp() {
   document.getElementById("showFavoriteTab").addEventListener("click", () => { currentVaultTab = "favorite"; renderVault(); });
   document.getElementById("showWatchedTab").addEventListener("click", () => { currentVaultTab = "watched"; renderVault(); });
   updateOtherBoxes();
+  restoreLastChoice();
   renderVault();
 }
 
