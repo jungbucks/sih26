@@ -7,22 +7,30 @@
 <meta name="description" content="위급도와 도착 순서로 응급실 대기 환자를 자동 정렬하는 우선순위 큐 관리기">
 <meta name="class" content="O반 (2-5)">
 <meta name="status" content="2회 개선">
+<meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T06 스크롤 3D · #1e3a8a">
 
 <!-- ===== 스타일 ===== -->
 <style>
+  /* 전시판 공용 글꼴 (못 불러와도 아래 대체 글꼴로 작동) */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
+  /* 디자인: 신문지와 남색 + 스크롤 3D(목록 축소판) */
   :root {
-    --bg: #f6f7f9;
-    --card: #ffffff;
-    --line: #dde1e6;
-    --text: #1f2933;
-    --muted: #5b6672;
-    --accent: #1f5fa8;
+    --bg: #f4f1ea;
+    --card: #fbf9f4;
+    --line: #d9d3c7;
+    --field: #5a564e;
+    --text: #1b1b1b;
+    --muted: #5a564e;
+    --accent: #1e3a8a;
+    --on-accent: #ffffff;
+    --block: #e4e9f5;
+    --shadow: 0 10px 30px rgba(0,0,0,.12);
     --danger: #b42318;
     --danger-bg: #fdecea;
-    --done: #8a949e;
+    --done: #5a564e;
     --p1: #b42318;
-    --p2: #b5560b;
-    --p3: #8a6d00;
+    --p2: #a34d0a; /* 같은 주황 계열, 색 블록 위 대비 4.5 확보용으로 조금 진하게 */
+    --p3: #7d6300; /* 같은 노랑 계열, 같은 이유로 조금 진하게 */
     --p4: #2f6f3e;
   }
   * { box-sizing: border-box; }
@@ -30,7 +38,7 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    font-family: "Wanted Sans", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
     font-size: 16px;
     line-height: 1.6;
     word-break: keep-all;
@@ -53,7 +61,8 @@
   .panel {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: 16px;
+    box-shadow: var(--shadow);
     padding: 18px;
     min-width: 0;
   }
@@ -63,12 +72,15 @@
     width: 100%;
     font: inherit;
     padding: 9px 10px;
-    border: 1px solid #b8c0c8;
-    border-radius: 8px;
-    background: #fff;
+    border: 1px solid var(--field);
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--text);
   }
+  input[type="text"]::placeholder { color: var(--muted); }
+  input[type="radio"], input[type="checkbox"] { accent-color: var(--accent); }
   input[type="text"]:focus, select:focus, button:focus-visible {
-    outline: 3px solid #9cc0ea;
+    outline: 3px solid var(--accent);
     outline-offset: 1px;
   }
   fieldset { border: 0; padding: 0; margin: 0 0 14px; }
@@ -76,15 +88,15 @@
   .radios label { font-weight: 400; display: flex; gap: 8px; align-items: center; margin: 0; }
   button {
     font: inherit;
-    border-radius: 8px;
+    border-radius: 12px;
     padding: 8px 14px;
-    border: 1px solid #b8c0c8;
-    background: #fff;
+    border: 1px solid var(--field);
+    background: var(--card);
     color: var(--text);
     cursor: pointer;
   }
   button:disabled { opacity: 0.45; cursor: not-allowed; }
-  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; width: 100%; font-weight: 600; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); width: 100%; font-weight: 600; }
   .btn-danger { border-color: var(--danger); color: var(--danger); }
   .btn-danger-solid { background: var(--danger); border-color: var(--danger); color: #fff; }
   .msg { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; font-size: 0.95rem; }
@@ -98,7 +110,8 @@
   .patients { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
   .patient {
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 12px;
+    background: var(--card);
     padding: 12px 14px;
     display: grid;
     grid-template-columns: 44px 1fr;
@@ -118,7 +131,7 @@
   .confirm-inline { margin-top: 6px; padding: 8px 10px; border: 1px solid #f3b8b1; background: var(--danger-bg); border-radius: 8px; }
   .confirm-inline p { margin: 0 0 6px; color: var(--danger); }
   /* 진료 완료 표시: 취소선 + 회색 + "진료 완료" 글자 */
-  .patient.done { background: #f2f3f5; }
+  .patient.done { background: var(--bg); }
   .patient.done .p-name, .patient.done .p-symptom { text-decoration: line-through; color: var(--done); }
   .patient.done .rank { color: var(--done); }
   .status { font-weight: 600; }
@@ -151,6 +164,27 @@
   /* 재평가(위급도·긴급) 변경 이력 */
   .p-logs { list-style: none; margin: 6px 0 0; padding: 6px 0 0; border-top: 1px dotted var(--line); color: var(--muted); font-size: 0.82rem; line-height: 1.5; }
   .p-logs li { overflow-wrap: anywhere; }
+  /* 핵심 결과: 지금 가장 먼저 진료할 환자 카드에 색 블록 */
+  #patient-list > .patient:first-child { background: var(--block); }
+  /* 스크롤 3D (축소판): 목록 카드가 화면에 들어올 때 뒤로 누웠다가 똑바로 서며 다가옴.
+     스크립트 없이 CSS 스크롤 연동 애니메이션으로 처리. 지원 안 하거나 움직임 줄이기 설정이면 처음부터 똑바로 선 상태 */
+  .patients { --tilt: 25deg; }
+  @media (max-width: 600px) { .patients { --tilt: 12.5deg; } }
+  @keyframes tilt-in {
+    from { transform: rotateX(var(--tilt)) translateZ(-40px); }
+    to   { transform: none; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      .patients { perspective: 900px; }
+      .patient {
+        transform-origin: 50% 100%;
+        animation: tilt-in linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 100%;
+      }
+    }
+  }
   [hidden] { display: none !important; }
 </style>
 </head>

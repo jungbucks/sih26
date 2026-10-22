@@ -7,16 +7,22 @@
 <meta name="description" content="날짜와 과목별로 준비물을 적고, 챙긴 것을 체크해 빠뜨림을 줄이는 체크리스트">
 <meta name="class" content="O반 (2-5)">
 <meta name="status" content="2회 개선">
+<meta name="design" content="컬러셋 C1 흰 종이와 파랑 · 트렌드 T06 스크롤 3D · #2563eb">
 <style>
   /* ===== 색과 기본 글꼴 ===== */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
+  /* 컬러셋 C1 흰 종이와 파랑 */
   :root {
-    --bg: #f6f7f8;
-    --card: #ffffff;
-    --ink: #1f2328;
-    --muted: #5b636d;
-    --line: #dde1e6;
-    --accent: #1f6f5c;      /* 강조색: 차분한 초록 */
-    --accent-soft: #e6f2ee;
+    --bg: #ffffff;          /* 페이지 바탕 */
+    --card: #f5f5f4;        /* 카드·입력칸 바탕 */
+    --ink: #1a1d24;
+    --muted: #5b606b;
+    --line: #e2e4e9;        /* 옅은 구분선 */
+    --line-strong: #5b606b; /* 입력칸·보조 버튼 테두리 */
+    --accent: #2563eb;      /* 강조색: 파랑 */
+    --accent-soft: #eef3ff; /* 결과·요약 색 블록 */
+    --ok: #1f6f5c;          /* 의미 색: 챙김·완료 초록(원래 색 유지) */
+    --ok-soft: #e6f2ee;
     --danger: #a3332b;
     --danger-soft: #fbeceb;
     --warn-soft: #fff6dc;
@@ -26,7 +32,7 @@
     margin: 0;
     background: var(--bg);
     color: var(--ink);
-    font-family: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-family: "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
     font-size: 17px;
     line-height: 1.7;
     word-break: keep-all;
@@ -40,18 +46,19 @@
   .card {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: 16px;
     padding: 18px;
     margin-top: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.12);
   }
   label { display: block; font-weight: 600; margin-bottom: 4px; }
   input[type="text"], input[type="date"], select {
     font: inherit;
     width: 100%;
     padding: 10px 12px;
-    border: 1px solid #b9c0c8;
-    border-radius: 8px;
-    background: #fff;
+    border: 1px solid var(--line-strong);
+    border-radius: 12px;
+    background: var(--card);
     color: var(--ink);
     min-height: 46px;
   }
@@ -63,38 +70,39 @@
     font-size: 16px;
     min-height: 46px;
     padding: 8px 16px;
-    border-radius: 8px;
+    border-radius: 12px;
     border: 1px solid var(--accent);
     background: var(--accent);
     color: #fff;
     cursor: pointer;
   }
-  button.ghost { background: #fff; color: var(--accent); }
+  button.ghost { background: var(--bg); color: var(--accent); border-color: var(--line-strong); }
   button.danger { background: #fff; color: var(--danger); border-color: var(--danger); }
   button.danger.solid { background: var(--danger); color: #fff; }
   button.small { min-height: 40px; padding: 4px 12px; font-size: 15px; }
   button:disabled { opacity: .5; cursor: not-allowed; }
   button:focus-visible, input:focus-visible, select:focus-visible {
-    outline: 3px solid #f0b429; outline-offset: 2px;
+    outline: 3px solid var(--accent); outline-offset: 2px;
   }
   .hint { color: var(--muted); font-size: 15px; }
   /* 안내 메시지: 색 + 앞머리 글자로 구분 */
   .msg { margin-top: 8px; padding: 8px 12px; border-radius: 8px; font-size: 16px; }
   .msg:empty { display: none; }
   .msg.error { background: var(--danger-soft); color: var(--danger); }
-  .msg.ok { background: var(--accent-soft); color: var(--accent); }
+  .msg.ok { background: var(--ok-soft); color: var(--ok); }
   .msg.info { background: var(--warn-soft); color: #6b4e00; }
 
   .notice { background: var(--warn-soft); border-color: #ecd9a0; }
   .notice ul { margin: 0; padding-left: 20px; }
 
   /* 진행 요약 */
-  .summary { font-weight: 600; font-size: 1.05rem; }
+  .summary { font-weight: 600; font-size: 1.05rem; background: var(--accent-soft); padding: 8px 12px; border-radius: 12px; } /* 핵심 결과: 색 블록 */
   .save-state { font-size: 15px; margin-top: 4px; }
 
   /* 과목별 목록 */
-  .subject { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
-  .subject:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+  /* 과목 = 목록 카드 (흰 바탕 + 옅은 테두리) */
+  .subject { background: var(--bg); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-top: 12px; }
+  .subject:first-child { margin-top: 0; }
   .subject-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
   .subject-name { font-weight: 700; font-size: 1.08rem; }
   .btns { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -106,16 +114,16 @@
     border: 1px solid var(--line); border-left: 6px solid var(--line);
     border-radius: 10px; background: var(--card);
   }
-  ul.items li.done { border-color: #9fcfbe; border-left-color: var(--accent); background: #d9eee6; }
+  ul.items li.done { border-color: #9fcfbe; border-left-color: var(--ok); background: #d9eee6; }
   ul.items li.empty { border: 1px dashed var(--line); background: transparent; }
   ul.items li.target { outline: 3px solid var(--danger); outline-offset: 1px; }
   .check { display: flex; align-items: center; gap: 10px; flex: 1 1 160px; min-width: 0; font-weight: 600; margin: 0; cursor: pointer; }
-  .check input { width: 24px; height: 24px; flex: none; accent-color: var(--accent); }
+  .check input { width: 24px; height: 24px; flex: none; accent-color: var(--ok); }
   .state-tag {
     font-size: 14px; font-weight: 700; padding: 1px 10px; border-radius: 999px; flex: none;
-    border: 1px solid #b9c0c8; color: var(--muted); background: #fff;
+    border: 1px solid var(--line-strong); color: var(--muted); background: var(--bg);
   }
-  li.done .state-tag { border-color: var(--accent); color: #fff; background: var(--accent); }
+  li.done .state-tag { border-color: var(--ok); color: #fff; background: var(--ok); }
   li.done .item-name { color: var(--muted); font-weight: 400; text-decoration: line-through; }
   .empty { color: var(--muted); padding: 8px 0; }
   .inline-box { width: 100%; margin-top: 6px; padding: 10px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); }
@@ -131,6 +139,25 @@
   .saved-dates { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .saved-dates button.now { background: var(--accent); color: #fff; }
   .danger-zone .btns { margin-top: 8px; }
+
+  /* ===== 2026 트렌드 T06 스크롤 3D (축소판): 준비물 목록의 과목 카드만 =====
+     화면에 들어올 때 뒤로 눕혀 있다가(rotateX) 똑바로 서며 다가와요.
+     스크립트를 고치지 않으려고 IntersectionObserver 대신 CSS 스크롤 연동 애니메이션(animation-timeline: view())을 써요.
+     지원하지 않는 브라우저·움직임 줄이기 설정에서는 처음부터 똑바로 선 완성된 화면이에요. */
+  #list { perspective: 900px; }
+  #list .subject { --tilt: 25deg; transform-origin: 50% 100%; }
+  @keyframes tilt-in {
+    from { transform: rotateX(var(--tilt)) translateZ(-40px); }
+    to   { transform: none; }
+  }
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      #list .subject { animation: tilt-in linear both; animation-timeline: view(); animation-range: entry 0% entry 100%; }
+      /* 수정·삭제 확인 창(입력칸·버튼)이 열린 카드는 기울이지 않아요 */
+      #list .subject:has(.inline-box) { animation: none; }
+    }
+  }
+  @media (max-width: 600px) { #list .subject { --tilt: 12.5deg; } } /* 휴대폰은 기울기 절반 */
 </style>
 </head>
 <body>

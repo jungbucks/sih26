@@ -8,26 +8,35 @@
 <meta name="description" content="자산 3개의 비중과 상관계수를 조절하며 위험-수익률 그래프와 분산 공식 대입 과정을 실시간으로 확인하는 경제수학 학습 도구">
   <meta name="class" content="M반 (2-8)">
   <meta name="status" content="1회 개선">
+  <meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T01 리퀴드 글래스 · #1e3a8a">
 
 <!-- ===== 2. 스타일 ===== -->
 <style>
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
+  /* 디자인: 컬러셋 C15 신문지와 남색 + 트렌드 T01 리퀴드 글래스(버튼만) */
   :root {
-    --bg: #f6f8f9;
-    --card: #ffffff;
-    --line: #d9e0e3;
-    --text: #1d2529;
-    --muted: #55636a;
-    --accent: #0f7a73;      /* 틸 계열 강조색 하나만 사용 */
-    --accent-soft: #e3f2f0;
+    --bg: #f4f1ea;
+    --card: #fbf9f4;
+    --line: #d9d3c7;
+    --field-line: #5a564e;  /* 입력칸·선택칸 테두리 */
+    --text: #1b1b1b;
+    --muted: #5a564e;
+    --accent: #1e3a8a;      /* 남색 강조색 하나만 사용 */
+    --accent-soft: #e4e9f5;
     --error: #b42318;
     --error-soft: #fdecea;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--bg);
+    background-color: var(--bg);
+    /* 유리 뒤로 비쳐 보일 남색 빛: 진한 빛은 글자 없는 구석에만, 글자 아래는 12% 이하 */
+    background-image:
+      radial-gradient(circle at 100% 0%, rgba(30,58,138,.30) 0, rgba(30,58,138,.10) 90px, rgba(30,58,138,0) 320px),
+      radial-gradient(ellipse 55% 35% at 85% 55%, rgba(30,58,138,.09), rgba(30,58,138,0) 70%);
+    background-repeat: no-repeat;
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-family: "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     font-size: 16px;
     line-height: 1.7;
     word-break: keep-all;
@@ -39,33 +48,46 @@
   section.card {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: 20px;
     padding: 18px;
     margin-bottom: 16px;
     min-width: 0;
+    box-shadow: 0 4px 16px rgba(0,0,0,.06);
   }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  /* 리퀴드 글래스 버튼: 반투명 유리 + 가장자리 빛 + 두께감 */
   button {
     font: inherit;
     font-size: 15px;
-    padding: 8px 14px;
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    background: #fff;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.6);
+    background: color-mix(in srgb, #fbf9f4 45%, transparent);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    backdrop-filter: blur(12px) saturate(160%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.75), inset 0 -1px 0 rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.12);
     color: var(--text);
     cursor: pointer;
     min-height: 40px;
+    transition: transform .12s ease;
   }
   button:hover { border-color: var(--accent); }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:active { transform: scale(.97); }
+  button.primary { background: color-mix(in srgb, var(--accent) 90%, transparent); border-color: rgba(255,255,255,.6); color: #fff; }
+  button.primary:hover { border-color: var(--accent); }
   button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    button { transition: none; }
+    button:active { transform: none; }
+  }
   select, input[type=number] {
     font: inherit;
     font-size: 16px;
     padding: 6px 8px;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    background: #fff;
+    border: 1px solid var(--field-line);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--text);
     width: 100%;
     min-width: 0;
   }
@@ -73,7 +95,7 @@
 
   /* 자산 입력 표 */
   .assets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
-  .asset { border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
+  .asset { border: 1px solid var(--line); border-radius: 14px; padding: 12px; min-width: 0; }
   .asset h3 { font-size: 1rem; margin: 0 0 8px; }
   .asset .field { margin-bottom: 8px; }
   .asset .field label { display: block; }
@@ -96,7 +118,7 @@
   .legend { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 15px; color: var(--muted); }
   .legend li { display: flex; align-items: center; gap: 6px; }
   .legend svg { flex: 0 0 auto; }
-  .sum { padding: 8px 12px; border-radius: 8px; background: var(--accent-soft); font-weight: 600; }
+  .sum { padding: 8px 12px; border-radius: 12px; background: var(--accent-soft); font-weight: 600; }
   .sum.bad { background: var(--error-soft); color: var(--error); }
   .message {
     margin-top: 12px;
@@ -108,7 +130,7 @@
     font-weight: 600;
   }
   .message[hidden] { display: none; }
-  canvas { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  canvas { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
   .result-line { margin-top: 10px; font-size: 1.05rem; }
   .result-line strong { color: var(--accent); }
   .paused { color: var(--error); font-weight: 600; }
@@ -117,8 +139,8 @@
   .formula {
     font-family: ui-monospace, Consolas, "D2Coding", monospace;
     font-size: 15px;
-    background: #f3f6f7;
-    border-radius: 8px;
+    background: var(--bg);
+    border-radius: 12px;
     padding: 12px;
     margin: 6px 0 14px;
     overflow-wrap: anywhere;
@@ -126,7 +148,7 @@
     line-height: 1.8;
   }
   .step-title { font-weight: 700; margin: 10px 0 2px; }
-  .notice { border-left: 4px solid var(--muted); padding: 10px 14px; background: #fff; color: var(--text); }
+  .notice { border-left: 4px solid var(--muted); padding: 10px 14px; background: var(--card); color: var(--text); border-radius: 12px; }
   .notice p { margin: 4px 0; }
   .small { font-size: 15px; color: var(--muted); }
 

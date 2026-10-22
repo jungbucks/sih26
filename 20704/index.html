@@ -7,95 +7,141 @@
 <meta name="description" content="번호표를 뽑으면 큐(선입선출)에 줄을 서고, 직원이 1·2번 창구에서 호출하면 맨 앞 번호와 창구를 전광판에 큰 글씨로 불러 주는 은행 창구 대기표 시스템">
 <meta name="class" content="O반 (2-5)">
 <meta name="status" content="2회 개선">
+<meta name="design" content="컬러셋 C11 밤하늘과 보라 · 트렌드 T05 키네틱 타이포 · #8b9cff">
 <style>
-  /* ===== 색과 기본 글꼴 (은행 콘셉트: 네이비·블루) ===== */
+  /* ===== 전시판 공용 글꼴 ===== */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
+  @font-face { font-family: "Paperlogy"; src: url("../assets/fonts/Paperlogy-7Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+
+  /* ===== 색과 기본 글꼴 (디자인: 컬러셋 C11 밤하늘과 보라 + 키네틱 타이포) ===== */
   :root {
-    --bg: #eef2f8;
-    --surface: #ffffff;
-    --text: #1d2330;
-    --muted: #5d6573;
-    --line: #d5dce8;
-    --navy: #0f2b5c;          /* 은행 주 색상 */
-    --accent: #1f4fa3;        /* 블루: 버튼·강조 */
-    --accent-soft: #e8eefa;
-    --led-bg: #05070d;        /* 전광판 바탕 (아주 어두움) */
-    --led-text: #ffd23f;      /* 전광판 글자 (밝은 노랑) */
-    --led-dim: #9fb3d9;
-    --staff-bg: #2a2f3a;      /* 직원용 구역 (어두운 회색) */
-    --staff-text: #eef1f6;
-    --danger: #c0392b;
+    --bg: #0b1026;            /* 페이지 바탕 */
+    --surface: #151b38;       /* 카드·입력칸 바탕 */
+    --block: #1e2850;         /* 결과 카드(전광판) 색 블록 */
+    --text: #f1f5ff;
+    --muted: #b5bdd8;
+    --line: #2a3358;          /* 카드 테두리·옅은 구분선 */
+    --field-line: #b5bdd8;    /* 입력칸·보조 버튼 테두리 */
+    --accent: #8b9cff;        /* 가장 중요한 버튼 바탕 */
+    --accent-ink: #111111;    /* 강조 버튼 글자 */
+    --accent-text: #a5b4fc;   /* 바탕 위 강조 글자 (핵심 결과 숫자) */
+    --danger: #c0392b;        /* 원래 있던 위험(초기화) 빨강 */
+    --danger-light: #ffb4a8;
+    --body-font: "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    --title-font: "Paperlogy", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-family: var(--body-font);
     font-size: 17px;
     line-height: 1.7;
     word-break: keep-all;
   }
   main { max-width: 44rem; margin: 0 auto; padding: 16px 16px 48px; }
+  h1, h2 { font-family: var(--title-font); font-weight: 700; }
   h2 { font-size: 1.1rem; margin: 0 0 12px; }
 
   /* ===== 은행 헤더 ===== */
   .bank-header {
-    background: var(--navy);
-    color: #fff;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--line);
     display: flex; align-items: center; gap: 12px;
     padding: 14px 16px;
-    border-radius: 14px;
-    margin-bottom: 16px;
+    border-radius: 8px;
+    margin-bottom: 4px;
   }
   .bank-header svg { flex: none; }
+  /* 로고 색을 새 색 조합에 맞춤 (모양은 그대로) */
+  .bank-header svg circle { fill: var(--accent-text); }
+  .bank-header svg path, .bank-header svg rect { fill: var(--bg); }
   .bank-name { margin: 0; font-size: 1.35rem; line-height: 1.3; }
-  .bank-name small { display: block; font-size: .9rem; font-weight: 400; color: #c7d4ee; }
+  .bank-name small { display: block; font-family: var(--body-font); font-size: .9rem; font-weight: 400; color: var(--muted); }
+
+  /* ===== 키네틱 타이포: 제목 글자를 크게 반복한 장식 띠 (왼쪽으로 15초에 한 바퀴) ===== */
+  .title-band {
+    overflow: hidden;
+    margin: 0 0 12px;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .title-band-track { display: inline-flex; width: max-content; }
+  .title-band-track span {
+    flex: none;
+    padding-right: .6em;
+    font-family: var(--title-font);
+    font-size: clamp(44px, 12vw, 64px);
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--accent-text);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .title-band-track { animation: bandFlow 15s linear infinite; }
+    @keyframes bandFlow {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+  }
 
   .panel {
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: 8px;
     padding: 20px;
     margin-bottom: 16px;
   }
 
-  /* ===== 호출 전광판 (어두운 바탕 + 밝은 글자, 아주 큰 글씨) ===== */
+  /* ===== 호출 전광판 (결과 카드: 색 블록 + 아주 큰 글씨) ===== */
   .board {
     text-align: center;
-    background: var(--led-bg);
-    border: 4px solid var(--navy);
+    background: var(--block);
+    border: 1px solid var(--line);
     padding: 28px 16px;
     min-height: 11rem;
     display: flex; flex-direction: column; justify-content: center;
     transition: background-color .3s, border-color .3s;
   }
-  .board-label { color: var(--led-dim); font-size: 1rem; margin: 0 0 8px; letter-spacing: .1em; }
+  .board-label { color: var(--muted); font-size: 1rem; margin: 0 0 8px; letter-spacing: .1em; }
   .call-text {
     margin: 0;
     font-size: clamp(2.4rem, 11vw, 4rem);
     font-weight: 800;
     line-height: 1.3;
-    color: #ffffff;
+    color: var(--text);
   }
-  .call-text .num { color: var(--led-text); font-variant-numeric: tabular-nums; }
-  .board.is-calling { border-color: var(--led-text); }
-  .board.is-empty .call-text { font-size: clamp(1.4rem, 6vw, 2rem); color: var(--led-dim); }
+  .call-text .num { display: inline-block; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+  .board.is-calling { border-color: var(--accent); }
+  .board.is-empty .call-text { font-size: clamp(1.4rem, 6vw, 2rem); color: var(--muted); }
 
-  /* 반짝임: 움직임 줄이기 설정이 없을 때만 깜빡임 3번 */
+  /* 키네틱 타이포: 호출 번호가 바뀔 때 아래에서 위로 한 번 올라오며 나타남 (0.4초) */
+  @media (prefers-reduced-motion: no-preference) {
+    .call-text .num { animation: numRise .4s ease-out both; }
+    @keyframes numRise {
+      from { transform: translateY(.5em); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  }
+
+  /* 반짝임: 움직임 줄이기 설정이 없을 때만 깜빡임 3번 (원래 있던 효과, 색만 새 조합으로) */
   @media (prefers-reduced-motion: no-preference) {
     .board.flash { animation: blink .5s ease-in-out 3; }
     @keyframes blink {
-      0%, 100% { background: var(--led-bg); }
-      50% { background: #1c3d7a; }
+      0%, 100% { background: var(--block); }
+      50% { background: var(--line); }
     }
   }
 
   /* ===== 고객용 구역 ===== */
   .zone-title { display: flex; align-items: center; gap: 8px; }
   .tag {
+    font-family: var(--body-font);
     font-size: .85rem; font-weight: 700;
     padding: 2px 10px; border-radius: 999px;
-    background: var(--accent-soft); color: var(--accent);
+    background: var(--line); color: var(--text);
   }
   .role { color: var(--muted); font-size: .95rem; margin: 0 0 8px; }
   button {
@@ -104,12 +150,12 @@
     font-weight: 700;
     width: 100%;
     min-height: 56px;
-    border-radius: 10px;
+    border-radius: 999px;
     cursor: pointer;
   }
-  .btn-primary { background: var(--accent); color: #fff; border: 2px solid var(--accent); }
-  .btn-primary:hover { background: #183f84; }
-  button:focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); border: 2px solid var(--accent); }
+  .btn-primary:hover { background: var(--accent-text); border-color: var(--accent-text); }
+  button:focus-visible { outline: 3px solid var(--accent-text); outline-offset: 2px; }
   .result { margin: 12px 0 0; min-height: 1.7em; }
   .result strong { font-size: 1.3rem; }
 
@@ -126,29 +172,29 @@
     padding: 4px 14px;
     font-weight: 700;
   }
-  .recent li:first-child { border-color: var(--accent); color: var(--accent); }
+  .recent li:first-child { border-color: var(--accent); color: var(--accent-text); }
   .empty-note { color: var(--muted); margin: 0; }
 
-  /* ===== 직원용 구역 (어두운 회색 박스로 확실히 구분) ===== */
+  /* ===== 직원용 구역 (점선 테두리로 확실히 구분) ===== */
   .staff {
-    background: var(--staff-bg);
-    color: var(--staff-text);
-    border: 2px dashed #6b7487;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px dashed var(--field-line);
   }
-  .staff .tag { background: #444b5a; color: #fff; }
-  .staff .role { color: #b9c0cc; }
+  .staff .tag { background: transparent; color: var(--text); border: 1px solid var(--field-line); }
+  .staff .role { color: var(--muted); }
   .staff-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .staff-buttons .btn-reset { grid-column: 1 / -1; }
-  .btn-staff { background: #ffffff; color: var(--navy); border: 2px solid #ffffff; }
-  .btn-staff:hover { background: #dfe6f3; }
-  .btn-reset { background: transparent; color: #ffb4a8; border: 2px solid #ffb4a8; font-size: 1rem; }
+  .btn-staff { background: transparent; color: var(--text); border: 1px solid var(--field-line); }
+  .btn-staff:hover { background: var(--line); }
+  .btn-reset { background: transparent; color: var(--danger-light); border: 1px solid var(--danger-light); font-size: 1rem; }
   .btn-reset:hover { background: #3a2f33; }
-  .staff .result { color: var(--staff-text); }
+  .staff .result { color: var(--text); }
 
   /* ===== 화면 위에 뜨는 창(모달) 공통: confirm·alert 대신 페이지 안에서 띄운다 ===== */
   .overlay {
     position: fixed; inset: 0;
-    background: rgba(5, 10, 25, .6);
+    background: rgba(5, 8, 20, .75);
     display: flex; align-items: flex-start; justify-content: center;
     padding: 24px 16px;
     overflow-y: auto;
@@ -161,10 +207,10 @@
     width: 100%; max-width: 22rem;
     margin-top: 10vh;
     padding: 20px;
-    border-radius: 14px;
-    background: var(--staff-bg);
-    color: var(--staff-text);
-    border: 2px solid #ffb4a8;
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--line);
   }
   .pin-box h2 { margin: 0 0 6px; }
   .pin-box p { margin: 0 0 10px; }
@@ -172,24 +218,25 @@
   .pin-input {
     font: inherit; font-size: 1.6rem; letter-spacing: .5em; text-align: center;
     width: 100%; min-height: 56px; padding: 0 8px;
-    border-radius: 10px; border: 2px solid #8a93a5;
-    background: #fff; color: var(--text);
+    border-radius: 8px; border: 1px solid var(--field-line);
+    background: var(--surface); color: var(--text);
   }
-  .pin-input:focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }
-  .pin-error { color: #ffb4a8; font-weight: 700; min-height: 1.7em; margin: 8px 0 10px !important; }
+  .pin-input:focus-visible { outline: 3px solid var(--accent-text); outline-offset: 2px; }
+  .pin-error { color: var(--danger-light); font-weight: 700; min-height: 1.7em; margin: 8px 0 10px !important; }
   .confirm-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .btn-danger { background: var(--danger); color: #fff; border: 2px solid var(--danger); min-height: 48px; font-size: 1rem; }
-  .btn-cancel { background: transparent; color: var(--staff-text); border: 2px solid #8a93a5; min-height: 48px; font-size: 1rem; }
+  .btn-cancel { background: transparent; color: var(--text); border: 1px solid var(--field-line); min-height: 48px; font-size: 1rem; }
 
-  /* 종이 영수증 모양 번호표 */
+  /* 영수증 모양 번호표 (아래쪽 톱니 모양은 그대로, 색만 새 조합으로) */
   .ticket {
     width: 100%; max-width: 18rem;
-    background: #fffdf6;
-    color: #222;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px 8px 0 0;
     padding: 20px 20px 16px;
     text-align: center;
     font-variant-numeric: tabular-nums;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, .35);
     /* 아래쪽을 톱니 모양으로 잘라 뜯어낸 종이처럼 보이게 함 */
     --tooth: 8px;
     padding-bottom: calc(16px + var(--tooth));
@@ -203,14 +250,16 @@
       to { transform: translateY(0); }
     }
   }
-  .ticket-logo { display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; color: var(--navy); }
-  .ticket-sub { margin: 2px 0 0; font-size: .85rem; color: #666; }
-  .ticket hr { border: 0; border-top: 2px dashed #bbb; margin: 12px 0; }
-  .ticket-label { margin: 0; font-size: .95rem; color: #555; }
-  .ticket-num { margin: 0; font-size: 4.2rem; font-weight: 800; line-height: 1.1; color: var(--navy); }
+  .ticket-logo { display: flex; align-items: center; justify-content: center; gap: 8px; font-family: var(--title-font); font-weight: 700; color: var(--text); }
+  .ticket-logo svg circle { fill: var(--accent-text); }
+  .ticket-logo svg path, .ticket-logo svg rect { fill: var(--surface); }
+  .ticket-sub { margin: 2px 0 0; font-size: .85rem; color: var(--muted); }
+  .ticket hr { border: 0; border-top: 2px dashed var(--line); margin: 12px 0; }
+  .ticket-label { margin: 0; font-size: .95rem; color: var(--muted); }
+  .ticket-num { margin: 0; font-size: 4.2rem; font-weight: 800; line-height: 1.1; color: var(--accent-text); }
   .ticket-num small { font-size: 1.6rem; }
   .ticket-row { display: flex; justify-content: space-between; gap: 8px; margin: 0; font-size: .98rem; text-align: left; }
-  .ticket-note { margin: 0 0 12px; font-size: .85rem; color: #666; }
+  .ticket-note { margin: 0 0 12px; font-size: .85rem; color: var(--muted); }
   .ticket .btn-primary { min-height: 48px; font-size: 1rem; }
 
   .save-note { font-size: .9rem; color: var(--muted); margin: 8px 0 0; }
@@ -232,6 +281,9 @@
     </svg>
     <h1 class="bank-name">상일 은행 <small>순서 대기 안내</small></h1>
   </header>
+
+  <!-- ===== 키네틱 타이포 장식 띠: 제목 글자를 크게 반복해 천천히 흐르게 함 (장식이라 화면 읽기 프로그램은 건너뜀) ===== -->
+  <div class="title-band" aria-hidden="true"><div class="title-band-track"><span>상일 은행 순서 대기 안내</span><span>상일 은행 순서 대기 안내</span><span>상일 은행 순서 대기 안내</span><span>상일 은행 순서 대기 안내</span><span>상일 은행 순서 대기 안내</span><span>상일 은행 순서 대기 안내</span></div></div>
 
   <!-- ===== 호출 전광판 ===== -->
   <section class="panel board is-empty" id="board" aria-labelledby="boardLabel">

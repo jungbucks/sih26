@@ -176,6 +176,33 @@ test("제작 기록: 같은 단계 커밋은 한 버전, 단계 없는 커밋은
     ],
   );
 });
+test("디자인 표시: 단계는 그대로, 배지 정보와 제작 기록 새 버전", async (t) => {
+  const r = await fixture(t);
+  execFileSync("git", ["init", r], { stdio: "ignore" });
+  const commit = async (head, when) => {
+    await student(r, "20100", `<title>t</title><meta name="status" content="2회 개선">${head}<p>${when}</p>`);
+    execFileSync("git", ["-C", r, "add", "."]);
+    execFileSync(
+      "git",
+      ["-C", r, "-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-m", when],
+      { stdio: "ignore", env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when } },
+    );
+  };
+  await commit("", "2026-01-01T00:00:00Z");
+  const marker = '<meta name="design" content="컬러셋 C1 흰 종이와 파랑 · 트렌드 T04 에디토리얼 · #2563EB">';
+  await commit(marker, "2026-01-05T00:00:00Z");
+  await commit(marker, "2026-01-06T00:00:00Z");
+  const p = (await catalog(r)).projects[0];
+  assert.equal(p.status, "2회 개선");
+  assert.deepEqual(p.design, { label: "컬러셋 C1 흰 종이와 파랑 · 트렌드 T04 에디토리얼", accent: "#2563eb" });
+  assert.deepEqual(
+    p.history.map((v) => [v.version, v.stage, !!v.design, v.updatedAt.slice(0, 10)]),
+    [
+      ["V1", "2회 개선", false, "2026-01-01"],
+      ["V2", "2회 개선", true, "2026-01-06"],
+    ],
+  );
+});
 test("201작품은 누락 없이 전체 실패", async (t) => {
   const r = await fixture(t);
   for (let i = 0; i < 201; i++) await student(r, String(20000 + i));

@@ -18,6 +18,13 @@ export function date(value) {
       }).format(new Date(value))
     : "수정일 미확인";
 }
+// 디자인 개선을 반영한 작품: 진행 단계 옆 [디자인] 글로 칩 (빛 = 학생이 고른 강조색)
+export function designBadge(d) {
+  const b = el("span", "[디자인]", "student-design");
+  b.title = d.label;
+  if (d.accent) b.style.setProperty("--design-accent", d.accent);
+  return b;
+}
 export function shot(p) {
   const box = el("div");
   const fallback = () =>

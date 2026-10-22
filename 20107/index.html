@@ -7,15 +7,19 @@
 <meta name="description" content="과목, 할 일, 목표 시간을 적어 두면 과목별로 묶어 보여 주고 이 브라우저에 저장해 주는 공부 계획표">
   <meta name="class" content="M반 (2-8)">
   <meta name="status" content="1회 개선">
+  <meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T09 맥시멀리즘 · #1e3a8a">
 <style>
+  @font-face { font-family: "Gowun Dodum"; src: url("../assets/fonts/GowunDodum-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Paperlogy"; src: url("../assets/fonts/Paperlogy-7Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
   :root {
-    --bg: #f6f7f9;
-    --card: #ffffff;
-    --text: #1f2328;
-    --muted: #59636e;
-    --line: #d8dde3;
-    --accent: #1f5fbf;
-    --accent-weak: #e8f0fc;
+    --bg: #f4f1ea;
+    --card: #fbf9f4;
+    --text: #1b1b1b;
+    --muted: #5a564e;
+    --line: #d9d3c7;
+    --ink: #1b1b1b;
+    --accent: #1e3a8a;
+    --accent-weak: #e4e9f5;
     --ok: #1a7f37;
     --ok-weak: #e9f6ec;
     --err: #b42318;
@@ -28,7 +32,7 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-family: "Gowun Dodum", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     font-size: 17px;
     line-height: 1.7;
     word-break: keep-all;
@@ -140,6 +144,75 @@
   .edit-box label:first-of-type { margin-top: 0; }
   .reset-area { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
   .total { color: var(--muted); font-size: 0.95rem; }
+
+  /* ===== 디자인: C15 신문지와 남색 + T09 맥시멀리즘 ===== */
+  /* 바탕: 굵은 사선 줄무늬 (글자는 모두 단색 상자 위에 올린다) */
+  body {
+    background-color: var(--bg);
+    background-image: repeating-linear-gradient(135deg, #e4e9f5 0 14px, var(--bg) 14px 28px);
+  }
+  h1, h2 { font-family: "Paperlogy", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; font-weight: 700; }
+  /* 머리말도 단색 카드 위에 (줄무늬 위에 글자가 바로 놓이지 않게) */
+  header, .card {
+    background: var(--card);
+    border: 2px solid var(--ink);
+    border-radius: 16px;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  header { padding: 20px 16px 4px; margin-bottom: 20px; }
+  .privacy { margin-bottom: 16px; }
+  /* 제목 옆 기울어진 장식 스티커 2개 (CSS 장식이라 화면 읽기 프로그램에는 읽히지 않음) */
+  h1 { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 6px; }
+  h1::before, h1::after {
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; line-height: 1; padding: 6px 10px; min-height: 28px;
+    border: 2px solid var(--ink); border-radius: 999px; box-shadow: 2px 2px 0 var(--ink);
+  }
+  h1::before { order: 1; content: "NEW!"; content: "NEW!" / ""; background: #e4e9f5; color: var(--accent); transform: rotate(-8deg); }
+  h1::after { order: 2; content: "★"; content: "★" / ""; background: var(--ink); color: var(--card); transform: rotate(6deg); }
+  #storageStatus { border: 2px solid var(--ink); }
+  #storageStatus:empty { border: none; }
+  /* 입력칸: 어디에 쓰는지 잘 보이게 진한 테두리 */
+  input[type="text"] { background: var(--card); border: 2px solid var(--ink); }
+  /* 버튼: 알약 모양 + 진한 테두리 + 도장 그림자 */
+  button {
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    background: var(--card);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .btn-primary { background: var(--accent); border-color: var(--ink); color: #ffffff; }
+  .btn-danger { border-color: var(--ink); color: var(--err); }
+  .btn-danger-solid { background: var(--err); border-color: var(--ink); color: #fff; }
+  .btn-done { border-color: var(--ink); color: var(--ok); }
+  button:disabled { cursor: not-allowed; color: var(--muted); }
+  /* 예시 목록·수정 상자: 옅은 구분선 */
+  .example-list label { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; }
+  .edit-box { background: var(--bg); border: 1px solid var(--line); }
+  /* 결과 요약(제목·남은 개수·저장 배지): 색 블록 + 살짝 기울이기 */
+  .list-head {
+    background: #e4e9f5;
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    padding: 8px 12px;
+    margin-bottom: 16px;
+    transform: rotate(-1.5deg);
+  }
+  .list-head h2 { margin: 0; }
+  .total { color: var(--text); }
+  /* 목록 항목: 작은 종이 쪽지처럼 번갈아 ±0.6deg (수정 중인 항목은 똑바로) */
+  .plans { display: grid; gap: 8px; }
+  .plan {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .plan:last-child { border-bottom: 1px solid var(--line); }
+  .plan:nth-child(odd) { transform: rotate(0.6deg); }
+  .plan:nth-child(even) { transform: rotate(-0.6deg); }
+  .plan:has(.edit-box) { transform: none; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>

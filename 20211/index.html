@@ -7,28 +7,40 @@
 <meta name="description" content="15분·25분·50분 중 공부 시간을 골라 카운트다운하고, 끝나면 5분 휴식으로 이어 주는 공부 타이머">
 <meta name="class" content="O반 (2-5)">
 <meta name="status" content="PRD">
+<meta name="design" content="컬러셋 C11 밤하늘과 보라 · 트렌드 T02 벤토 그리드 · #8b9cff">
 <style>
+  /* ===== 글꼴: 전시판 공용 글꼴 (못 불러오면 아래 대체 글꼴로) ===== */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
+
+  /* ===== 컬러셋 C11 밤하늘과 보라 ===== */
   :root {
-    --bg: #f5f7f8;
-    --card: #ffffff;
-    --text: #1d2327;
-    --muted: #5b666e;
-    --line: #d7dde2;
-    --accent: #0f766e;
-    --accent-weak: #e3f3f1;
-    --rest: #1d5fa8;
-    --rest-weak: #e6eefa;
-    --warn: #8a5a00;
-    --warn-weak: #fff5dc;
-    --ok: #1a7f37;
-    --ok-weak: #e8f5ec;
+    color-scheme: dark;
+    --bg: #0b1026;          /* 페이지 바탕 */
+    --card: #151b38;        /* 카드·입력칸 바탕 */
+    --text: #f1f5ff;
+    --muted: #b5bdd8;
+    --line: #2a3358;        /* 옅은 구분선·카드 테두리 */
+    --line-strong: #b5bdd8; /* 보조 버튼 테두리 */
+    --accent: #8b9cff;      /* 강조색: 가장 중요한 버튼 */
+    --accent-ink: #111111;  /* 강조색 버튼 글자 */
+    --accent-text: #a5b4fc; /* 바탕 위 강조 글자 */
+    --accent-weak: #1e2850; /* 결과·요약 색 블록 */
+    /* 의미 색: 원래 있던 색 계열을 어두운 바탕에 맞춰 밝기만 조정 */
+    --rest: #1d5fa8;        /* 휴식(파랑) — 버튼 바탕은 원래 색, 강조색(밝은 보라)과 밝기로 구분 */
+    --rest-text: #a8d4ff;
+    --rest-weak: #12294a;
+    --warn: #f5c862;        /* 경고(노랑) */
+    --warn-weak: #33270a;
+    --ok: #7ee2a0;          /* 완료(초록) */
+    --ok-weak: #10301f;
+    --shadow: 0 1px 3px rgba(0,0,0,.06);
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-family: "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     font-size: 17px;
     line-height: 1.7;
     word-break: keep-all;
@@ -41,9 +53,37 @@
   .card {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 16px;
+    border-radius: 18px;
     padding: 24px 16px;
     margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+
+  /* ===== 2026 트렌드 T02 벤토 그리드: 결과·요약 영역(타이머 칸) =====
+     칸 3개 — 남은 시간(가장 중요한 숫자, 2칸 크기) / 지금 상태 / 시간 설명.
+     모든 칸 모서리 18px, 칸 사이 12px. 휴대폰(좁은 화면)에서는 1열로 내려와요. */
+  .card[aria-label="타이머"] {
+    background: none;
+    border: 0;
+    padding: 0;
+    box-shadow: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .card[aria-label="타이머"] > .status, .card[aria-label="타이머"] > .time, .card[aria-label="타이머"] > .time-label {
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 16px;
+    min-width: 0;
+  }
+  .card[aria-label="타이머"] > .time-label { background: var(--card); }
+  .card[aria-label="타이머"] > .time { order: -1; grid-column: 1 / -1; background: var(--accent-weak); padding: 20px 16px; }
+  .card[aria-label="타이머"] > .btn-rest, .card[aria-label="타이머"] > .msg { grid-column: 1 / -1; }
+  @media (max-width: 480px) {
+    .card[aria-label="타이머"] { grid-template-columns: 1fr; }
   }
 
   /* 상단: 상태 표시 */
@@ -54,11 +94,12 @@
     padding: 4px 14px;
     border-radius: 999px;
     font-weight: 700;
-    background: #eef1f3;
+    background: var(--card);
     color: var(--muted);
   }
-  .status[data-phase="study"] { background: var(--accent-weak); color: var(--accent); }
-  .status[data-phase="break"] { background: var(--rest-weak); color: var(--rest); }
+  .card[aria-label="타이머"] > .status { display: flex; }
+  .status[data-phase="study"] { background: var(--accent-weak); color: var(--accent-text); }
+  .status[data-phase="break"] { background: var(--rest-weak); color: var(--rest-text); }
   .status[data-phase="breakReady"] { background: var(--ok-weak); color: var(--ok); }
   .status[data-phase="paused"] { background: var(--warn-weak); color: var(--warn); }
   .status .icon { font-size: 1.1rem; line-height: 1; }
@@ -72,7 +113,7 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.02em;
   }
-  .time-label { color: var(--muted); margin: 0; font-size: 0.95rem; }
+  .time-label { color: var(--muted); margin: 0; font-size: 0.95rem; display: flex; align-items: center; }
 
   /* 하단: 버튼들 */
   .group-title { font-weight: 700; margin: 0 0 8px; font-size: 1rem; }
@@ -83,32 +124,34 @@
     font-weight: 700;
     min-height: 48px;
     padding: 8px 6px;
-    border-radius: 10px;
-    border: 1px solid var(--line);
-    background: #fff;
+    border-radius: 12px;
+    border: 1px solid var(--line-strong);
+    background: var(--card);
     color: var(--text);
     cursor: pointer;
   }
-  button:hover { border-color: #aab4bc; }
+  button:hover { border-color: var(--text); }
   button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  .mode[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .btn-main { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .mode[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn-main { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
   .btn-main:hover { border-color: var(--accent); filter: brightness(1.08); }
   .btn-rest {
     width: 100%;
     margin-top: 12px;
     background: var(--rest);
-    border-color: var(--rest);
+    border-color: var(--rest-text);
     color: #fff;
   }
+  .card[aria-label="타이머"] > .btn-rest { margin-top: 0; }
   .btn-rest[hidden] { display: none; }
 
-  /* 경고·안내 문구 영역 */
-  .msg { min-height: 1.7em; margin: 16px 0 0; padding: 0; border-radius: 10px; font-weight: 600; }
+  /* 경고·안내 문구 영역 (비어 있을 땐 칸이 아니라 빈 자리만) */
+  .msg { min-height: 1.7em; margin: 16px 0 0; padding: 0; border-radius: 18px; font-weight: 600; }
+  .card[aria-label="타이머"] > .msg { margin: 0; }
   .msg:not(:empty) { padding: 10px 14px; }
   .msg.warn { background: var(--warn-weak); color: var(--warn); }
   .msg.done { background: var(--ok-weak); color: var(--ok); }
-  .msg.info { background: var(--rest-weak); color: var(--rest); }
+  .msg.info { background: var(--rest-weak); color: var(--rest-text); }
 
   .notice { font-size: 0.95rem; color: var(--muted); margin: 8px 0 0; padding-left: 12px; border-left: 3px solid var(--line); }
 </style>

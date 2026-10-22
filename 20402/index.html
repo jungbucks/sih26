@@ -7,6 +7,7 @@
 <meta name="description" content="요일과 날씨를 고르면 오늘 챙길 준비물을 보여 주고, 챙긴 것을 눌러 하나씩 지우는 등교 준비물 체크리스트">
 <meta name="class" content="M반 (2-8)">
 <meta name="status" content="1회 개선">
+<meta name="design" content="컬러셋 C8 분홍과 민트 · 트렌드 T06 스크롤 3D · #ffb3d1">
 <style>
   :root {
     --bg: #f5f7f7;
@@ -162,6 +163,68 @@
   @media (max-width: 400px) {
     .choices button { font-size: 1rem; }
     .choices.days button[aria-pressed="true"]::before { content: ""; }
+  }
+
+  /* ===== 디자인: C8 분홍과 민트 + T06 스크롤 3D ===== */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
+  :root {
+    --bg: #fff5fa;
+    --card: #ffffff;
+    --text: #3b2a4d;
+    --muted: #6a5679;
+    --line: #f3d6ea;
+    --accent: #ffb3d1;
+    --accent-ink: #b4236a;   /* 바탕 위에 강조 글자를 쓸 때 */
+    --accent-weak: #d7f5ec;  /* 결과·요약 색 블록 */
+  }
+  body { font-family: "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  }
+  .notice { border-radius: 12px; }
+  /* 버튼·입력칸: 모서리 12px, 보조 버튼·입력칸은 진한 보조색 테두리 */
+  button { border-radius: 12px; border: 1px solid var(--muted); background: var(--card); }
+  button:focus-visible, input:focus-visible { outline-color: var(--accent-ink); }
+  .add-row input { border: 1px solid var(--muted); border-radius: 12px; background: var(--card); }
+  .choices button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent-ink); color: #111111; }
+  .btn-primary { background: var(--accent); border-color: var(--accent-ink); color: #111111; }
+  .remain { color: var(--accent-ink); }
+  .item-btn { border: 1px solid var(--muted); }
+  .item-btn:hover { border-color: var(--accent-ink); background: var(--bg); }
+  .item-btn.custom { border-style: dashed; border-color: var(--accent-ink); }
+  .box { border-color: var(--muted); }
+  .tag.base { background: var(--bg); color: var(--muted); }
+  .tag.custom { background: var(--accent-weak); color: var(--accent-ink); }
+  .tag.cond { background: var(--accent); color: #111111; }
+  .del-btn { border-radius: 12px; }
+  .cond-summary { background: var(--accent-weak); border-radius: 12px; }
+  .cond-summary strong { color: var(--accent-ink); }
+  .undo-btn { border-color: var(--muted); color: var(--accent-ink); }
+  .undo-btn:disabled { border-color: var(--line); color: var(--muted); }
+  .done-msg, .msg { border-radius: 12px; }
+
+  /* 스크롤 3D(축소판): 준비물 목록 한 곳만.
+     목록 줄이 화면 아래에서 들어올 때 뒤로 눕혀 있다가 똑바로 서며 다가온다.
+     CSS 스크롤 연동(view timeline)만 사용 — 지원하지 않는 브라우저에서는 처음부터 똑바로 서 있다.
+     글자를 숨기지 않으므로 스크롤하지 않아도 내용은 모두 보인다. */
+  .items { perspective: 900px; --tilt: 25deg; }
+  @media (max-width: 600px) { .items { --tilt: 12.5deg; } }
+  @keyframes stand-up {
+    from { transform: rotateX(var(--tilt)) translateY(12px); }
+    to { transform: none; }
+  }
+  @supports (animation-timeline: view()) {
+    .items li {
+      transform-origin: 50% 100%;
+      animation: stand-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .items li { animation: none !important; transform: none !important; }
   }
 </style>
 </head>

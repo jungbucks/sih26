@@ -596,6 +596,24 @@ footer {
   line-height: 1;
   color: var(--muted);
 }
+/* 디자인 개선 반영: 단계 배지 옆 [디자인] 글로 칩 (빛 = 학생이 고른 강조색) */
+.student-design {
+  --glow: var(--design-accent, var(--pf-violet));
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--glow);
+  border-radius: var(--r-sm);
+  background: var(--canvas);
+  box-shadow:
+    0 0 6px color-mix(in srgb, var(--glow) 55%, transparent),
+    0 0 14px color-mix(in srgb, var(--glow) 30%, transparent);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink);
+}
 /* 이 탭에서 본 작품: 연두 점 + '봄' */
 .seen-badge {
   display: inline-flex;

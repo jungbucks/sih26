@@ -8,31 +8,57 @@
 <meta name="description" content="성공 확률을 넣으면 평균 몇 번 만에 성공하는지(기댓값)를 알려 주고, 직접 강화 버튼을 눌러 독립시행 결과를 쌓아 보는 시뮬레이터">
   <meta name="class" content="M반 (2-8)">
   <meta name="status" content="2회 개선">
+  <meta name="design" content="컬러셋 C16 먹과 노랑 · 트렌드 T01 리퀴드 글래스 · #ffd600">
 
 <!-- ===== 2. 스타일 ===== -->
 <style>
+  /* 전시판 공용 글꼴 (못 불러와도 아래 대체 글꼴로 정상 작동) */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
+
+  /* 컬러셋: 먹과 노랑 · 트렌드: 리퀴드 글래스(버튼에만) */
   :root {
-    --bg: #f6f7f9;
-    --card: #ffffff;
-    --line: #dde1e7;
-    --text: #1d232b;
-    --muted: #5b6573;
-    --accent: #1f5fae;      /* 버튼·강조 (한 가지 색만 사용) */
-    --accent-dark: #174a88;
-    --ok: #1d6b3a;          /* 성공 글자 */
-    --ok-bg: #e8f4ec;
-    --bad: #9b2c2c;         /* 실패·경고 글자 */
-    --bad-bg: #fbecec;
+    color-scheme: dark;
+    --bg: #111111;          /* 페이지 바탕: 먹 */
+    --card: #1c1c1a;        /* 카드·입력칸 바탕 */
+    --line: #33322d;        /* 옅은 구분선·카드 테두리 */
+    --edge: #b8b6ad;        /* 입력칸 테두리 */
+    --text: #f5f5f0;
+    --muted: #b8b6ad;
+    --accent: #ffd600;      /* 강조색: 경고등 노랑 (한 가지 색만 사용) */
+    --on-accent: #111111;   /* 강조색 위 글자 */
+    --block: #2a2610;       /* 결과 요약 카드 하나에 쓰는 색 블록 */
+    --ok: #6fdc95;          /* 성공 글자 (어두운 바탕에 맞춰 밝힌 초록) */
+    --ok-bg: #12301d;
+    --bad: #ff8a80;         /* 실패·경고 글자 (어두운 바탕에 맞춰 밝힌 빨강) */
+    --bad-bg: #3a1515;
+    /* 리퀴드 글래스 */
+    --glass-bg: color-mix(in srgb, #1c1c1a 45%, transparent);
+    --glass-rim: 1px solid rgba(255, 255, 255, .6);
+    --glass-depth: inset 0 1px 0 rgba(255, 255, 255, .75), inset 0 -1px 0 rgba(0, 0, 0, .08), 0 8px 24px rgba(0, 0, 0, .12);
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--bg);
+    min-height: 100vh;
+    /* 유리 뒤로 비쳐 보이는 노란 빛: 글자가 지나가는 곳은 12% 이하 */
+    background:
+      radial-gradient(circle at 0% 100%, rgba(255, 214, 0, .12) 0, rgba(255, 214, 0, 0) 420px),
+      radial-gradient(circle at 100% 18%, rgba(255, 214, 0, .10) 0, rgba(255, 214, 0, 0) 360px),
+      var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    font-family: "Wanted Sans", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
     font-size: 17px;
     line-height: 1.7;
     word-break: keep-all;
+  }
+  /* 넓은 화면: 글자가 없는 오른쪽 위 구석에만 진한 빛(30%) */
+  @media (min-width: 900px) {
+    body {
+      background:
+        radial-gradient(circle at 100% 0%, rgba(255, 214, 0, .30) 0, rgba(255, 214, 0, 0) 300px),
+        radial-gradient(circle at 0% 100%, rgba(255, 214, 0, .12) 0, rgba(255, 214, 0, 0) 520px),
+        var(--bg);
+    }
   }
   main {
     max-width: 40rem;
@@ -42,45 +68,60 @@
   h1 { font-size: 1.4rem; margin: 0 0 4px; line-height: 1.4; }
   .lead { margin: 0 0 20px; color: var(--muted); }
   section.card {
-    background: var(--card);
+    background: var(--card);       /* 글이 많은 카드는 불투명하게 */
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: 20px;
     padding: 18px 16px;
     margin-bottom: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .06);
   }
   h2 { font-size: 1.05rem; margin: 0 0 10px; }
 
-  /* 상단: 확률 입력 */
+  /* 상단: 확률 입력 (카드 안 가운데 정렬) */
   label { display: block; font-weight: 600; margin-bottom: 6px; }
-  .input-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  section[aria-labelledby="setTitle"] label { text-align: center; }
+  .input-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
   .input-wrap { display: flex; align-items: center; gap: 6px; }
+  section[aria-labelledby="setTitle"] .warn { text-align: center; }
   input[type="number"] {
     width: 6.5rem;
     font-size: 1.1rem;
     padding: 8px 10px;
-    border: 1px solid #b9c0ca;
-    border-radius: 8px;
+    border: 1px solid var(--edge);
+    border-radius: 12px;
+    background: var(--card);
+    color: var(--text);
     font-family: inherit;
   }
   input[aria-invalid="true"] { border: 2px solid var(--bad); }
+  /* 버튼 = 리퀴드 글래스: 반투명 유리 + 가장자리 빛 + 두께감, 알약 모양 */
   button {
     font-family: inherit;
     font-size: 1rem;
-    padding: 9px 16px;
-    border-radius: 8px;
-    border: 1px solid var(--accent);
-    background: var(--card);
-    color: var(--accent);
+    padding: 9px 18px;
+    border-radius: 999px;
+    border: var(--glass-rim);
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    backdrop-filter: blur(12px) saturate(160%);
+    box-shadow: var(--glass-depth);
+    color: var(--text);
     cursor: pointer;
     min-height: 44px;
+    transition: transform .12s ease-out;
   }
-  button.primary { background: var(--accent); color: #fff; }
-  button.primary:hover { background: var(--accent-dark); }
-  button:focus-visible, input:focus-visible { outline: 3px solid #f0b429; outline-offset: 2px; }
+  button:active { transform: scale(.97); }
+  button.primary { background: color-mix(in srgb, var(--accent) 92%, transparent); color: var(--on-accent); font-weight: 700; }
+  button.primary:hover { background: var(--accent); }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) {
+    button { transition: none; }
+    button:active { transform: none; }
+  }
   .warn {
     margin: 10px 0 0;
     padding: 8px 12px;
-    border-radius: 8px;
+    border-radius: 12px;
     background: var(--bad-bg);
     color: var(--bad);
     font-weight: 600;
@@ -90,12 +131,12 @@
   /* 중단: 기댓값·카운터·강화 버튼 */
   .expect {
     border-left: 4px solid var(--accent);
-    background: #eef3fa;
+    background: var(--block);
     padding: 12px 14px;
-    border-radius: 0 8px 8px 0;
+    border-radius: 0 12px 12px 0;
     margin: 0 0 16px;
   }
-  .expect strong { color: var(--accent-dark); }
+  .expect strong { color: var(--accent); }
   .expect small { display: block; color: var(--muted); margin-top: 4px; font-size: 0.92rem; }
   .counter { text-align: center; margin: 4px 0 14px; }
   .counter .label { color: var(--muted); font-size: 0.95rem; }
@@ -127,7 +168,7 @@
     max-height: 18rem;
     overflow-y: auto;
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 12px;
   }
   #logList li {
     padding: 6px 12px;
@@ -146,9 +187,9 @@
     padding: 8px 12px;
     font-size: 0.95rem;
     line-height: 1.55;
-    border: 1px solid #e3c873;
-    background: #fdf8e6;
-    border-radius: 8px;
+    border: 1px solid #8a7a3a;   /* 안내 노랑: 강조색과 헷갈리지 않게 어둡게 */
+    background: var(--card);
+    border-radius: 12px;
   }
   .store-note { color: var(--muted); font-size: 0.9rem; margin: 10px 0 0; }
 
@@ -163,22 +204,22 @@
   .prob-pick p { margin: 0 0 6px; color: var(--muted); font-size: 0.92rem; }
   .prob-btns { display: flex; flex-wrap: wrap; gap: 6px; }
   .prob-btns button { min-width: 4.2rem; padding: 6px 12px; }
-  .prob-btns button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .prob-btns button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: 700; }
   .log-summary {
     margin: 0 0 10px;
     padding: 8px 12px;
     border-left: 4px solid var(--accent);
-    background: #eef3fa;
-    border-radius: 0 8px 8px 0;
+    background: transparent;
+    border-radius: 0 12px 12px 0;
   }
   .log-summary small { display: block; color: var(--muted); font-size: 0.88rem; }
 
   /* 강화 연출: 성공 = 초록 빛 반짝임, 실패 = 빨간 흔들림 */
   .rate { font-weight: 700; color: var(--text); }
   @keyframes glowOk {
-    0%   { box-shadow: 0 0 0 0 rgba(29,107,58,0); border-color: var(--line); }
-    30%  { box-shadow: 0 0 0 6px rgba(29,107,58,0.35), 0 0 24px 6px rgba(46,160,90,0.45); border-color: var(--ok); background: var(--ok-bg); }
-    100% { box-shadow: 0 0 0 0 rgba(29,107,58,0); border-color: var(--line); }
+    0%   { box-shadow: 0 0 0 0 rgba(111,220,149,0); border-color: var(--line); }
+    30%  { box-shadow: 0 0 0 6px rgba(111,220,149,0.30), 0 0 24px 6px rgba(111,220,149,0.35); border-color: var(--ok); background: var(--ok-bg); }
+    100% { box-shadow: 0 0 0 0 rgba(111,220,149,0); border-color: var(--line); }
   }
   @keyframes shakeBad {
     0%, 100% { transform: translateX(0); }

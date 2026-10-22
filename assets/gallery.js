@@ -3,6 +3,7 @@ import {
   el,
   json,
   shot,
+  designBadge,
   link,
   VIEW_KEY,
   filterProjects,
@@ -45,6 +46,7 @@ function card(p) {
     el("span", p.class, "student-class"),
   );
   if (p.status) identity.append(el("span", p.status, "student-status"));
+  if (p.design) identity.append(designBadge(p.design));
   if (seen.has(p.id)) identity.append(el("span", "봄", "seen-badge"));
   const title = el("h2", p.title);
   body.append(identity, title, el("p", p.description, "desc"));

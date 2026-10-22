@@ -8,83 +8,124 @@
 <meta name="description" content="가장 최근에 추가한 할 일을 맨 위에 보여 주는 스택(후입선출) 방식 할 일 목록">
 <meta name="class" content="O반 (2-5)">
 <meta name="status" content="1회 개선">
+<meta name="design" content="컬러셋 C11 밤하늘과 보라 · 트렌드 T11 스위스 스타일 · #8b9cff">
 
 <!-- ===== 스타일 ===== -->
 <style>
+  /* 전시판 공용 글꼴 */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
+
+  /* 컬러셋 C11 밤하늘과 보라 + 트렌드 T11 스위스 스타일
+     글자 크기는 제목(40px 이상) 말고 3단계만: 작게 14px · 보통 17px · 크게 22px */
   :root {
-    --bg: #f6f7f9;
-    --card: #ffffff;
-    --text: #1f2328;
-    --muted: #6b7280;
-    --line: #dde1e6;
-    --accent: #1f5fbf;
-    --warn-bg: #fff6e0;
+    color-scheme: dark;
+    --bg: #0b1026;
+    --card: #151b38;
+    --text: #f1f5ff;
+    --muted: #b5bdd8;
+    --line: #2a3358;
+    --field-line: #b5bdd8;
+    --rule: #f1f5ff;
+    --accent: #8b9cff;
+    --accent-ink: #111111;
+    --accent-text: #a5b4fc;
+    --warn-bg: #2a2410;
     --warn-line: #e3b341;
-    --danger: #b42318;
-    --done-bg: #e8f5ec;
-    --done-line: #2f855a;
+    --warn-text: #f5d27a;
+    --danger: #ff7b72;
+    --done-text: #6fdc9c;
+    --fs-s: 0.875rem;
+    --fs-m: 17px;
+    --fs-l: 1.375rem;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-    font-size: 17px;
+    font-family: "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: var(--fs-m);
     line-height: 1.7;
     word-break: keep-all;
     overflow-wrap: anywhere;
   }
-  main { max-width: 40rem; margin: 0 auto; padding: 16px 16px 48px; }
+  /* 12칸 격자: 모든 덩어리의 왼쪽 끝을 1번 격자선에 맞춤 */
+  main {
+    max-width: 48rem; margin: 0 auto; padding: 24px 16px 48px;
+    display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: 16px;
+    align-content: start;
+  }
+  main > * { grid-column: 1 / -1; min-width: 0; }
+  @media (min-width: 640px) {
+    .sub { grid-column: 1 / span 8; }
+  }
 
   /* 공용 컴퓨터 경고: 항상 맨 위에 고정 표시 */
   .privacy-warning {
-    margin: 0 0 20px;
-    padding: 12px 14px;
+    margin: 0 0 32px;
+    padding: 10px 14px;
     background: var(--warn-bg);
     border: 1px solid var(--warn-line);
-    border-radius: 10px;
-    font-weight: 600;
+    border-radius: 0;
+    color: var(--warn-text);
+    font-weight: 700;
   }
-  h1 { font-size: 1.6rem; margin: 0 0 4px; line-height: 1.3; }
-  .sub { margin: 0 0 20px; color: var(--muted); font-size: 1rem; }
+  h1 {
+    font-size: clamp(2.5rem, 9vw, 2.75rem); font-weight: 900; letter-spacing: -0.02em;
+    margin: 0 0 8px; line-height: 1.1;
+  }
+  /* 귀여운 캐릭터 표시 하나 (제목 옆, 납작한 단색 도형) */
+  h1::after {
+    content: "";
+    display: inline-block;
+    width: 0.75em; height: 0.75em;
+    margin-left: 0.25em;
+    vertical-align: -0.04em;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='14' y='0' width='4' height='6' fill='%23b5bdd8'/%3E%3Crect x='2' y='6' width='28' height='24' fill='%23b5bdd8'/%3E%3Crect x='9' y='14' width='4' height='5' fill='%230b1026'/%3E%3Crect x='19' y='14' width='4' height='5' fill='%230b1026'/%3E%3Cpath d='M12 23 Q16 27 20 23' fill='none' stroke='%230b1026' stroke-width='2.5'/%3E%3C/svg%3E") no-repeat center / contain;
+  }
+  .sub { margin: 0 0 32px; color: var(--muted); font-size: var(--fs-m); }
 
   .panel {
     background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 14px;
+    border: none;
+    border-radius: 0;
     padding: 16px;
-    margin-bottom: 16px;
+    margin-bottom: 32px;
   }
-  label { display: block; font-weight: 600; margin-bottom: 6px; }
+  /* 목록 덩어리는 상자 없이 */
+  .panel[aria-label="할 일 목록"] { background: none; padding: 0; }
+  label { display: block; font-weight: 700; margin-bottom: 6px; }
   .add-row { display: flex; gap: 8px; }
   input[type="text"] {
     flex: 1;
     min-width: 0;
     font: inherit;
     padding: 10px 12px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
+    border: 1px solid var(--field-line);
+    border-radius: 0;
+    background: var(--card);
+    color: var(--text);
   }
-  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input[type="text"]::placeholder { color: var(--muted); opacity: 1; }
+  input[type="text"]:focus { outline: 2px solid var(--text); outline-offset: 2px; }
   button {
     font: inherit;
-    font-size: 1rem;
+    font-size: var(--fs-m);
     padding: 10px 14px;
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    background: #fff;
+    border-radius: 0;
+    border: 1px solid var(--field-line);
+    background: transparent;
     color: var(--text);
     cursor: pointer;
     white-space: nowrap;
   }
-  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 800; }
   .btn-danger { color: var(--danger); border-color: var(--danger); }
-  .btn-danger-fill { background: var(--danger); border-color: var(--danger); color: #fff; font-weight: 600; }
+  .btn-danger-fill { background: var(--danger); border-color: var(--danger); color: var(--accent-ink); font-weight: 800; }
 
   /* 입력 오류 안내 (alert 대신 화면 안에 표시) */
-  .error-msg { margin: 8px 0 0; color: var(--danger); font-weight: 600; }
+  .error-msg { margin: 8px 0 0; color: var(--danger); font-weight: 700; }
   .error-msg[hidden] { display: none; }
   /* 오류가 나타날 때: 서서히 나타나며(fade-in) 좌우로 가볍게 흔들림(shake) */
   .error-msg.shake { animation: errorFade 0.25s ease-out, errorShake 0.4s ease-in-out; }
@@ -106,76 +147,91 @@
 
   .tool-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
   button:disabled { opacity: 0.45; cursor: not-allowed; }
-  .tools { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
-  .count { color: var(--muted); font-size: 1rem; }
+  .tools { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .count { color: var(--muted); font-size: var(--fs-m); }
 
   /* 모두 지우기 확인 상자 */
   .confirm-box {
-    margin-top: 12px;
+    margin-top: 16px;
     padding: 12px;
     border: 1px solid var(--danger);
-    border-radius: 10px;
-    background: #fdf1f0;
+    border-radius: 0;
+    background: var(--bg);
   }
   .confirm-box p { margin: 0 0 10px; }
   .confirm-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-  /* 다 끝났을 때 메시지 */
+  /* 다 끝났을 때 메시지: 상자 없이 굵은 가로줄 아래 초록 글자 */
   .all-done {
-    padding: 12px 14px;
-    margin-bottom: 16px;
-    background: var(--done-bg);
-    border: 1px solid var(--done-line);
-    border-radius: 10px;
-    font-weight: 700;
+    padding: 12px 0;
+    margin-bottom: 32px;
+    background: none;
+    border: none;
+    border-top: 2px solid var(--rule);
+    border-radius: 0;
+    color: var(--done-text);
+    font-size: var(--fs-l);
+    font-weight: 800;
   }
   .all-done[hidden] { display: none; }
 
-  .storage-note { color: var(--muted); font-size: 0.95rem; margin: 0 0 12px; }
+  .storage-note { color: var(--muted); font-size: var(--fs-s); margin: 0 0 12px; }
   .storage-note[hidden] { display: none; }
 
-  /* 할 일 목록 */
-  .todo-list { list-style: none; margin: 0; padding: 0; }
+  /* 할 일 목록: 상자 없이 2px 가로줄로만 나누고, 앞에 01·02·03 번호 */
+  .todo-list { list-style: none; margin: 0; padding: 0; counter-reset: todo; }
   .todo-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 0;
-    border-top: 1px solid var(--line);
+    gap: 12px;
+    padding: 14px 0;
+    border-top: 2px solid var(--rule);
+    counter-increment: todo;
   }
   .todo-item:first-child { border-top: none; }
+  .todo-item::before {
+    content: counter(todo, decimal-leading-zero);
+    flex: 0 0 2.2em;
+    font-size: var(--fs-l);
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
   .todo-text { flex: 1; min-width: 0; }
   /* 맨 위(가장 최근) 항목은 진하게 강조 */
-  .todo-item.newest .todo-text { font-weight: 700; }
+  .todo-item.newest .todo-text { font-weight: 800; }
   .newest-tag {
     display: inline-block;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--accent);
-    border: 1px solid var(--accent);
-    border-radius: 6px;
+    font-size: var(--fs-s);
+    font-weight: 800;
+    color: var(--bg);
+    background: var(--text);
+    border: 1px solid var(--text);
+    border-radius: 0;
     padding: 0 6px;
-    margin-right: 6px;
+    margin-right: 8px;
     vertical-align: 1px;
   }
-  /* 완료된 항목: 회색 + 가운데 취소선 */
-  .todo-item.done .todo-text { color: #9aa0a6; text-decoration: line-through; }
-  .todo-item.done .newest-tag { color: #9aa0a6; border-color: #c4c8cc; }
-  .done-label { color: var(--muted); font-size: 0.95rem; white-space: nowrap; }
-  /* 빈 화면 안내: 아이콘 + 큰 글씨 + 부드러운 배경으로 눈에 띄게 */
+  /* 완료된 항목: 보조 글자색 + 가운데 취소선 */
+  .todo-item.done .todo-text { color: var(--muted); text-decoration: line-through; }
+  .todo-item.done::before { color: var(--muted); }
+  .todo-item.done .newest-tag { color: var(--muted); background: transparent; border-color: var(--muted); }
+  .done-label { color: var(--muted); font-size: var(--fs-s); white-space: nowrap; }
+  /* 빈 화면 안내: 상자 없이 왼쪽 정렬, 위에 굵은 가로줄 */
   .empty {
     margin: 0;
-    padding: 24px 16px;
-    text-align: center;
-    background: #eef4fc;
-    border: 2px dashed #9dbbe6;
-    border-radius: 12px;
+    padding: 16px 0;
+    text-align: left;
+    background: none;
+    border: none;
+    border-top: 2px solid var(--rule);
+    border-radius: 0;
     color: var(--text);
   }
   .empty[hidden] { display: none; }
-  .empty-icon { display: block; font-size: 2.6rem; line-height: 1.2; margin-bottom: 6px; }
-  .empty-title { display: block; font-size: 1.3rem; font-weight: 700; margin-bottom: 4px; }
-  .empty-hint { display: block; color: var(--muted); font-size: 1rem; }
+  .empty-icon { display: block; font-size: var(--fs-l); line-height: 1.2; margin-bottom: 6px; }
+  .empty-title { display: block; font-size: var(--fs-l); font-weight: 900; letter-spacing: -0.02em; margin-bottom: 4px; }
+  .empty-hint { display: block; color: var(--muted); font-size: var(--fs-m); }
 </style>
 </head>
 <body>

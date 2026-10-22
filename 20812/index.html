@@ -7,26 +7,39 @@
 <meta name="description" content="오늘 컨디션(보통/피곤함)과 마감일, 소요 시간을 보고 수행평가·숙제의 순서를 정해 주는 할 일 우선순위 큐">
 <meta name="class" content="O반 (2-5)">
 <meta name="status" content="1회 개선">
+<meta name="design" content="컬러셋 C16 먹과 노랑 · 트렌드 T12 클레이모피즘 · #ffd600">
 <style>
-  /* ===== 스타일 ===== */
+  /* ===== 스타일 =====
+     디자인: 컬러셋 '먹과 노랑' + 트렌드 '클레이모피즘'
+     까만 바탕에 경고등 노랑. 버튼·체크박스·결과 카드만 찰흙처럼 통통하게, 목록·입력칸은 평평하게.
+     의미 색(경고 빨강·안내 초록·중요 노랑)은 같은 계열로 남기되 어두운 바탕에 맞게 밝기를 바꿨어요.
+     (중요 태그 노랑은 강조색과 헷갈리지 않게 더 어두운 금색으로) */
+  @font-face { font-family: "Gowun Dodum"; src: url("../assets/fonts/GowunDodum-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
   :root {
-    --bg: #f7f8fa;
-    --card: #ffffff;
-    --text: #1f2933;
-    --muted: #5b6673;
-    --line: #dde2e8;
-    --accent: #1f5fae;
-    --accent-soft: #e8f0fa;
-    --warn: #a33a1f;
-    --warn-soft: #fbece7;
-    --ok: #2f6b3a;
+    color-scheme: dark;
+    --bg: #111111;
+    --card: #1c1c1a;
+    --text: #f5f5f0;
+    --muted: #b8b6ad;
+    --line: #33322d;          /* 옅은 구분선 */
+    --line-strong: #b8b6ad;   /* 입력칸·보조 버튼 테두리 */
+    --accent: #ffd600;
+    --accent-ink: #111111;    /* 강조색 버튼 글자 */
+    --block: #2a2610;         /* 결과 카드 색 블록 */
+    --warn: #ff8f73;
+    --warn-soft: #3a1a12;
+    --ok: #7fd18e;
+    --clay: 8px 10px 20px color-mix(in srgb, #ffd600 25%, transparent), inset -4px -4px 8px rgba(0,0,0,.08), inset 4px 4px 8px rgba(255,255,255,.7);
+    /* 어두운 덩어리(보조 버튼·결과 카드·빈 체크박스)는 안쪽 흰 빛이 번쩍이지 않게 더 옅게 */
+    --clay-dark: 8px 10px 20px color-mix(in srgb, #ffd600 25%, transparent), inset -4px -4px 8px rgba(0,0,0,.25), inset 4px 4px 8px rgba(255,255,255,.16);
+    --clay-pressed:2px 3px 8px color-mix(in srgb, #ffd600 25%, transparent), inset 4px 4px 8px rgba(0,0,0,.35), inset -4px -4px 8px rgba(255,255,255,.35);
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-family: "Gowun Dodum", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     font-size: 17px;
     line-height: 1.7;
     word-break: keep-all;
@@ -37,8 +50,8 @@
   h2 { font-size: 1.1rem; margin: 0 0 12px; }
   section { margin-top: 28px; }
   .notice {
-    background: var(--accent-soft);
-    border-left: 4px solid var(--accent);
+    background: var(--card);
+    border-left: 4px solid var(--line-strong);
     padding: 10px 14px;
     border-radius: 6px;
     margin: 12px 0 0;
@@ -46,23 +59,27 @@
   .panel {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 16px;
+    border-radius: 24px;
+    padding: 20px;
   }
-  /* 컨디션 토글 */
-  .mode-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* 컨디션 토글: 말랑한 알약 버튼, 고른 쪽은 살짝 눌린 모양 */
+  .mode-group { display: flex; gap: 12px; flex-wrap: wrap; }
   .mode-btn {
     flex: 1 1 140px;
     padding: 12px;
     font: inherit;
-    border: 2px solid var(--line);
+    color: var(--text);
+    border: 1px solid var(--line-strong);
     background: var(--card);
-    border-radius: 10px;
+    border-radius: 999px;
+    box-shadow: var(--clay-dark);
     cursor: pointer;
   }
   .mode-btn[aria-pressed="true"] {
     border-color: var(--accent);
-    background: var(--accent-soft);
+    background: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: var(--clay-pressed);
     font-weight: 700;
   }
   .mode-btn[aria-pressed="true"]::before { content: "✓ "; }
@@ -74,43 +91,52 @@
     width: 100%;
     font: inherit;
     padding: 10px 12px;
-    border: 1px solid #b9c2cc;
+    border: 1px solid var(--line-strong);
     border-radius: 8px;
-    background: #fff;
+    background: var(--card);
     color: var(--text);
   }
+  .field input::placeholder { color: var(--muted); }
   .row { display: flex; gap: 12px; flex-wrap: wrap; }
   .row .field { flex: 1 1 200px; }
   button { font: inherit; }
+  /* 버튼: 찰흙 덩어리처럼 통통한 알약 */
   .btn {
-    padding: 10px 18px;
-    border-radius: 8px;
+    padding: 10px 20px;
+    border-radius: 999px;
     border: 1px solid var(--accent);
     background: var(--accent);
-    color: #fff;
+    color: var(--accent-ink);
+    box-shadow: var(--clay);
     cursor: pointer;
   }
-  .btn.ghost { background: #fff; color: var(--accent); }
-  .btn.danger { background: var(--warn); border-color: var(--warn); }
+  .btn:active { box-shadow: var(--clay-pressed); }
+  .btn:focus-visible, .mode-btn:focus-visible, .check-field input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .btn.ghost { background: var(--card); color: var(--text); border-color: var(--line-strong); box-shadow: var(--clay-dark); }
+  .btn.ghost:active { box-shadow: var(--clay-pressed); }
+  .btn.danger { background: var(--warn); border-color: var(--warn); color: var(--accent-ink); }
   .btn.small { padding: 6px 12px; font-size: 0.95rem; }
   .msg { margin: 10px 0 0; font-weight: 600; min-height: 1.7em; }
   .msg.error { color: var(--warn); }
   .msg.info { color: var(--ok); }
   /* 지금 당장 할 일 */
+  /* 결과 카드: 노랑 색 블록 + 통통한 덩어리 */
   .top-task {
     border: 2px solid var(--accent);
-    border-radius: 12px;
-    padding: 16px;
-    background: var(--card);
+    border-radius: 28px;
+    padding: 20px 22px;
+    background: var(--block);
+    box-shadow: var(--clay-dark);
   }
   .top-task .name { font-size: 1.25rem; font-weight: 700; }
+  .top-task .meta { color: var(--text); }
   .empty {
     text-align: center;
     padding: 32px 16px;
     color: var(--muted);
     background: var(--card);
-    border: 1px dashed var(--line);
-    border-radius: 12px;
+    border: 1px dashed var(--line-strong);
+    border-radius: 24px;
   }
   /* 목록 */
   ol, ul { list-style: none; margin: 0; padding: 0; }
@@ -127,7 +153,7 @@
     margin-bottom: 8px;
   }
   .item .info { flex: 1 1 200px; min-width: 0; }
-  .rank { color: var(--accent); font-weight: 700; margin-right: 6px; }
+  .rank { color: var(--text); font-weight: 700; margin-right: 6px; }
   .meta { color: var(--muted); font-size: 0.95rem; }
   .late { color: var(--warn); font-weight: 600; }
   .actions { display: flex; gap: 6px; }
@@ -143,15 +169,41 @@
   .save-state { color: var(--muted); font-size: 0.9rem; margin-top: 8px; }
   /* 중요 체크박스·태그 */
   .check-field { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 600; cursor: pointer; }
-  .check-field input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+  /* 체크박스: 동그란 말랑 버튼, 체크하면 살짝 눌린 모양 */
+  .check-field input {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 0 0 auto;
+    width: 30px; height: 30px; margin: 0;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background: var(--card);
+    box-shadow: var(--clay-dark);
+    cursor: pointer;
+  }
+  .check-field input:checked {
+    border-color: var(--accent);
+    background: var(--accent);
+    box-shadow: var(--clay-pressed);
+  }
+  .check-field input { display: inline-grid; place-content: center; }
+  .check-field input:checked::before {
+    content: "";
+    width: 7px; height: 13px;
+    margin-top: -3px;
+    border: solid var(--accent-ink);
+    border-width: 0 3px 3px 0;
+    border-radius: 1px;
+    transform: rotate(45deg);
+  }
   .tag-important {
     display: inline-block;
     margin-left: 6px;
     padding: 0 8px;
     border-radius: 999px;
-    background: #fff4d6;
-    border: 1px solid #e0b84a;
-    color: #7a5600;
+    background: #221c08;
+    border: 1px solid #8a6d14;
+    color: #d9ad2b;
     font-size: 0.85rem;
     font-weight: 700;
     line-height: 1.6;

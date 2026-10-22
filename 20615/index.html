@@ -8,17 +8,22 @@
 <meta name="description" content="지금 기분과 원하는 이야기 분위기를 고르거나 직접 적으면 영화·드라마·웹툰·책·웹소설 중에서 작품을 추천하고, 감상 전 주의 사항과 즐겨찾기·감상 완료 보관함을 제공하는 프로그램">
   <meta name="class" content="M반 (2-8)">
   <meta name="status" content="2회 개선">
+  <meta name="design" content="컬러셋 C6 버터와 초록 · 트렌드 T07 그레이니 그라데이션 · #2e7d4f">
 
 <!-- ===== 2. 스타일 ===== -->
 <style>
+  @font-face { font-family: "Gowun Dodum"; src: url("../assets/fonts/GowunDodum-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  /* 디자인: 컬러셋 C6 버터와 초록 + 트렌드 T07 그레이니 그라데이션(페이지 바탕만) */
   :root {
-    --bg: #f7f7f5;
-    --card: #ffffff;
-    --text: #1f2328;
-    --muted: #57606a;
-    --line: #d8dbe0;
-    --accent: #1d5f8a;       /* 강조색 하나만 사용 */
-    --accent-soft: #e6f0f7;
+    --bg: #fdf9ed;
+    --card: #f3ead2;
+    --text: #262114;
+    --muted: #67635a;
+    --line: #e6dcc0;
+    --field-line: #67635a;   /* 입력칸·선택칸·보조 버튼 테두리 */
+    --accent: #2e7d4f;       /* 강조색 하나만 사용 */
+    --accent-text: #276b43;  /* 바탕 위 강조 글자 */
+    --accent-soft: #e3f0dc;
     --warn-bg: #fff6e0;
     --warn-line: #c98a00;
     --error: #b42318;
@@ -26,9 +31,16 @@
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--bg);
+    background-color: var(--bg);
+    /* 그레이니 그라데이션: 필름 입자(투명도 .12) + 번진 초록 빛. 진한 번짐은 글자 없는 구석에만 */
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.12'/%3E%3C/svg%3E"),
+      radial-gradient(circle at 100% 0%, rgba(46,125,79,.38) 0, rgba(46,125,79,.10) 80px, rgba(46,125,79,0) 300px),
+      radial-gradient(circle at 0% 100%, rgba(46,125,79,.34) 0, rgba(46,125,79,.10) 56px, rgba(46,125,79,0) 260px),
+      radial-gradient(ellipse 90% 45% at 20% 45%, rgba(227,240,220,.12), rgba(227,240,220,0) 75%);
+    background-repeat: repeat, no-repeat, no-repeat, no-repeat;
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-family: "Gowun Dodum", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     font-size: 17px;
     line-height: 1.7;
     word-break: keep-all;
@@ -42,44 +54,45 @@
   p { margin: 0 0 12px; }
   .muted { color: var(--muted); font-size: 0.95rem; }
 
-  fieldset { border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 12px 16px 16px; margin: 0 0 16px; }
+  fieldset { border: 1px solid var(--line); border-radius: 16px; background: var(--card); padding: 12px 16px 16px; margin: 0 0 16px; }
   legend { font-weight: 700; padding: 0 6px; }
   .choice-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
   .choice-list label {
     display: flex; align-items: center; gap: 8px;
-    border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; min-height: 44px;
+    border: 1px solid var(--field-line); border-radius: 10px; padding: 8px 12px; cursor: pointer; min-height: 44px;
   }
   .choice-list input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
-  .choice-list label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .choice-list label:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); font-weight: 600; }
 
   button {
-    font: inherit; font-size: 1rem; cursor: pointer; border-radius: 8px; min-height: 44px; padding: 8px 14px;
-    border: 1px solid var(--accent); background: var(--card); color: var(--accent);
+    font: inherit; font-size: 1rem; cursor: pointer; border-radius: 999px; min-height: 44px; padding: 8px 16px;
+    border: 1px solid var(--field-line); background: var(--card); color: var(--text);
   }
-  button.primary { background: var(--accent); color: #fff; font-weight: 700; padding: 10px 22px; }
-  button[aria-pressed="true"] { background: var(--accent); color: #fff; }
-  button:focus-visible, input:focus-visible { outline: 3px solid #f0b400; outline-offset: 2px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; padding: 10px 24px; }
+  /* 켜진 상태(즐겨찾기함·감상 완료·고른 보관함 탭): 강조색은 '추천받기'에만 쓰고, 여기는 옅은 초록 블록 + 초록 테두리 */
+  button[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--accent-text); font-weight: 700; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
-  .notice { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+  .notice { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 10px 14px; border-radius: 10px; margin: 12px 0; }
   .notice.error { border-left-color: var(--error); background: #fdecea; color: #7a1a10; }
   .notice:empty { display: none; }
 
-  .movie-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .movie-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
   .card-head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
-  .rank { font-weight: 700; color: var(--accent); }
+  .rank { font-weight: 700; color: var(--accent-text); }
   .meta { color: var(--muted); font-size: 0.95rem; margin-bottom: 8px; }
   .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; padding: 0; list-style: none; }
   .tags li { font-size: 0.9rem; border: 1px solid var(--line); border-radius: 999px; padding: 1px 10px; }
-  .tags li.hit { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .tags li.hit { border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
   .match { font-weight: 700; }
   .reason { margin: 8px 0; }
-  .caution { background: var(--warn-bg); border-left: 4px solid var(--warn-line); border-radius: 6px; padding: 8px 12px; margin: 10px 0; }
+  .caution { background: var(--warn-bg); border-left: 4px solid var(--warn-line); border-radius: 10px; padding: 8px 12px; margin: 10px 0; }
   .caution strong { display: block; }
   .card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 
   .vault-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
   .vault-item { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px;
-    background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; }
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 10px 14px; margin-bottom: 8px; }
   .vault-item .state { color: var(--muted); font-size: 0.92rem; }
   .vault-item .card-actions { margin-top: 0; }
   footer { color: var(--muted); font-size: 0.92rem; border-top: 1px solid var(--line); padding-top: 16px; }
@@ -89,11 +102,11 @@
   .other-box label { display: block; font-size: 0.95rem; margin-bottom: 4px; }
   .other-box input {
     font: inherit; width: 100%; min-height: 44px; padding: 8px 12px;
-    border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--text);
+    border: 1px solid var(--field-line); border-radius: 10px; background: var(--card); color: var(--text);
   }
   .other-box .muted { margin: 4px 0 0; }
   /* AI 도움으로 쓴 작품 정보 안내 */
-  .ai-note { background: var(--warn-bg); border-left: 4px solid var(--warn-line); border-radius: 6px; padding: 8px 12px; margin: 12px 0; font-size: 0.95rem; }
+  .ai-note { background: var(--warn-bg); border-left: 4px solid var(--warn-line); border-radius: 10px; padding: 8px 12px; margin: 12px 0; font-size: 0.95rem; }
 </style>
 </head>
 <body>

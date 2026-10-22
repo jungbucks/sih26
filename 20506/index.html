@@ -7,15 +7,25 @@
 <meta name="description" content="게임·취미를 새롭게 즐기도록 무작위 도전 과제를 뽑고, 성공 기록을 스택에 쌓아 최근 성공부터 되돌릴 수 있는 프로그램">
 <meta name="class" content="O반 (2-5)">
 <meta name="status" content="2회 개선">
+<meta name="design" content="컬러셋 C3 종이와 보라 · 트렌드 T00 기본 · #5645d4">
 <style>
+  /* 전시판 공용 글꼴 (못 불러와도 아래 대체 글꼴로 작동) */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
+  /* 디자인: 종이와 보라 (트렌드 없음·기본) */
   :root {
-    --bg: #f6f7f9;
-    --card: #ffffff;
-    --line: #dde1e6;
-    --text: #1d2125;
-    --muted: #5a636d;
-    --accent: #1f6f5c;
-    --accent-weak: #e6f2ee;
+    --bg: #ffffff;
+    --card: #f7f6f3;
+    --line: #e9e7e4;
+    --field: #615d59;
+    --text: #1a1a1a;
+    --muted: #615d59;
+    --accent: #5645d4;
+    --on-accent: #ffffff;
+    --accent-weak: #ecebfb;
+    /* 의미 색: 원래 있던 성공(초록)·실패(적갈색)는 같은 계열 그대로 */
+    --ok: #1f6f5c;
+    --ok-weak: #e6f2ee;
+    --ok-text: #164d40;
     --warn: #9a3b1b;
     --warn-weak: #fbeee8;
   }
@@ -24,7 +34,7 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-family: "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     font-size: 17px;
     line-height: 1.7;
     word-break: keep-all;
@@ -47,23 +57,24 @@
     font-size: 16px;
     padding: 10px 16px;
     min-height: 44px;
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    background: #fff;
+    border-radius: 10px;
+    border: 1px solid var(--field);
+    background: var(--bg);
     color: var(--text);
     cursor: pointer;
   }
-  button:hover:not(:disabled) { background: #f0f2f4; }
+  button:hover:not(:disabled) { background: var(--card); }
   button:disabled { opacity: 0.45; cursor: not-allowed; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.primary:hover:not(:disabled) { background: #185a4a; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  button.primary:hover:not(:disabled) { background: var(--accent); filter: brightness(0.9); }
   button.danger { border-color: var(--warn); color: var(--warn); }
-  button:focus-visible, input:focus-visible { outline: 3px solid #7fb7a8; outline-offset: 2px; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   .challenge-box {
     margin-top: 12px;
     padding: 14px;
-    border: 1px dashed var(--line);
-    border-radius: 8px;
+    border: 1px dashed var(--field);
+    border-radius: 12px;
+    background: var(--bg);
     min-height: 56px;
     font-size: 1.15rem;
     font-weight: 600;
@@ -73,7 +84,7 @@
   .count strong { font-size: 1.25rem; color: var(--accent); }
   .msg { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; min-height: 0; }
   .msg:empty { display: none; }
-  .msg.ok { background: var(--accent-weak); color: #164d40; }
+  .msg.ok { background: var(--ok-weak); color: var(--ok-text); }
   .msg.err { background: var(--warn-weak); color: var(--warn); }
   ol.stack { margin: 12px 0 0; padding: 0; list-style: none; }
   ol.stack li {
@@ -92,8 +103,10 @@
     font: inherit; font-size: 16px;
     flex: 1 1 200px; min-width: 0;
     padding: 10px 12px; min-height: 44px;
-    border: 1px solid var(--line); border-radius: 8px;
+    border: 1px solid var(--field); border-radius: 10px;
+    background: var(--card); color: var(--text);
   }
+  input[type="text"]::placeholder { color: var(--muted); }
   ul.tasks { margin: 12px 0 0; padding-left: 1.2em; color: var(--muted); }
   .hint { color: var(--muted); font-size: 0.95rem; margin: 6px 0 0; }
   /* 성공·실패·성공률 요약 */
@@ -101,21 +114,21 @@
   .stat { border: 1px solid var(--line); border-radius: 8px; padding: 8px 6px; text-align: center; }
   .stat dt { font-size: 0.85rem; color: var(--muted); }
   .stat dd { margin: 0; font-size: 1.25rem; font-weight: 700; }
-  .stat.ok dd { color: var(--accent); }
+  .stat.ok dd { color: var(--ok); }
   .stat.bad dd { color: var(--warn); }
   .rate-bar { height: 10px; margin-top: 10px; border-radius: 5px; background: var(--warn-weak); overflow: hidden; }
-  .rate-bar span { display: block; height: 100%; width: 0; background: var(--accent); }
-  .rate-bar.none { background: #eceff2; }
+  .rate-bar span { display: block; height: 100%; width: 0; background: var(--ok); }
+  .rate-bar.none { background: var(--line); }
   .formula { color: var(--muted); font-size: 0.95rem; margin: 6px 0 0; }
   .confirm { margin-top: 12px; padding: 12px; border: 1px solid var(--warn); border-radius: 8px; background: var(--warn-weak); }
   .confirm p { margin: 0 0 8px; }
   /* 카테고리 버튼 */
   .cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
   .cats button { padding: 8px 14px; border-radius: 999px; }
-  .cats button[aria-pressed="true"] { background: var(--accent-weak); border-color: var(--accent); color: #164d40; font-weight: 700; }
+  .cats button[aria-pressed="true"] { background: var(--accent-weak); border-color: var(--accent); color: var(--accent); font-weight: 700; }
   .cat-tag { display: inline-block; font-size: 0.85rem; font-weight: 600; color: var(--accent); background: var(--accent-weak); border-radius: 999px; padding: 0 8px; margin-right: 6px; }
-  select { font: inherit; font-size: 16px; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--text); }
-  select:focus-visible { outline: 3px solid #7fb7a8; outline-offset: 2px; }
+  select { font: inherit; font-size: 16px; min-height: 44px; padding: 8px 10px; border: 1px solid var(--field); border-radius: 10px; background: var(--card); color: var(--text); }
+  select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   [hidden] { display: none !important; }
 </style>
 </head>

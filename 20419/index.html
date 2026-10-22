@@ -7,19 +7,24 @@
 <meta name="description" content="여러 과목의 수행평가를 마감일·우선순위와 함께 적어 두고, 완료한 과제는 취소선과 함께 아래로 정리해 주는 플래너">
 <meta name="class" content="O반 (2-5)">
 <meta name="status" content="2회 개선">
+<meta name="design" content="컬러셋 C3 종이와 보라 · 트렌드 T00 기본 · #5645d4">
 <style>
   /* ===== 색과 기본 글꼴 ===== */
+  /* 전시판 공용 글꼴 */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
+  /* 컬러셋 C3 종이와 보라 (트렌드 없음·기본) */
   :root {
-    --bg: #f6f7f9;
-    --card: #ffffff;
-    --line: #dde1e6;
-    --text: #1f2328;
-    --muted: #5b636d;
-    --accent: #1f5fa8;      /* 강조색은 하나만 */
-    --accent-soft: #e8f0fa;
+    --bg: #ffffff;
+    --card: #f7f6f3;
+    --line: #e9e7e4;
+    --field-line: #615d59;  /* 입력칸·선택칸·보조 버튼 테두리 */
+    --text: #1a1a1a;
+    --muted: #615d59;
+    --accent: #5645d4;      /* 강조색은 하나만 */
+    --accent-soft: #ecebfb;
     --warn: #a3361f;
     --warn-soft: #fbeeea;
-    --done: #8a9098;
+    --done: #615d59;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -27,7 +32,7 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    font-family: "Wanted Sans", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
     font-size: 16px;
     line-height: 1.7;
     word-break: keep-all;
@@ -96,13 +101,14 @@
     width: 100%;
     font: inherit;
     padding: 9px 10px;
-    border: 1px solid #b9c0c8;
+    border: 1px solid var(--field-line);
     border-radius: 8px;
-    background: #fff;
+    background: var(--card);
     color: var(--text);
     min-height: 44px;
   }
-  input:focus, select:focus, button:focus-visible { outline: 3px solid #9cc0ea; outline-offset: 1px; }
+  input::placeholder { color: var(--muted); opacity: 1; }
+  input:focus, select:focus, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   input[aria-invalid="true"], select[aria-invalid="true"] { border-color: var(--warn); border-width: 2px; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
   button {
@@ -110,14 +116,14 @@
     font-weight: 600;
     min-height: 44px;
     padding: 8px 16px;
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    background: #fff;
+    border-radius: 10px;
+    border: 1px solid var(--field-line);
+    background: var(--bg);
     color: var(--text);
     cursor: pointer;
   }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.danger { color: var(--warn); border-color: #e2b7ac; }
+  button.danger { color: var(--warn); border-color: var(--warn); }
   button.danger-fill { background: var(--warn); border-color: var(--warn); color: #fff; }
   .msg { margin: 10px 0 0; min-height: 1.7em; font-weight: 600; }
   .msg.error { color: var(--warn); }
@@ -129,7 +135,7 @@
     padding: 12px 14px;
     border: 1px solid #e2b7ac;
     background: var(--warn-soft);
-    border-radius: 8px;
+    border-radius: 12px;
   }
   .confirm p { margin: 0 0 8px; }
 
@@ -141,7 +147,7 @@
     background: var(--card);
     border: 1px solid var(--line);
     border-left: 5px solid var(--line);
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 12px 14px;
     display: flex;
     gap: 12px;
@@ -150,7 +156,7 @@
   }
   .card.p-high { border-left-color: var(--warn); }
   .card.p-mid { border-left-color: var(--accent); }
-  .card.p-low { border-left-color: #9aa3ad; }
+  .card.p-low { border-left-color: var(--muted); }
   .card.p-none { border-left-color: var(--line); }
   .card .body { min-width: 0; flex: 1; overflow-wrap: anywhere; } /* 띄어쓰기 없는 긴 글도 줄바꿈 */
   /* 카드 맨 위: 마감 날짜 + D-day를 가장 크게 */
@@ -192,13 +198,13 @@
   .card-confirm button { white-space: nowrap; }
   .card { flex-wrap: wrap; }
   /* 완료된 카드: 흐리게 + 취소선 */
-  .card.done { background: #f1f2f4; border-left-color: var(--done); }
+  .card.done { background: var(--bg); border-left-color: var(--done); }
   .card.done .subject, .card.done .task, .card.done .due-date { text-decoration: line-through; color: var(--done); }
   .card.done .dday { color: var(--done); }
   .card.done .done-label { color: var(--muted); font-weight: 700; }
   .empty {
-    border: 1px dashed #b9c0c8;
-    border-radius: 10px;
+    border: 1px dashed var(--field-line);
+    border-radius: 12px;
     padding: 28px 16px;
     text-align: center;
     color: var(--muted);
@@ -218,8 +224,9 @@
     z-index: 10;
   }
   .modal {
-    background: var(--card);
-    border-radius: 14px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
     width: 100%;
     max-width: 30rem;
     max-height: calc(100vh - 32px);

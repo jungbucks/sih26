@@ -8,28 +8,36 @@
 <meta name="description" content="질문 세 개를 차례로 고르면 내 분실물이 접수됐는지, 어디에 언제부터 보관 중인지 바로 알려 주는 분실물 안내판 (테스트용 가상 데이터)">
   <meta name="class" content="M반 (2-8)">
   <meta name="status" content="2회 개선">
+  <meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T06 스크롤 3D · #1e3a8a">
 
 <!-- ===== 2. 스타일 ===== -->
 <style>
+  /* 전시판 공용 글꼴 (못 불러와도 아래 대체 글꼴로 정상 작동) */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
+
+  /* 컬러셋: 신문지와 남색 · 트렌드: 스크롤 3D(전체 목록 한 곳) */
   :root {
-    --bg: #f6f7f9;
-    --card: #ffffff;
-    --text: #1d2430;
-    --muted: #5b6575;
-    --line: #dde1e7;
-    --accent: #1f5fbf;        /* 강조색은 파란색 하나만 */
-    --accent-soft: #e8f0fb;
+    --bg: #f4f1ea;            /* 페이지 바탕: 누런 신문지 */
+    --card: #fbf9f4;          /* 카드·입력칸 바탕 */
+    --text: #1b1b1b;
+    --muted: #5a564e;
+    --line: #d9d3c7;          /* 옅은 구분선·카드 테두리 */
+    --edge: #5a564e;          /* 입력칸·선택칸·보조 버튼 테두리 */
+    --accent: #1e3a8a;        /* 강조색은 남색 하나만 */
+    --block: #e4e9f5;         /* 요약 카드 하나에 쓰는 색 블록 */
     --warn-bg: #fff1e6;
     --warn-text: #b33a00;     /* 경고 안내: 주황빛 빨간색 */
     --ok-text: #1d6b3a;
-    --radius: 12px;
+    --radius: 16px;           /* 카드 모서리 */
+    --btn-radius: 12px;       /* 버튼 모서리 */
+    --shadow: 0 10px 30px rgba(0, 0, 0, .12);
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-family: "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     font-size: 17px;
     line-height: 1.7;
     word-break: keep-all;
@@ -62,8 +70,8 @@
     font: inherit;
     font-weight: 700;
     padding: 10px 12px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
+    border: 1px solid var(--edge);
+    border-radius: var(--btn-radius);
     background: var(--card);
     color: var(--text);
     cursor: pointer;
@@ -75,6 +83,7 @@
     border: 1px solid var(--line);
     border-radius: var(--radius);
     padding: 20px;
+    box-shadow: var(--shadow);
   }
 
   /* 단계 표시와 지금까지 고른 경로 */
@@ -88,16 +97,16 @@
     font: inherit;
     text-align: left;
     padding: 12px 14px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: #fff;
+    border: 1px solid var(--edge);
+    border-radius: var(--btn-radius);
+    background: var(--card);
     color: var(--text);
     cursor: pointer;
   }
   .option:hover { border-color: var(--accent); }
   .option[aria-checked="true"] {
     border: 2px solid var(--accent);
-    background: var(--accent-soft);
+    background: var(--card);
     font-weight: 700;
     padding: 11px 13px;
   }
@@ -111,24 +120,24 @@
     font: inherit;
     font-weight: 700;
     padding: 10px 18px;
-    border-radius: 10px;
-    border: 1px solid var(--line);
-    background: #fff;
+    border-radius: var(--btn-radius);
+    border: 1px solid var(--edge);
+    background: var(--card);
     color: var(--text);
     cursor: pointer;
   }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; margin-left: auto; }
-  .btn:disabled { background: #eceef2; border-color: #d3d7de; color: #8a93a2; cursor: not-allowed; }
-  .btn:focus-visible, .tab:focus-visible, .option:focus-visible { outline: 3px solid #f0a020; outline-offset: 2px; }
+  .btn:disabled { background: var(--line); border-color: var(--line); color: var(--muted); cursor: not-allowed; }
+  .btn:focus-visible, .tab:focus-visible, .option:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
   /* 결과 카드 */
   .result-title { font-size: 1.25rem; margin: 4px 0 12px; }
   .cards { display: grid; gap: 12px; }
   .item-card {
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--radius);
     padding: 14px 16px;
-    background: #fff;
+    background: var(--card);
   }
   .item-card h3 { margin: 0 0 8px; font-size: 1.1rem; }
   .item-card dl { margin: 0; display: grid; grid-template-columns: 6.5em 1fr; gap: 4px 8px; }
@@ -146,15 +155,15 @@
     white-space: nowrap;
   }
   .badge-keep { background: #e6f3ea; color: var(--ok-text); }
-  .badge-returned { background: #e4e6ea; color: #4a5260; border: 1px dashed #8a93a2; }
-  /* 이미 주인이 찾아간 물건: 회색조로 흐리게 */
-  .item-card.returned { background: #f1f2f4; border-style: dashed; color: #5f6876; }
-  .item-card.returned h3 { color: #5f6876; text-decoration: line-through; text-decoration-color: #9aa1ad; }
-  .returned-note { margin: 8px 0 0; font-size: 16px; color: #4a5260; }
-  tr.returned td { color: #7a8392; background: #f4f5f7; }
+  .badge-returned { background: var(--bg); color: var(--muted); border: 1px dashed var(--muted); }
+  /* 이미 주인이 찾아간 물건: 신문지 바탕의 무채색으로 흐리게 */
+  .item-card.returned { background: var(--bg); border-style: dashed; color: var(--muted); }
+  .item-card.returned h3 { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--muted); }
+  .returned-note { margin: 8px 0 0; font-size: 16px; color: var(--muted); }
+  tr.returned td { color: var(--muted); background: var(--bg); }
 
   /* 관리자 모드 입력 폼 */
-  .admin-note { margin: 0 0 16px; padding: 10px 12px; border-radius: 10px; background: var(--warn-bg); color: var(--warn-text); font-size: 16px; }
+  .admin-note { margin: 0 0 16px; padding: 10px 12px; border-radius: var(--btn-radius); background: var(--warn-bg); color: var(--warn-text); font-size: 16px; }
   .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .field label { display: block; font-weight: 700; margin-bottom: 4px; font-size: 16px; }
   .field .sub { font-weight: 400; color: var(--muted); font-size: 15px; }
@@ -162,14 +171,14 @@
     width: 100%;
     font: inherit;
     padding: 9px 10px;
-    border: 1px solid #b9c0ca;
-    border-radius: 8px;
-    background: #fff;
+    border: 1px solid var(--edge);
+    border-radius: var(--btn-radius);
+    background: var(--card);
     color: var(--text);
   }
   .field input[aria-invalid="true"], .field select[aria-invalid="true"] { border: 2px solid var(--warn-text); }
-  .field input:focus-visible, .field select:focus-visible { outline: 3px solid #f0a020; outline-offset: 1px; }
-  .form-msg { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; font-size: 16px; }
+  .field input:focus-visible, .field select:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+  .form-msg { margin: 12px 0 0; padding: 10px 12px; border-radius: var(--btn-radius); font-size: 16px; }
   .form-msg:empty { display: none; }
   .form-msg.err { background: var(--warn-bg); color: var(--warn-text); border-left: 4px solid var(--warn-text); }
   .form-msg.ok { background: #e6f3ea; color: var(--ok-text); border-left: 4px solid var(--ok-text); }
@@ -177,14 +186,14 @@
   .admin-list li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .admin-list .info { flex: 1 1 14rem; min-width: 0; }
   .admin-list .meta { display: block; color: var(--muted); font-size: 15px; }
-  .admin-list li.editing { background: var(--accent-soft); }
+  .admin-list li.editing { background: var(--bg); box-shadow: inset 3px 0 0 var(--accent); padding-left: 10px; }
   .admin-sub { font-size: 1.1rem; margin: 24px 0 8px; }
   .btn.small { padding: 6px 14px; font-size: 16px; }
   .status-none { color: var(--warn-text); font-weight: 700; }
   .empty {
     border: 1px dashed var(--warn-text);
     background: var(--warn-bg);
-    border-radius: 10px;
+    border-radius: var(--radius);
     padding: 14px 16px;
   }
   .empty p { margin: 0; }
@@ -195,7 +204,32 @@
   table { width: 100%; border-collapse: collapse; font-size: 16px; }
   th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 700; white-space: nowrap; }
-  .list-count { margin: 0 0 12px; color: var(--muted); }
+  /* 요약 한 줄: 색 블록 카드 */
+  .list-count { margin: 0 0 12px; color: var(--text); background: var(--block); border-radius: var(--radius); padding: 10px 14px; }
+
+  /* 스크롤 3D(축소판): 전체 목록의 줄(휴대폰에서는 카드)이 화면 아래에서 들어올 때
+     뒤로 눕혀 있다가 똑바로 서며 다가온다. 스크립트 없이 CSS 스크롤 연동 애니메이션으로만 처리.
+     지원하지 않는 브라우저·움직임 줄이기 설정에서는 처음부터 똑바로 선 상태(완성된 화면). */
+  #list-body { perspective: 900px; }
+  @keyframes rise-in {
+    from { transform: rotateX(var(--tilt, 25deg)) translateY(18px); }
+    to   { transform: none; }
+  }
+  @supports (animation-timeline: view()) {
+    /* 표를 감싼 가로 스크롤 상자가 있으면 그 상자 기준으로만 계산되므로,
+       표가 화면에 다 들어가는 폭(휴대폰 카드형·넓은 화면)에서는 상자를 풀어 페이지 스크롤에 맞춘다 */
+    @media (max-width: 560px), (min-width: 760px) {
+      .table-wrap { overflow: visible; }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      #list-body tr {
+        transform-origin: 50% 100%;
+        animation: rise-in linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 100%;
+      }
+    }
+  }
 
   footer { margin-top: 24px; color: var(--muted); font-size: 16px; }
   footer p { margin: 0 0 6px; }
@@ -214,7 +248,7 @@
     position: fixed;
     inset: 0;
     z-index: 50;
-    background: rgba(20, 26, 36, 0.55);
+    background: rgba(27, 27, 27, 0.55);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -226,7 +260,8 @@
     background: var(--card);
     border-radius: var(--radius);
     padding: 20px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
   }
   .modal h2 { font-size: 1.2rem; margin: 0 0 6px; }
   .modal .lock-note { margin: 0 0 14px; color: var(--muted); font-size: 15px; }
@@ -242,7 +277,9 @@
     .tab { padding: 10px 6px; }
     thead { display: none; }
     table, tbody, tr, td { display: block; width: 100%; }
-    tr { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
+    tr { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px; margin-bottom: 10px; background: var(--card); }
+    #list-body { --tilt: 12.5deg; }   /* 휴대폰에서는 기울기 절반 */
+    tr.returned { background: var(--bg); }
     td { border: 0; padding: 2px 0; }
     td::before { content: attr(data-label) " : "; color: var(--muted); }
     td.empty-row::before { content: none; }

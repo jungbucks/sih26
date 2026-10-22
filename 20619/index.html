@@ -7,126 +7,199 @@
 <meta name="description" content="수행평가 마감일을 D-Day순으로 정렬해 급한 것부터 보여 주고, 완료한 항목을 따로 관리하는 개인 정리 도구">
 <meta name="class" content="O반 (2-5)">
 <meta name="status" content="2회 개선">
+<meta name="design" content="컬러셋 C13 회색과 빨강 · 트렌드 T11 스위스 스타일 · #d10511">
 <style>
+  /* 전시판 공용 글꼴 */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
+
+  /* 디자인: 컬러셋 C13 회색과 빨강 + 스위스 스타일 (12칸 격자·굵은 고딕·장식 없음) */
   :root {
-    --bg: #f6f7f9;
+    --bg: #f2f2f0;
     --card: #ffffff;
-    --line: #dde1e7;
-    --text: #1f2933;
-    --muted: #5b6673;
-    --accent: #1f5fae;      /* 강조색은 하나만 */
-    --accent-soft: #e8f0fa;
-    --warn: #a3361f;
+    --line: #dcdcd8;
+    --text: #111111;
+    --muted: #555555;
+    --accent: #d10511;      /* 강조색은 가장 중요한 버튼(등록) 한 곳에만 */
+    --accent-text: #c00410;
+    --rule: #111111;        /* 목록 항목 사이 2px 가로줄 */
+    --field-line: #555555;  /* 입력칸·보조 버튼 테두리 */
+    --warn: #8a2416;        /* 원래 있던 경고 빨강: 강조색과 헷갈리지 않게 더 어둡게 */
     --warn-soft: #fbeeea;
+    /* 글자 크기 3단계 (제목 h1 제외) */
+    --fs-s: 15px;
+    --fs-m: 17px;
+    --fs-l: 24px;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
-    font-size: 17px;
+    font-family: "Wanted Sans", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+    font-size: var(--fs-m);
     line-height: 1.7;
     word-break: keep-all;
     overflow-wrap: anywhere;
   }
-  main { max-width: 42rem; margin: 0 auto; padding: 24px 16px 56px; }
-  h1 { font-size: 1.6rem; margin: 0 0 8px; line-height: 1.3; }
-  h2 { font-size: 1.15rem; margin: 0 0 12px; }
+  /* 12칸 격자: 모든 요소의 왼쪽 끝을 격자선에 맞춘다 */
+  main {
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: 32px 16px 64px;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: 16px;
+  }
+  main > header, main > section { grid-column: 1 / -1; }
+  h1 {
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin: 0 0 16px;
+  }
+  h2 {
+    font-size: var(--fs-l);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    margin: 0 0 16px;
+  }
   .notice {
     border-left: 4px solid var(--warn);
     background: var(--warn-soft);
+    color: var(--text);
     padding: 10px 14px;
-    border-radius: 6px;
+    border-radius: 0;
     font-weight: 600;
     margin: 0 0 24px;
   }
-  section { margin-top: 32px; }
+  section { margin-top: 48px; }
   .panel {
     background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 18px;
+    border: 0;
+    border-radius: 0;
+    padding: 20px 16px;
   }
   .field { margin-bottom: 14px; }
-  .field label { display: block; font-weight: 600; margin-bottom: 4px; }
-  .req { color: var(--warn); font-weight: 600; font-size: 0.9em; }
-  .opt { color: var(--muted); font-weight: 400; font-size: 0.9em; }
+  .field label { display: block; font-weight: 700; margin-bottom: 4px; }
+  .req { color: var(--warn); font-weight: 600; font-size: var(--fs-s); }
+  .opt { color: var(--muted); font-weight: 400; font-size: var(--fs-s); letter-spacing: 0; }
   input[type="text"], input[type="date"] {
     width: 100%;
     font: inherit;
     padding: 9px 11px;
-    border: 1px solid #b9c0ca;
-    border-radius: 8px;
-    background: #fff;
+    border: 1px solid var(--field-line);
+    border-radius: 0;
+    background: var(--card);
     color: var(--text);
   }
-  input:focus-visible, button:focus-visible { outline: 3px solid #8fb3e3; outline-offset: 1px; }
+  input:focus-visible, button:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
   button {
     font: inherit;
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    background: #fff;
+    font-weight: 700;
+    border-radius: 0;
+    border: 1px solid var(--field-line);
+    background: var(--card);
     color: var(--text);
     padding: 7px 14px;
+    text-align: left;
     cursor: pointer;
     min-height: 40px;
   }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-  button.danger { color: var(--warn); border-color: #e2b4a8; }
-  button:disabled { background: #e4e7eb; border-color: #e4e7eb; color: #7b8590; cursor: not-allowed; }
-  .hint { color: var(--muted); font-size: 0.95rem; margin: 8px 0 0; }
+  /* 카드 안 주 버튼(완료·저장 등)은 검정, 강조색은 '등록' 한 곳에만 */
+  button.primary { background: var(--text); border-color: var(--text); color: #ffffff; }
+  #addButton.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+  button.danger { color: var(--warn); border-color: var(--warn); }
+  button:disabled,
+  #addButton.primary:disabled { background: var(--line); border-color: var(--line); color: var(--muted); cursor: not-allowed; }
+  .hint { color: var(--muted); font-size: var(--fs-s); margin: 8px 0 0; }
   .hint.warn { color: var(--warn); font-weight: 600; }
-  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  /* 목록: 상자 없이 항목 사이 2px 가로줄로만 나눈다 */
+  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
   .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 14px 16px;
+    position: relative;
+    background: transparent;
+    border: 0;
+    border-top: 2px solid var(--rule);
+    border-radius: 0;
+    padding: 16px 0 18px 28px;
     display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 4px 14px;
+    grid-template-columns: 7.5rem minmax(0, 1fr); /* D-Day 칸 너비를 고정해 내용 왼쪽 끝을 맞춤 */
+    gap: 4px 16px;
+  }
+  .list .card:last-child { border-bottom: 2px solid var(--rule); }
+  /* 순서 번호 대신 같은 모양의 굵은 네모 표시 */
+  .card::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 26px;
+    width: 12px;
+    height: 12px;
+    background: var(--text);
   }
   .dday {
     grid-row: span 2;
     align-self: start;
-    min-width: 76px;
-    text-align: center;
-    font-weight: 700;
-    padding: 4px 8px;
-    border-radius: 8px;
-    background: var(--accent-soft);
-    color: var(--accent);
+    min-width: 0;
+    text-align: left;
+    font-size: var(--fs-l);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text);
   }
-  .dday.urgent { background: var(--warn-soft); color: var(--warn); }
-  .dday.done { background: #eceef1; color: var(--muted); }
-  .subject { color: var(--muted); font-size: 0.95rem; }
-  .title { font-weight: 700; font-size: 1.05rem; }
+  .dday.urgent { background: transparent; color: var(--warn); }
+  .dday.done { background: transparent; color: var(--muted); }
+  .subject { color: var(--muted); font-size: var(--fs-s); font-weight: 600; }
+  .title { font-weight: 800; font-size: var(--fs-m); }
   .card.is-done .title { text-decoration: line-through; color: var(--muted); }
-  .meta { grid-column: 2; color: var(--muted); font-size: 0.95rem; }
-  .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
-  .empty { color: var(--muted); background: var(--card); border: 1px dashed var(--line); border-radius: 12px; padding: 16px; margin: 0; }
+  .meta { grid-column: 2; color: var(--muted); font-size: var(--fs-s); }
+  .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; justify-content: flex-start; }
+  .empty { color: var(--muted); background: transparent; border: 0; border-top: 2px solid var(--rule); border-radius: 0; padding: 16px 0; margin: 0; }
   .confirm-box {
-    border: 1px solid #e2b4a8;
+    border: 0;
+    border-left: 4px solid var(--warn);
     background: var(--warn-soft);
-    border-radius: 10px;
+    border-radius: 0;
     padding: 12px 14px;
     margin-top: 12px;
   }
   .confirm-box p { margin: 0 0 10px; font-weight: 600; }
   .confirm-box .actions { margin-top: 0; }
-  .inline-confirm { font-weight: 600; color: var(--warn); }
+  .inline-confirm { font-weight: 700; color: var(--warn); }
   /* 다른 카드 수정 중일 때 묻는 상자 */
   .switch-box { grid-column: 1 / -1; margin-top: 8px; }
-  .switch-box .note { margin: 0 0 10px; font-weight: 400; font-size: 0.95rem; color: var(--warn); }
-  .save-state { font-size: 0.9rem; color: var(--muted); margin: 0 0 4px; }
+  .switch-box .note { margin: 0 0 10px; font-weight: 400; font-size: var(--fs-s); color: var(--warn); }
+  .save-state { font-size: var(--fs-s); color: var(--muted); margin: 0 0 8px; }
   .save-state.warn { color: var(--warn); font-weight: 600; }
   /* 카드 안 수정 칸 */
   .edit-box { grid-column: 1 / -1; display: grid; gap: 10px; margin-top: 4px; }
   .edit-box .field { margin-bottom: 0; }
-  .edit-box label { font-size: 0.95rem; }
-  .card.is-editing { border-color: var(--accent); }
+  .edit-box label { font-size: var(--fs-s); }
+  .card.is-editing { background: var(--card); padding-right: 16px; }
   [hidden] { display: none !important; }
+
+  /* 넓은 화면: 소제목은 1~4칸, 내용은 5~12칸 (왼쪽 끝을 격자선에 맞춤) */
+  @media (min-width: 900px) {
+    main > section {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      column-gap: 16px;
+      align-items: start;
+    }
+    main > section > h2 { grid-column: 1 / 5; grid-row: 1 / span 4; }
+    main > section > :not(h2) { grid-column: 5 / -1; }
+    main > header > .save-state,
+    main > header > .notice { max-width: calc(100% * 8 / 12); }
+  }
+  @media (max-width: 480px) {
+    h1 { font-size: 40px; }
+  }
 </style>
 </head>
 <body>
