@@ -7,7 +7,7 @@
 <title>한눈에 보는 교과목 연계 지도</title>
 <meta name="description" content="과목을 카드로, 선수-후속 관계를 화살표로 이어 과목 간 연계를 그래프로 한눈에 보는 도구">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="PRD">
+  <meta name="status" content="1회 개선">
 
 <!-- ===== 2. 스타일 ===== -->
 <style>
@@ -131,6 +131,10 @@
   .summary h3 { font-size: 1.05rem; margin: 20px 0 6px; }
   .summary ul { margin: 0; padding-left: 1.2em; }
   .summary li { margin: 2px 0; }
+  .summary .del-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid #e5e7eb; }
+  .summary .del-item span { min-width: 0; }
+  .btn-del { flex: none; min-height: 40px; padding: 4px 14px; font-size: 15px; background: #fff; color: var(--warn); border-color: var(--warn); }
+  .btn-del:hover { background: var(--warn-bg); }
   .empty { color: var(--ink-soft); }
 </style>
 </head>
@@ -202,6 +206,8 @@
         <ul id="list-edges"></ul>
         <h3>아직 연결되지 않은 과목</h3>
         <ul id="list-alone"></ul>
+        <p class="hint">[삭제]를 누르면 그 연결이나 과목 하나만 바로 지워져요. 연결된 과목을 지우려면 먼저 그 과목의 연결을 지우세요.</p>
+        <p class="msg" id="msg-summary" role="status" aria-live="polite" tabindex="-1"></p>
       </section>
     </main>
   </div>
@@ -216,11 +222,11 @@ const MAX_NAME_LENGTH = 12;               // 과목 이름 최대 글자 수
 // 기본 예시 지도 (노드 = 과목, 간선 = 선수 ➔ 후속 관계)
 const SAMPLE_DATA = {
   nodes: [
-    { id: 1, name: "수학 I" },
-    { id: 2, name: "수학 II" },
-    { id: 3, name: "미적분" },
-    { id: 4, name: "통합과학" },
-    { id: 5, name: "물리학 I" }
+    { id: 1, name: "공통수학1" },
+    { id: 2, name: "대수" },
+    { id: 3, name: "미적분I" },
+    { id: 4, name: "통합과학1" },
+    { id: 5, name: "물리학" }
   ],
   edges: [
     { from: 1, to: 2 },
@@ -228,6 +234,16 @@ const SAMPLE_DATA = {
     { from: 4, to: 5 }
   ]
 };
+
+// 예전(2015 개정) 예시 지도. 저장된 지도가 이것과 똑같으면 손대지 않은 예시이므로 새 예시로 바꿔 준다
+const OLD_SAMPLE_NAMES = ["수학 I", "수학 II", "미적분", "통합과학", "물리학 I"];
+function isOldSample(data) {
+  const names = data.nodes.map(n => n.name);
+  const edgeKey = data.edges.map(e => e.from + ">" + e.to).join(",");
+  return names.join("|") === OLD_SAMPLE_NAMES.join("|") &&
+    data.nodes.every((n, i) => n.id === i + 1) &&
+    edgeKey === "1>2,2>3,4>5";
+}
 
 // 지도 그리기 크기(픽셀)
 const CARD_W = 132, CARD_H = 56, GAP_X = 16, GAP_Y = 52, PAD = 16;
@@ -360,6 +376,26 @@ function addEdge(fromId, toId) {
   graph.edges.push({ from: fromId, to: toId });
   saveGraph();
   return { ok: true, text: `연결했어요: ${fromName} ➔ ${toName}` };
+}
+
+// [간선 삭제] 선수 ➔ 후속 연결 하나만 지운다 (두 과목은 그대로 남음)
+function deleteEdge(fromId, toId) {
+  const before = graph.edges.length;
+  graph.edges = graph.edges.filter(e => !(e.from === fromId && e.to === toId));
+  if (graph.edges.length === before) return { ok: false, text: "이미 지워진 연결이에요." };
+  saveGraph();
+  return { ok: true, text: `연결을 삭제했어요: ${findNode(fromId).name} ➔ ${findNode(toId).name}` };
+}
+
+// [노드 삭제] 과목을 지우고, 그 과목에 이어진 연결(간선)도 모두 함께 지운다
+function deleteSubject(id) {
+  const node = findNode(id);
+  if (!node) return { ok: false, text: "이미 지워진 과목이에요." };
+  graph.nodes = graph.nodes.filter(n => n.id !== id);
+  graph.edges = graph.edges.filter(e => e.from !== id && e.to !== id);
+  if (selectedId === id) selectedId = null;  // 강조 중이던 과목이면 강조도 해제
+  saveGraph();
+  return { ok: true, text: `'${node.name}' 과목을 삭제했어요.` };
 }
 
 // 초기화: 저장을 지우고 예시 데이터로 되돌림
@@ -578,6 +614,23 @@ function drawSelectionInfo() {
   box.hidden = false;
 }
 
+// 요약 목록 한 줄 = 글자 + [삭제] 버튼. 버튼에 무엇을 지울지(data-*) 적어 둔다
+function makeDeleteItem(text, ariaLabel, target) {
+  const li = document.createElement("li");
+  li.className = "del-item";
+  const span = document.createElement("span");
+  span.textContent = text;   // 사용자 입력은 textContent로 안전하게
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn-del";
+  btn.textContent = "삭제";
+  btn.setAttribute("aria-label", ariaLabel);
+  if (target.node !== undefined) btn.dataset.node = target.node;
+  else { btn.dataset.from = target.from; btn.dataset.to = target.to; }
+  li.append(span, btn);
+  return li;
+}
+
 // 텍스트 요약 리스트
 function drawSummary() {
   const listEdges = document.getElementById("list-edges");
@@ -590,9 +643,8 @@ function drawSummary() {
     listEdges.appendChild(li);
   }
   graph.edges.forEach(e => {
-    const li = document.createElement("li");
-    li.textContent = `${findNode(e.from).name} ➔ ${findNode(e.to).name}`;
-    listEdges.appendChild(li);
+    const label = `${findNode(e.from).name} ➔ ${findNode(e.to).name}`;
+    listEdges.appendChild(makeDeleteItem(label, `${label} 연결 삭제`, { from: e.from, to: e.to }));
   });
 
   const linked = new Set();
@@ -604,9 +656,7 @@ function drawSummary() {
     listAlone.appendChild(li);
   }
   alone.forEach(n => {
-    const li = document.createElement("li");
-    li.textContent = n.name;
-    listAlone.appendChild(li);
+    listAlone.appendChild(makeDeleteItem(n.name, `${n.name} 과목 삭제`, { node: n.id }));
   });
 
   document.getElementById("count-info").textContent =
@@ -655,6 +705,24 @@ document.getElementById("map").addEventListener("click", ev => {
   if (again) again.focus();
 });
 
+// 요약 목록의 [삭제] 버튼: 연결 하나 또는 과목 하나만 지운다
+document.querySelector(".summary").addEventListener("click", ev => {
+  const btn = ev.target.closest(".btn-del");
+  if (!btn) return;
+  const list = btn.closest("ul");
+  const index = [...list.querySelectorAll(".btn-del")].indexOf(btn);
+  const result = btn.dataset.node !== undefined
+    ? deleteSubject(Number(btn.dataset.node))
+    : deleteEdge(Number(btn.dataset.from), Number(btn.dataset.to));
+  showMessage(document.getElementById("msg-summary"), result);
+  render();
+  // 지운 자리의 다음 [삭제] 버튼으로 초점 이동 (없으면 메시지 줄로)
+  const rest = list.querySelectorAll(".btn-del");
+  const next = rest[Math.min(index, rest.length - 1)];
+  if (next) next.focus();
+  else document.getElementById("msg-summary").focus();
+});
+
 // 초기화: 페이지 안 확인 상자로 한 번 더 묻기
 document.getElementById("btn-reset").addEventListener("click", () => {
   document.getElementById("confirm-reset").hidden = false;
@@ -667,7 +735,7 @@ document.getElementById("btn-reset-no").addEventListener("click", () => {
 document.getElementById("btn-reset-yes").addEventListener("click", () => {
   resetGraph();
   document.getElementById("confirm-reset").hidden = true;
-  ["msg-subject", "msg-edge"].forEach(id => { document.getElementById(id).textContent = ""; });
+  ["msg-subject", "msg-edge", "msg-summary"].forEach(id => { document.getElementById(id).textContent = ""; });
   showMessage(document.getElementById("msg-reset"), { ok: true, text: "기본 예시 지도로 되돌렸어요." });
   render();
 });
@@ -682,7 +750,10 @@ window.addEventListener("resize", () => {
 // 시작: 저장된 지도가 있으면 불러오고, 없으면 예시 지도
 (function start() {
   const saved = loadGraph();
-  if (saved) {
+  if (saved && isOldSample(saved)) {
+    graph = makeSampleGraph();   // 손대지 않은 옛 예시 → 2022 개정 예시로 교체
+    saveGraph();
+  } else if (saved) {
     graph = saved;
   } else {
     graph = makeSampleGraph();
