@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>생활 속 자료구조 도우미</title>
+<meta name="description" content="대기 줄은 큐로 순서대로 부르고, 볼 목록은 스택으로 최근 것부터 꺼내고, 점심 메뉴와 주말 할 일은 예/아니오 트리로 골라 주는 생활 도우미">
+<meta name="class" content="M반 (2-8)">
+<meta name="status" content="PRD">
+<style>
+  :root {
+    --bg: #f6f7f8;
+    --card: #ffffff;
+    --text: #1c2126;
+    --muted: #535c66;
+    --line: #d6dbe0;
+    --accent: #1f5f8b;
+    --accent-weak: #e8f1f7;
+    --err: #b42318;
+    --err-weak: #fdecea;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  main { max-width: 42rem; margin: 0 auto; padding: 24px 16px 56px; }
+  h1 { font-size: 1.5rem; line-height: 1.35; margin: 0 0 6px; }
+  h2 { font-size: 1.2rem; margin: 0 0 4px; }
+  p { margin: 0 0 12px; }
+  .lead { color: var(--muted); margin-bottom: 20px; }
+  .notice {
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-left: 4px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 0.95rem;
+  }
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--text);
+    border-radius: 10px;
+    font: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  .tab[aria-selected="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 16px;
+  }
+  .panel[hidden] { display: none; }
+  .hint { color: var(--muted); font-size: 0.95rem; }
+  label { display: block; font-weight: 600; margin-bottom: 4px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type="text"] {
+    flex: 1 1 160px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid #9aa4ae;
+    border-radius: 10px;
+    font: inherit;
+    color: var(--text);
+    background: #fff;
+  }
+  input[type="text"]:focus-visible, button:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+  button.btn {
+    min-height: 44px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.btn.sub {
+    background: #fff;
+    color: var(--accent);
+  }
+  button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+  .actions .btn { flex: 1 1 140px; }
+  .msg { min-height: 1.7em; margin: 8px 0 0; font-size: 0.95rem; }
+  .msg.err { color: var(--err); }
+  .msg.ok { color: var(--accent); }
+  .called {
+    background: var(--accent-weak);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 4px 0 14px;
+  }
+  .called strong { font-size: 1.25rem; }
+  .list-title { font-weight: 600; margin: 14px 0 6px; }
+  ol.items, ul.items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .items li {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    padding: 10px 12px;
+    border-top: 1px solid var(--line);
+  }
+  .items li:first-child { border-top: 0; }
+  .items .tag {
+    flex: 0 0 auto;
+    font-size: 0.85rem;
+    color: var(--muted);
+    min-width: 3.2em;
+  }
+  .items li.first .tag { color: var(--accent); font-weight: 700; }
+  .items .empty { color: var(--muted); }
+  .confirm {
+    border: 1px solid var(--err);
+    background: var(--err-weak);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 10px;
+  }
+  .confirm[hidden] { display: none; }
+  .confirm .actions { margin-bottom: 0; }
+  .path { color: var(--muted); font-size: 0.95rem; margin: 0 0 8px; }
+  .question { font-size: 1.25rem; font-weight: 700; margin: 6px 0 14px; }
+  .answer {
+    background: var(--accent-weak);
+    border-radius: 10px;
+    padding: 14px;
+    margin: 6px 0 14px;
+  }
+  .answer strong { font-size: 1.3rem; color: var(--accent); }
+  .choose { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .choose .btn { flex: 1 1 120px; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>생활 속 자료구조 도우미</h1>
+  <p class="lead">대기 줄은 먼저 온 사람부터, 볼 목록은 최근 것부터, 고민은 예/아니오로 하나씩 풀어 봐요.</p>
+
+  <p class="notice" id="storageNotice" hidden></p>
+
+  <div class="tabs" role="tablist" aria-label="기능 고르기">
+    <button class="tab" role="tab" id="tab-queue" aria-controls="panel-queue" aria-selected="true">① 대기 줄</button>
+    <button class="tab" role="tab" id="tab-stack" aria-controls="panel-stack" aria-selected="false" tabindex="-1">② 볼 목록</button>
+    <button class="tab" role="tab" id="tab-tree" aria-controls="panel-tree" aria-selected="false" tabindex="-1">③ 고르기</button>
+  </div>
+
+  <!-- ① 큐: 먼저 들어온 사람이 먼저 나가요 -->
+  <section class="panel" id="panel-queue" role="tabpanel" aria-labelledby="tab-queue">
+    <h2>대기 줄 관리 (큐)</h2>
+    <p class="hint">매점 줄이나 동아리 면접처럼 온 순서대로 부를 때 써요. 이름은 줄 맨 뒤에 붙고, 부를 때는 맨 앞 사람이 나가요.</p>
+    <form id="queueForm" novalidate>
+      <label for="queueInput">대기자 이름</label>
+      <div class="row">
+        <input type="text" id="queueInput" maxlength="20" autocomplete="off" placeholder="예: 민준">
+        <button class="btn" type="submit">줄에 추가</button>
+      </div>
+    </form>
+    <p class="msg" id="queueMsg" role="status" aria-live="polite"></p>
+
+    <div class="called" id="calledBox" hidden>
+      지금 부를 차례: <strong id="calledName"></strong>
+    </div>
+
+    <div class="actions">
+      <button class="btn" type="button" id="queueNext">다음 순서 부르기</button>
+      <button class="btn sub" type="button" id="queueClear">줄 전체 비우기</button>
+    </div>
+    <div class="confirm" id="queueConfirm" hidden>
+      <p>대기 줄을 모두 지울까요? 지운 뒤에는 되돌릴 수 없어요.</p>
+      <div class="actions">
+        <button class="btn" type="button" id="queueClearYes">네, 모두 지울게요</button>
+        <button class="btn sub" type="button" id="queueClearNo">취소</button>
+      </div>
+    </div>
+
+    <p class="list-title">기다리는 사람 <span id="queueCount">0</span>명 (위쪽이 맨 앞)</p>
+    <ol class="items" id="queueList"></ol>
+  </section>
+
+  <!-- ② 스택: 마지막에 넣은 것이 먼저 나와요 -->
+  <section class="panel" id="panel-stack" role="tabpanel" aria-labelledby="tab-stack" hidden>
+    <h2>볼 목록 쌓기 (스택)</h2>
+    <p class="hint">읽고 싶은 책이나 보고 싶은 영화를 쌓아 두는 곳이에요. 새로 넣은 것이 맨 위에 올라가고, 꺼낼 때도 맨 위부터 꺼내요.</p>
+    <form id="stackForm" novalidate>
+      <label for="stackInput">책·영화 제목</label>
+      <div class="row">
+        <input type="text" id="stackInput" maxlength="40" autocomplete="off" placeholder="예: 어린 왕자">
+        <button class="btn" type="submit">맨 위에 쌓기</button>
+      </div>
+    </form>
+    <p class="msg" id="stackMsg" role="status" aria-live="polite"></p>
+
+    <div class="actions">
+      <button class="btn" type="button" id="stackPop">최근 것 완료/삭제</button>
+      <button class="btn sub" type="button" id="stackClear">목록 전체 비우기</button>
+    </div>
+    <div class="confirm" id="stackConfirm" hidden>
+      <p>볼 목록을 모두 지울까요? 지운 뒤에는 되돌릴 수 없어요.</p>
+      <div class="actions">
+        <button class="btn" type="button" id="stackClearYes">네, 모두 지울게요</button>
+        <button class="btn sub" type="button" id="stackClearNo">취소</button>
+      </div>
+    </div>
+
+    <p class="list-title">쌓인 작품 <span id="stackCount">0</span>개 (위쪽이 가장 최근)</p>
+    <ul class="items" id="stackList"></ul>
+  </section>
+
+  <!-- ③ 트리: 질문 하나에 예/아니오 두 갈래로 나뉘어요 -->
+  <section class="panel" id="panel-tree" role="tabpanel" aria-labelledby="tab-tree" hidden>
+    <h2>예/아니오로 고르기 (트리)</h2>
+    <p class="hint">무엇을 고민하는지 먼저 정하고, 질문에 예/아니오로 답하면 끝에서 추천이 나와요.</p>
+    <div class="choose" role="group" aria-label="고민 종류">
+      <button class="btn sub" type="button" data-tree="lunch" aria-pressed="true">오늘 점심 메뉴</button>
+      <button class="btn sub" type="button" data-tree="weekend" aria-pressed="false">주말에 할 일</button>
+    </div>
+
+    <p class="path" id="treePath"></p>
+    <div id="treeAsk">
+      <p class="question" id="treeQuestion"></p>
+      <div class="choose">
+        <button class="btn" type="button" id="treeYes">예</button>
+        <button class="btn" type="button" id="treeNo">아니오</button>
+      </div>
+    </div>
+    <div class="answer" id="treeAnswer" hidden>
+      추천: <strong id="treeResult"></strong>
+      <p class="hint" id="treeWhy" style="margin:6px 0 0"></p>
+    </div>
+    <div class="actions">
+      <button class="btn sub" type="button" id="treeBack">한 단계 뒤로</button>
+      <button class="btn sub" type="button" id="treeRestart">처음부터 다시</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- 저장 도우미 (저장이 막혀도 앱은 그대로 동작) ----------
+  var PREFIX = "sih26:20306:";
+  var canSave = true;
+
+  function load(name) {
+    try {
+      var raw = window.localStorage.getItem(PREFIX + name);
+      if (!raw) return [];
+      var arr = JSON.parse(raw);
+      // 문자열 배열만 받아요
+      if (!Array.isArray(arr)) return [];
+      return arr.filter(function (x) { return typeof x === "string"; });
+    } catch (e) {
+      canSave = false;
+      return [];
+    }
+  }
+  function save(name, arr) {
+    try {
+      window.localStorage.setItem(PREFIX + name, JSON.stringify(arr));
+    } catch (e) {
+      canSave = false;
+      showStorageNotice();
+    }
+  }
+  function showStorageNotice() {
+    var box = document.getElementById("storageNotice");
+    var inPreview = window.origin === "null" && location.protocol !== "file:";
+    if (inPreview) {
+      box.textContent = "전시판 미리보기에서는 목록이 저장되지 않아요. 저장하려면 '새 탭 실행'으로 열어 주세요.";
+    } else {
+      box.textContent = "이 브라우저에서는 목록을 저장할 수 없어요. 새로고침하면 목록이 사라져요.";
+    }
+    box.hidden = false;
+  }
+
+  function setMsg(el, text, kind) {
+    el.textContent = text;
+    el.className = "msg" + (kind ? " " + kind : "");
+  }
+
+  // ---------- 탭 ----------
+  var tabs = Array.prototype.slice.call(document.querySelectorAll(".tab"));
+  function selectTab(tab) {
+    tabs.forEach(function (t) {
+      var on = t === tab;
+      t.setAttribute("aria-selected", on ? "true" : "false");
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+    });
+  }
+  tabs.forEach(function (t, i) {
+    t.addEventListener("click", function () { selectTab(t); });
+    t.addEventListener("keydown", function (e) {
+      var next = null;
+      if (e.key === "ArrowRight") next = tabs[(i + 1) % tabs.length];
+      if (e.key === "ArrowLeft") next = tabs[(i - 1 + tabs.length) % tabs.length];
+      if (next) { e.preventDefault(); selectTab(next); next.focus(); }
+    });
+  });
+
+  // ==========================================================
+  // ① 큐(Queue): 줄 서기와 똑같아요.
+  //   - 넣을 때(enqueue)는 배열 맨 뒤에 push
+  //   - 뺄 때(dequeue)는 배열 맨 앞에서 shift
+  //   그래서 먼저 온 사람이 먼저 불려요 (선입선출, FIFO).
+  // ==========================================================
+  var queue = load("queue");
+  var qInput = document.getElementById("queueInput");
+  var qMsg = document.getElementById("queueMsg");
+  var qList = document.getElementById("queueList");
+
+  function renderQueue() {
+    qList.innerHTML = "";
+    if (queue.length === 0) {
+      var li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "기다리는 사람이 없어요.";
+      qList.appendChild(li);
+    }
+    queue.forEach(function (name, i) {
+      var li = document.createElement("li");
+      if (i === 0) li.className = "first";
+      var tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = i === 0 ? "맨 앞" : (i + 1) + "번째";
+      var text = document.createElement("span");
+      text.textContent = name;
+      li.appendChild(tag);
+      li.appendChild(text);
+      qList.appendChild(li);
+    });
+    document.getElementById("queueCount").textContent = queue.length;
+    document.getElementById("queueNext").disabled = false;
+  }
+
+  document.getElementById("queueForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = qInput.value.trim();
+    if (name === "") {
+      setMsg(qMsg, "이름을 먼저 입력해 주세요.", "err");
+      qInput.focus();
+      return;
+    }
+    if (queue.indexOf(name) !== -1) {
+      setMsg(qMsg, "‘" + name + "’ 님은 이미 줄에 있어요. 같은 이름이면 뒤에 숫자를 붙여 구분해 주세요.", "err");
+      qInput.focus();
+      return;
+    }
+    queue.push(name); // 맨 뒤에 넣기
+    save("queue", queue);
+    qInput.value = "";
+    setMsg(qMsg, "‘" + name + "’ 님을 줄 맨 뒤(" + queue.length + "번째)에 넣었어요.", "ok");
+    renderQueue();
+    qInput.focus();
+  });
+
+  document.getElementById("queueNext").addEventListener("click", function () {
+    if (queue.length === 0) {
+      setMsg(qMsg, "부를 사람이 없어요. 먼저 이름을 추가해 주세요.", "err");
+      return;
+    }
+    var first = queue.shift(); // 맨 앞에서 꺼내기
+    save("queue", queue);
+    document.getElementById("calledName").textContent = first;
+    document.getElementById("calledBox").hidden = false;
+    setMsg(qMsg, queue.length ? "다음은 ‘" + queue[0] + "’ 님 차례예요." : "줄에 남은 사람이 없어요.", "ok");
+    renderQueue();
+  });
+
+  // ==========================================================
+  // ② 스택(Stack): 책을 위로 쌓는 것과 같아요.
+  //   - 넣을 때(push)는 배열 맨 뒤 = 더미의 맨 위
+  //   - 뺄 때(pop)도 배열 맨 뒤 = 더미의 맨 위
+  //   그래서 마지막에 넣은 것이 먼저 나와요 (후입선출, LIFO).
+  // ==========================================================
+  var stack = load("stack");
+  var sInput = document.getElementById("stackInput");
+  var sMsg = document.getElementById("stackMsg");
+  var sList = document.getElementById("stackList");
+
+  function renderStack() {
+    sList.innerHTML = "";
+    if (stack.length === 0) {
+      var li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "쌓인 작품이 없어요.";
+      sList.appendChild(li);
+    }
+    // 화면에는 맨 위(배열의 끝)부터 거꾸로 보여 줘요
+    for (var i = stack.length - 1; i >= 0; i--) {
+      var li2 = document.createElement("li");
+      if (i === stack.length - 1) li2.className = "first";
+      var tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = i === stack.length - 1 ? "맨 위" : "";
+      var text = document.createElement("span");
+      text.textContent = stack[i];
+      li2.appendChild(tag);
+      li2.appendChild(text);
+      sList.appendChild(li2);
+    }
+    document.getElementById("stackCount").textContent = stack.length;
+  }
+
+  document.getElementById("stackForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var title = sInput.value.trim();
+    if (title === "") {
+      setMsg(sMsg, "제목을 먼저 입력해 주세요.", "err");
+      sInput.focus();
+      return;
+    }
+    stack.push(title); // 맨 위에 쌓기
+    save("stack", stack);
+    sInput.value = "";
+    setMsg(sMsg, "‘" + title + "’을(를) 맨 위에 쌓았어요.", "ok");
+    renderStack();
+    sInput.focus();
+  });
+
+  document.getElementById("stackPop").addEventListener("click", function () {
+    if (stack.length === 0) {
+      setMsg(sMsg, "꺼낼 작품이 없어요. 먼저 제목을 추가해 주세요.", "err");
+      return;
+    }
+    var top = stack.pop(); // 맨 위에서 꺼내기
+    save("stack", stack);
+    setMsg(sMsg, "‘" + top + "’을(를) 완료 처리하고 목록에서 뺐어요.", "ok");
+    renderStack();
+  });
+
+  // ---------- 전체 비우기 (페이지 안에서 한 번 더 물어봐요) ----------
+  function setupClear(btnId, boxId, yesId, noId, onYes) {
+    var box = document.getElementById(boxId);
+    document.getElementById(btnId).addEventListener("click", function () {
+      box.hidden = false;
+      document.getElementById(noId).focus();
+    });
+    document.getElementById(noId).addEventListener("click", function () {
+      box.hidden = true;
+      document.getElementById(btnId).focus();
+    });
+    document.getElementById(yesId).addEventListener("click", function () {
+      onYes();
+      box.hidden = true;
+      document.getElementById(btnId).focus();
+    });
+  }
+  setupClear("queueClear", "queueConfirm", "queueClearYes", "queueClearNo", function () {
+    queue = [];
+    save("queue", queue);
+    document.getElementById("calledBox").hidden = true;
+    setMsg(qMsg, "대기 줄을 모두 비웠어요.", "ok");
+    renderQueue();
+  });
+  setupClear("stackClear", "stackConfirm", "stackClearYes", "stackClearNo", function () {
+    stack = [];
+    save("stack", stack);
+    setMsg(sMsg, "볼 목록을 모두 비웠어요.", "ok");
+    renderStack();
+  });
+
+  // ==========================================================
+  // ③ 트리(Tree): 질문 하나(노드)마다 '예' 가지와 '아니오' 가지가 있어요.
+  //   - 질문 노드: { q: 질문, yes: 다음 노드, no: 다음 노드 }
+  //   - 끝 노드(잎):  { result: 추천 }
+  //   뿌리(첫 질문)에서 시작해 답에 따라 한 가지씩 내려가다가
+  //   잎에 닿으면 그게 추천이에요.
+  // ==========================================================
+  var TREES = {
+    lunch: {
+      q: "매운 게 당기나요?",
+      yes: {
+        q: "면 요리가 좋아요?",
+        yes: { result: "짬뽕" },
+        no: {
+          q: "고기가 들어가면 좋겠어요?",
+          yes: { result: "제육덮밥" },
+          no: { result: "김치볶음밥" }
+        }
+      },
+      no: {
+        q: "면 요리가 좋아요?",
+        yes: { result: "짜장면" },
+        no: {
+          q: "따뜻한 국물이 있으면 좋겠어요?",
+          yes: { result: "된장찌개" },
+          no: { result: "돈가스" }
+        }
+      }
+    },
+    weekend: {
+      q: "밖에 나가고 싶나요?",
+      yes: {
+        q: "몸을 움직이고 싶나요?",
+        yes: { result: "친구와 공원에서 배드민턴 치기" },
+        no: { result: "도서관에서 읽고 싶던 책 읽기" }
+      },
+      no: {
+        q: "혼자 쉬고 싶나요?",
+        yes: { result: "집에서 영화 한 편 보기" },
+        no: { result: "가족과 보드게임 하기" }
+      }
+    }
+  };
+
+  var treeName = "lunch";
+  var node = TREES.lunch;
+  var trail = []; // 지나온 노드와 답을 기억해서 '뒤로'에 써요
+
+  function renderTree() {
+    var isLeaf = !!node.result;
+    document.getElementById("treeAsk").hidden = isLeaf;
+    document.getElementById("treeAnswer").hidden = !isLeaf;
+    if (isLeaf) {
+      document.getElementById("treeResult").textContent = node.result;
+      document.getElementById("treeWhy").textContent =
+        "고른 답: " + trail.map(function (s) { return s.answer; }).join(" → ");
+    } else {
+      document.getElementById("treeQuestion").textContent = node.q;
+    }
+    document.getElementById("treePath").textContent =
+      "질문 " + (trail.length + (isLeaf ? 0 : 1)) + "단계" + (isLeaf ? "를 지나 도착했어요" : "");
+    document.getElementById("treeBack").disabled = trail.length === 0;
+  }
+
+  function answer(yes) {
+    if (node.result) return;
+    trail.push({ node: node, answer: (yes ? "예" : "아니오") + "(" + node.q + ")" });
+    node = yes ? node.yes : node.no; // 고른 가지로 한 칸 내려가기
+    renderTree();
+    var focusEl = node.result ? document.getElementById("treeRestart") : document.getElementById(yes ? "treeYes" : "treeNo");
+    focusEl.focus();
+  }
+  function restartTree() {
+    node = TREES[treeName];
+    trail = [];
+    renderTree();
+  }
+
+  document.getElementById("treeYes").addEventListener("click", function () { answer(true); });
+  document.getElementById("treeNo").addEventListener("click", function () { answer(false); });
+  document.getElementById("treeBack").addEventListener("click", function () {
+    if (trail.length === 0) return;
+    node = trail.pop().node; // 바로 위 질문으로 돌아가기
+    renderTree();
+  });
+  document.getElementById("treeRestart").addEventListener("click", restartTree);
+  Array.prototype.forEach.call(document.querySelectorAll("[data-tree]"), function (b) {
+    b.addEventListener("click", function () {
+      treeName = b.getAttribute("data-tree");
+      Array.prototype.forEach.call(document.querySelectorAll("[data-tree]"), function (o) {
+        o.setAttribute("aria-pressed", o === b ? "true" : "false");
+        o.classList.toggle("sub", o !== b);
+      });
+      restartTree();
+    });
+  });
+
+  // ---------- 처음 그리기 ----------
+  // 고민 종류 버튼: 처음엔 점심 메뉴가 선택된 모양
+  document.querySelector('[data-tree="lunch"]').classList.remove("sub");
+  // 저장이 되는지 미리 한 번 시험해 봐요
+  try {
+    var testKey = PREFIX + "test";
+    window.localStorage.setItem(testKey, "1");
+    window.localStorage.removeItem(testKey);
+  } catch (e) {
+    canSave = false;
+  }
+  if (!canSave) showStorageNotice();
+  renderQueue();
+  renderStack();
+  renderTree();
+})();
+</script>
+</body>
+</html>
