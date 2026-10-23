@@ -6,7 +6,7 @@
 <title>마인크래프트 다단계 아이템 재료 계산기</title>
 <meta name="description" content="만들 아이템과 개수를 고르면 단계별 조합 트리, 창고에서 챙길 기본 원재료 총합, 올림 조합 횟수와 남는 재료, 64개 세트 단위를 계산해 주는 마인크래프트 재료 계산기">
 <meta name="class" content="M반 (2-8)">
-<meta name="status" content="PRD">
+<meta name="status" content="1회 개선">
 <style>
   :root {
     --bg: #f5f6f3;
@@ -24,6 +24,8 @@
     --mid-weak: #fff3dc;
     --base: #2e6b2f;
     --base-weak: #e9f3e8;
+    --fuel: #4a4f57;
+    --fuel-weak: #eef0f2;
   }
   * { box-sizing: border-box; }
   body {
@@ -107,24 +109,68 @@
   .badge.final { color: var(--final); background: var(--final-weak); }
   .badge.mid { color: var(--mid); background: var(--mid-weak); }
   .badge.base { color: var(--base); background: var(--base-weak); }
+  .badge.fuel { color: var(--fuel); background: var(--fuel-weak); }
 
-  /* 영역 A: 기본 원재료 요약 */
+  /* 결과 영역 공통: 단계 번호 + 제목 + 한 줄 설명으로 A·B를 한눈에 구분 */
+  .result-card { padding: 0; overflow: hidden; }
+  .result-head {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 16px 16px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .step-no {
+    flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; border-radius: 50%;
+    font-weight: 700; font-size: 1.05rem; color: #fff;
+  }
+  .result-head h2 { margin: 0; }
+  .result-head p { margin: 2px 0 0; font-size: 1rem; color: var(--muted); }
+  .result-body { padding: 8px 16px 16px; }
+
+  /* 영역 A: 창고에서 챙길 기본 원재료 요약 (체크리스트 느낌, 초록 계열) */
+  .area-a { border-color: #a9c9a6; }
+  .area-a .result-head { background: var(--base-weak); border-bottom-color: #a9c9a6; }
+  .area-a .step-no { background: var(--base); }
   .sum-list { list-style: none; margin: 0; padding: 0; }
   .sum-list li {
-    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
-    padding: 10px 0; border-bottom: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center; gap: 2px 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--line);
   }
   .sum-list li:last-child { border-bottom: 0; }
+  .sum-label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; }
   .sum-name { font-weight: 700; }
-  .sum-count { font-weight: 700; font-size: 1.1rem; margin-left: auto; }
+  .sum-amount { text-align: right; }
+  .sum-count { display: block; font-weight: 700; font-size: 1.15rem; }
+  .sum-amount .sets { display: block; font-size: 1rem; }
+  .sum-list li.fuel-row { border-top: 2px dashed var(--line); border-bottom: 0; }
+  .sum-list li:has(+ li.fuel-row) { border-bottom: 0; }
   .sets { color: var(--muted); font-weight: 600; }
   .note { margin: 10px 0 0; font-size: 1rem; color: var(--muted); }
+  .fuel-note {
+    margin: 12px 0 0; padding: 10px 12px;
+    border-radius: 8px; background: var(--fuel-weak); color: var(--text);
+    font-size: 1rem;
+  }
 
-  /* 영역 B: 단계별 조합 트리 (들여쓰기) */
+  /* 영역 B: 단계별 조합 트리 (들여쓰기, 파란 계열) */
+  .area-b { border-color: #b3c3e3; }
+  .area-b .result-head { background: var(--final-weak); border-bottom-color: #b3c3e3; }
+  .area-b .step-no { background: var(--final); }
   .tree, .tree ul { list-style: none; margin: 0; padding: 0; }
   .tree ul { margin-left: 10px; padding-left: 12px; border-left: 2px solid var(--line); }
   .node { padding: 8px 0 4px; }
-  .node-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+  .node-head {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px;
+    padding: 6px 10px; border-radius: 8px; background: #f7f8f6;
+    border-left: 4px solid var(--line);
+  }
+  .node-head.final { border-left-color: var(--final); }
+  .node-head.mid { border-left-color: var(--mid); }
+  .node-head.base { border-left-color: var(--base); background: transparent; }
+  .node-meta { padding-left: 14px; }
   .node-name { font-weight: 700; }
   .node-count { font-weight: 700; }
   .node-meta { font-size: 1rem; color: var(--muted); margin-top: 2px; }
@@ -155,7 +201,7 @@
   <header>
     <h1>마인크래프트 다단계 아이템 재료 계산기</h1>
     <p class="intro">만들 아이템과 개수를 고르면, 창고에서 챙길 기본 원재료와 단계별 조합 순서를 한 번에 계산해 줘요.</p>
-    <p class="edition">기준: Minecraft Java Edition 기본 작업대 조합법</p>
+    <p class="edition">기준: Minecraft Java Edition 기본 작업대 조합법 · 화로 연료는 석탄(1개로 8번 제련) 기준</p>
   </header>
 
   <!-- 입력 및 조작 영역 -->
@@ -303,6 +349,20 @@ function craftTimes(need, outputCount) {
   return Math.ceil(need / outputCount);
 }
 
+// =====================================================================
+// ③-2 화로 연료(석탄) 계산
+// ---------------------------------------------------------------------
+// 석탄 1개를 화로에 넣으면 아이템을 8개까지 제련할 수 있어요.
+//   필요한 석탄 = Math.ceil(제련 횟수 ÷ 8)   (반 개는 넣을 수 없으니 올림)
+//   예) 유리 5개 → 5번 제련 → 5 ÷ 8 = 0.625 → 석탄 1개
+// 제련할 재료가 여러 종류라면, 한 화로에서 이어서 굽는다고 보고
+// 제련 횟수를 모두 더한 뒤 한 번만 올림해요. (불이 꺼지기 전에 다음 재료를 넣으면 남은 불을 이어 써요.)
+// =====================================================================
+const SMELTS_PER_COAL = 8;
+function coalNeeded(smelts) {
+  return Math.ceil(smelts / SMELTS_PER_COAL);
+}
+
 function setText(count) {
   if (count < 64) return "";                  // 64개 미만이면 세트 표시를 생략 ("0세트" 안 씀)
   const sets = Math.floor(count / 64);
@@ -424,6 +484,7 @@ function renderNode(node, isRoot) {
   const li = el("li", "node");
   const head = el("div", "node-head");
   const level = isRoot ? "final" : (node.children.length === 0 ? "base" : "mid");
+  head.classList.add(level);
   head.appendChild(el("span", "node-name", node.item.name));
   head.appendChild(badge(level));
   head.appendChild(el("span", "node-count", node.need + "개"));
@@ -435,7 +496,9 @@ function renderNode(node, isRoot) {
     const meta = el("div", "node-meta");
     const how = node.item.method === "furnace" ? "화로 제련" : "작업대 조합";
     let text = how + " " + node.times + "회 (1회에 " + node.item.outputCount + "개)";
-    if (node.item.method === "furnace") text += " · 연료 별도";
+    if (node.item.method === "furnace") {
+      text += " · 연료 석탄 " + coalNeeded(node.times) + "개 (석탄 1개로 " + SMELTS_PER_COAL + "번 제련)";
+    }
     meta.appendChild(document.createTextNode(text));
     if (node.leftover > 0) {
       meta.appendChild(document.createTextNode(" "));
@@ -451,9 +514,48 @@ function renderNode(node, isRoot) {
   return li;
 }
 
-function hasFurnace(node) {
-  if (node.item.method === "furnace") return true;
-  return node.children.some(hasFurnace);
+// 트리를 끝까지 돌며 화로 제련 재료의 제련 횟수를 재료별로 모은다.
+// 같은 재료가 여러 가지에서 나오면 더해요.
+function collectSmelts(node, smelts) {
+  if (node.item.method === "furnace") {
+    smelts.set(node.id, (smelts.get(node.id) || 0) + node.times);
+  }
+  for (const child of node.children) collectSmelts(child, smelts);
+  return smelts;
+}
+
+// 결과 카드 머리: 단계 번호 + 제목 + 한 줄 설명
+function resultCard(areaClass, stepNo, titleId, titleText, desc) {
+  const card = el("section", "card result-card " + areaClass);
+  card.setAttribute("aria-labelledby", titleId);
+  const head = el("div", "result-head");
+  const no = el("span", "step-no", stepNo);
+  no.setAttribute("aria-hidden", "true");
+  head.appendChild(no);
+  const textBox = el("div");
+  const title = el("h2", "", titleText);
+  title.id = titleId;
+  textBox.appendChild(title);
+  textBox.appendChild(el("p", "", desc));
+  head.appendChild(textBox);
+  card.appendChild(head);
+  const body = el("div", "result-body");
+  card.appendChild(body);
+  return { card: card, body: body };
+}
+
+function sumRow(name, badgeEl, count, extraClass) {
+  const li = el("li", extraClass || "");
+  const label = el("span", "sum-label");
+  label.appendChild(el("span", "sum-name", name));
+  label.appendChild(badgeEl);
+  li.appendChild(label);
+  const amount = el("span", "sum-amount");
+  amount.appendChild(el("span", "sum-count", count + "개"));
+  const sets = setText(count);
+  if (sets) amount.appendChild(el("span", "sets", sets));
+  li.appendChild(amount);
+  return li;
 }
 
 function calculate() {
@@ -472,39 +574,45 @@ function calculate() {
   resultArea.innerHTML = "";
 
   // 영역 A: 창고에서 챙길 기본 원재료 요약
-  const cardA = el("section", "card");
-  cardA.setAttribute("aria-labelledby", "areaATitle");
-  const titleA = el("h2", "", "창고에서 챙길 기본 원재료 (" + tree.item.name + " " + n + "개)");
-  titleA.id = "areaATitle";
-  cardA.appendChild(titleA);
+  const a = resultCard("area-a", "1", "areaATitle",
+    "창고에서 챙길 기본 원재료 (" + tree.item.name + " " + n + "개)",
+    "이 목록대로 창고에서 꺼내 가면 돼요.");
   const list = el("ul", "sum-list");
   totals.forEach(function (count, id) {
-    const li = el("li");
-    li.appendChild(el("span", "sum-name", ITEMS[id].name));
-    li.appendChild(badge("base"));
-    const right = el("span", "sum-count", count + "개");
-    li.appendChild(right);
-    const sets = setText(count);
-    if (sets) li.appendChild(el("span", "sets", sets));
-    list.appendChild(li);
+    list.appendChild(sumRow(ITEMS[id].name, badge("base"), count));
   });
-  cardA.appendChild(list);
-  if (hasFurnace(tree)) {
-    cardA.appendChild(el("p", "note", "유리는 화로에서 제련해요. 제련에 쓰는 연료는 이 계산에 포함되지 않으니 따로 챙겨 주세요."));
+
+  // 화로 제련이 있으면 석탄 필요량을 같은 목록 맨 아래에 함께 보여 준다
+  const smelts = collectSmelts(tree, new Map());
+  let fuelNote = null;
+  if (smelts.size > 0) {
+    let totalSmelts = 0;
+    const parts = [];
+    smelts.forEach(function (times, id) {
+      totalSmelts += times;
+      parts.push(ITEMS[id].name + " " + times + "번");
+    });
+    const coal = coalNeeded(totalSmelts);                 // 모두 더한 뒤 한 번만 올림
+    const spare = coal * SMELTS_PER_COAL - totalSmelts;   // 남는 제련 가능 횟수
+    list.appendChild(sumRow("석탄", el("span", "badge fuel", "[화로 연료]"), coal, "fuel-row"));
+    let text = "화로 제련 " + parts.join(" + ");
+    if (parts.length > 1) text += " = 모두 " + totalSmelts + "번";
+    text += " → 석탄 1개로 " + SMELTS_PER_COAL + "번 제련하니 석탄 " + coal + "개가 필요해요(올림).";
+    if (spare > 0) text += " 마지막 석탄으로 " + spare + "번 더 제련할 수 있어요.";
+    if (parts.length > 1) text += " 여러 재료를 한 화로에서 이어서 굽는다고 보고 횟수를 합쳐 계산했어요.";
+    fuelNote = el("p", "fuel-note", text);
   }
-  resultArea.appendChild(cardA);
+  a.body.appendChild(list);
+  if (fuelNote) a.body.appendChild(fuelNote);
+  resultArea.appendChild(a.card);
 
   // 영역 B: 단계별 조합 트리 상세
-  const cardB = el("section", "card");
-  cardB.setAttribute("aria-labelledby", "areaBTitle");
-  const titleB = el("h2", "", "단계별 조합 트리");
-  titleB.id = "areaBTitle";
-  cardB.appendChild(titleB);
-  cardB.appendChild(el("p", "note", "아래쪽(기본 원재료)부터 위쪽 순서로 조합하면 최종 아이템이 완성돼요."));
+  const b = resultCard("area-b", "2", "areaBTitle", "단계별 조합 트리",
+    "아래쪽(기본 원재료)부터 위쪽 순서로 조합하면 최종 아이템이 완성돼요.");
   const treeList = el("ul", "tree");
   treeList.appendChild(renderNode(tree, true));
-  cardB.appendChild(treeList);
-  resultArea.appendChild(cardB);
+  b.body.appendChild(treeList);
+  resultArea.appendChild(b.card);
 }
 
 function resetAll() {
