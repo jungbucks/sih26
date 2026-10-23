@@ -6,7 +6,7 @@
 <title>주간 시간표 &amp; 수행평가 과제 정리기</title>
 <meta name="description" content="과목·내용·제출 시기만 입력해 이번 주 요일별 과제와 다음 주 이후 과제를 한눈에 챙기는 정리기">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="1회 개선">
+  <meta name="status" content="2회 개선">
 <style>
   :root {
     --bg: #f6f7f9;
@@ -135,6 +135,39 @@
   .after-time { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 8.5em; }
   .after-name { flex: 1 1 10em; }
   .empty-note { margin: 0; color: var(--muted); }
+  .after-day {
+    display: inline-block; min-width: 2.2em; text-align: center; padding: 0 6px; border-radius: 6px;
+    background: var(--accent-weak); color: var(--accent); font-weight: 700; font-size: 0.9rem;
+  }
+  .after-day.unset { background: #f1f3f5; color: var(--muted); font-weight: 600; }
+  .after-item select {
+    font: inherit; font-size: 0.95rem; min-height: 34px; padding: 2px 6px; border: 2px solid var(--line); border-radius: 8px; background: #fff; color: var(--text);
+  }
+
+  /* 마감 임박 과제 (남은 날 3일 이하) */
+  .urgent-card {
+    background: var(--danger-weak); border: 2px solid var(--danger); border-radius: 12px; padding: 12px;
+  }
+  .urgent-card .empty-note { color: var(--text); }
+  .dday {
+    display: inline-block; margin-right: 6px; padding: 0 8px; border-radius: 6px;
+    background: var(--danger); color: #fff; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+
+  /* 요일 카드 안 방과후 일정 */
+  .day-after { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+  .day-after h4 { margin: 0 0 4px; font-size: 0.9rem; color: var(--muted); }
+  .day-after ul { list-style: none; margin: 0; padding: 0; font-size: 0.92rem; }
+  .day-after li { display: flex; flex-wrap: wrap; gap: 0 6px; }
+  .day-after .t { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* 시간표 모달 하단 방과후 일정 */
+  .tt-after { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .tt-after h3 { margin: 0 0 8px; font-size: 1rem; }
+  .tt-after dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; }
+  .tt-after dt { font-weight: 700; }
+  .tt-after dd { margin: 0; }
+  .tt-after dd span { display: block; }
 
   @media (max-width: 860px) {
     .week { grid-template-columns: repeat(2, 1fr); }
@@ -181,6 +214,12 @@
   <p class="form-msg main-msg ok" id="mainMsg" role="status" aria-live="polite"></p>
   <p class="storage-note" id="storageNote"></p>
 
+  <!-- 마감 임박 과제: 오늘부터 3일 안에 마감되는 미완료 과제 -->
+  <h2>마감 임박 과제 <span style="font-weight:400;color:var(--muted);font-size:0.95rem">(D-3 ~ D-Day)</span></h2>
+  <div class="urgent-card" id="urgentCard">
+    <ul class="tasks" id="urgentList"></ul>
+  </div>
+
   <h2>이번 주 마감 과제 <span class="date" id="weekRange" style="font-weight:400;color:var(--muted);font-size:0.95rem"></span></h2>
   <div class="week" id="weekArea"></div>
 
@@ -209,7 +248,12 @@
     </div>
     <form class="modal-form" id="addForm" novalidate>
       <div class="field subject">
-        <label for="subjectInput">과목명</label>
+        <label for="subjectSelect">과목명</label>
+        <select id="subjectSelect"></select>
+        <p class="hint">내 시간표에 있는 과목이에요. 목록에 없으면 '직접 입력'을 고르세요.</p>
+      </div>
+      <div class="field subject-custom" id="subjectCustomField" hidden>
+        <label for="subjectInput">과목명 직접 입력</label>
         <input type="text" id="subjectInput" maxlength="20" placeholder="예: 수학" autocomplete="off">
       </div>
       <div class="field content">
@@ -219,7 +263,7 @@
       <div class="field date">
         <label for="dateInput">마감 날짜</label>
         <input type="date" id="dateInput">
-        <p class="hint" id="dateHint">월~금 날짜만 고를 수 있어요.</p>
+        <p class="hint" id="dateHint">토·일요일도 고를 수 있어요. 이번 주 토·일 마감은 금요일 카드 아래쪽에 날짜와 함께 보여요.</p>
       </div>
       <p class="form-msg" id="formMsg" role="alert" aria-live="assertive"></p>
       <div class="form-btns">
@@ -246,6 +290,12 @@
       <button type="button" id="cancelTimetableBtn">취소</button>
       <button type="button" class="primary" id="saveTimetableBtn">저장</button>
     </div>
+    <!-- 요일별 방과후 일정 (보기 전용: 등록·삭제는 메인 화면 '방과후 일정'에서) -->
+    <section class="tt-after" aria-labelledby="ttAfterTitle">
+      <h3 id="ttAfterTitle">요일별 방과후 일정</h3>
+      <div id="ttAfter"></div>
+      <p class="hint">등록·삭제는 메인 화면의 '방과후 일정'에서 할 수 있어요.</p>
+    </section>
   </div>
 </div>
 
@@ -260,6 +310,17 @@
       <div class="field">
         <label for="afterNameInput">일정명</label>
         <input type="text" id="afterNameInput" maxlength="30" placeholder="예: 방과후 영어 회화" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="afterDaySelect">요일</label>
+        <select id="afterDaySelect">
+          <option value="">요일을 고르세요</option>
+          <option value="0">월요일</option>
+          <option value="1">화요일</option>
+          <option value="2">수요일</option>
+          <option value="3">목요일</option>
+          <option value="4">금요일</option>
+        </select>
       </div>
       <div class="time-row">
         <div class="field">
@@ -359,7 +420,7 @@ function makeDefaultTimetable() {
 // ===== 데이터·상태 =====
 let tasks = [];          // 과제 목록 (모든 과제는 dueDate "YYYY-MM-DD"로 저장)
 let timetable = makeDefaultTimetable(); // 7교시 × 5요일 과목 이름
-let afterList = [];      // 방과후 일정 목록 { id, name, start "HH:MM", end "HH:MM" }
+let afterList = [];      // 방과후 일정 목록 { id, name, day 0(월)~4(금) 또는 null(요일 미지정), start "HH:MM", end "HH:MM" }
 let canSave = true;      // 브라우저 저장 가능 여부
 let migratedCount = 0;   // 예전 '요일 저장' 과제를 날짜로 옮긴 개수
 
@@ -423,8 +484,16 @@ function loadData() {
   if (Array.isArray(af)) {
     afterList = af.filter(function (a) {
       return a && typeof a.name === "string" && isTime(a.start) && isTime(a.end);
-    }).slice(0, MAX_AFTER);
+    }).slice(0, MAX_AFTER).map(function (a) {
+      // 예전 버전 일정에는 요일(day)이 없음 → 지우지 않고 '요일 미지정(null)'으로 두고 나중에 정할 수 있게 함
+      return { id: typeof a.id === "number" ? a.id : Date.now() + Math.random(), name: a.name,
+        day: isDayIndex(a.day) ? a.day : null, start: a.start, end: a.end };
+    });
   }
+}
+// 0(월)~4(금) 요일 번호인지
+function isDayIndex(n) {
+  return Number.isInteger(n) && n >= 0 && n <= 4;
 }
 function isValidTask(t) {
   return t && typeof t.subject === "string" && typeof t.content === "string" &&
@@ -446,9 +515,58 @@ function isPastTask(t) {
   return t.dueDate < toISO(getThisMonday());
 }
 
+// 오늘부터 마감일까지 남은 날 수 (오늘 마감 = 0, 내일 = 1, 지난 날 = 음수)
+function daysLeft(iso) {
+  const today = fromISO(toISO(new Date()));
+  return Math.round((fromISO(iso) - today) / 86400000);
+}
+function ddayText(n) {
+  return n === 0 ? "D-Day" : "D-" + n;
+}
+
+// ===== 과목 선택(시간표 연동) =====
+const CUSTOM_SUBJECT = "__custom__";   // '직접 입력' 선택지 값
+// 시간표 7×5 칸에서 빈칸을 빼고 중복을 없앤 과목 이름 목록 (가나다순)
+function getTimetableSubjects() {
+  const seen = [];
+  timetable.forEach(function (row) {
+    row.forEach(function (s) {
+      const name = s.trim();
+      if (name !== "" && seen.indexOf(name) === -1) seen.push(name);
+    });
+  });
+  return seen.sort(function (a, b) { return a.localeCompare(b, "ko"); });
+}
+// 과목 선택창(드롭다운) 채우기
+function fillSubjectSelect() {
+  subjectSelect.textContent = "";
+  const subjects = getTimetableSubjects();
+  const first = document.createElement("option");
+  first.value = "";
+  first.textContent = subjects.length > 0 ? "과목을 고르세요" : "시간표에 과목이 없어요";
+  subjectSelect.appendChild(first);
+  subjects.forEach(function (name) {
+    const op = document.createElement("option");
+    op.value = name;
+    op.textContent = name;
+    subjectSelect.appendChild(op);
+  });
+  const custom = document.createElement("option");
+  custom.value = CUSTOM_SUBJECT;
+  custom.textContent = "직접 입력";
+  subjectSelect.appendChild(custom);
+  // 시간표가 비어 있으면 바로 직접 입력으로
+  subjectSelect.value = subjects.length > 0 ? "" : CUSTOM_SUBJECT;
+  updateSubjectCustom();
+}
+// '직접 입력'을 골랐을 때만 직접 입력칸 보이기
+function updateSubjectCustom() {
+  subjectCustomField.hidden = subjectSelect.value !== CUSTOM_SUBJECT;
+}
+
 // 빈칸 표시 지우기
 function clearInvalid() {
-  [subjectInput, contentInput, dateInput].forEach(function (el) {
+  [subjectSelect, subjectInput, contentInput, dateInput].forEach(function (el) {
     el.classList.remove("invalid");
     el.removeAttribute("aria-invalid");
   });
@@ -470,20 +588,22 @@ function showMain(text) {
 // addTasks: 입력을 검사하고 올바르면 과제를 날짜(YYYY-MM-DD)로 저장
 function addTasks() {
   clearInvalid();
-  const subject = subjectInput.value.trim();
+  const isCustom = subjectSelect.value === CUSTOM_SUBJECT;
+  const subjectEl = isCustom ? subjectInput : subjectSelect;   // 빈칸일 때 빨간 테두리를 줄 곳
+  const subject = isCustom ? subjectInput.value.trim() : subjectSelect.value;
   const content = contentInput.value.trim();
   const due = dateInput.value;
   const thisMonday = toISO(getThisMonday());
 
   // 1) 과목·내용이 비었는지 확인
   if (subject === "" || content === "") {
-    if (subject === "") markInvalid(subjectInput);
+    if (subject === "") markInvalid(subjectEl);
     if (content === "") markInvalid(contentInput);
     showMessage("과목과 내용을 모두 입력해 주세요!", true);
-    (subject === "" ? subjectInput : contentInput).focus();
+    (subject === "" ? subjectEl : contentInput).focus();
     return;
   }
-  // 2) 마감 날짜 확인 (비었는지, 지난 주인지, 주말인지)
+  // 2) 마감 날짜 확인 (비었는지, 지난 주인지) — 토·일요일 마감도 받음
   if (!isISODate(due)) {
     markInvalid(dateInput);
     showMessage("마감 날짜를 선택해 주세요!", true);
@@ -497,12 +617,6 @@ function addTasks() {
     return;
   }
   const dow = fromISO(due).getDay();
-  if (dow === 0 || dow === 6) {
-    markInvalid(dateInput);
-    showMessage("토·일요일은 마감 날짜로 고를 수 없어요. 금요일이나 다음 월요일을 골라 주세요.", true);
-    dateInput.focus();
-    return;
-  }
   // 3) 최대 개수 확인 (지난 주 이전 과제는 화면에 없으므로 세지 않음)
   if (visibleTasks().length >= MAX_TASKS) {
     showMessage("과제는 최대 " + MAX_TASKS + "개까지 등록할 수 있어요. 끝난 과제를 삭제한 뒤 다시 추가해 주세요.", true);
@@ -518,12 +632,17 @@ function addTasks() {
   resetAddForm();
   closeModal(addLayer);
   const nextMonday = toISO(addDays(getThisMonday(), 7));
-  const where = due >= nextMonday ? "다음 주 이후 마감 과제(" + formatKoreanDate(due) + ")"
+  let where = due >= nextMonday ? "다음 주 이후 마감 과제(" + formatKoreanDate(due) + ")"
+    : (dow === 0 || dow === 6) ? "금요일 카드 아래쪽(" + WEEKDAY_KO[dow] + "요일 마감)"
     : WEEKDAY_KO[dow] + "요일 카드";
-  showMain("'" + subject + " - " + content + "' 과제를 " + where + "에 추가했어요.");
+  const left = daysLeft(due);
+  const urgentNote = (left >= 0 && left <= 3) ? " 마감 임박 과제에도 " + ddayText(left) + "로 보여요." : "";
+  showMain("'" + subject + " - " + content + "' 과제를 " + where + "에 추가했어요." + urgentNote);
 }
 function resetAddForm() {
   clearInvalid();
+  subjectSelect.value = "";
+  updateSubjectCustom();
   subjectInput.value = "";
   contentInput.value = "";
   dateInput.value = "";
@@ -559,21 +678,27 @@ function resetAll() {
   afterList = [];
   migratedCount = 0;
   resetAddForm();
-  renderTasks();
   renderTimetable();
-  renderAfter();
+  renderAfter();   // 방과후 목록 + 요일 카드 + 시간표 아래 목록까지 다시 그림
   renderStorageNote();
   showMain("초기 예시 상태로 되돌렸어요.");
 }
 
 // ===== 화면 갱신 =====
 // 과제 하나를 목록 항목(li)으로 만들기 (사용자 입력은 textContent로 안전하게 넣음)
-function createTaskItem(task, showDate) {
+// showDate: 마감 날짜 줄 표시, dday: 남은 날 수(마감 임박 목록에서만 넘김)
+function createTaskItem(task, showDate, dday) {
   const li = document.createElement("li");
   li.className = "task" + (task.isCompleted ? " completed" : "");
 
   const p = document.createElement("p");
   p.className = "task-text";
+  if (typeof dday === "number") {
+    const badge = document.createElement("span");
+    badge.className = "dday";
+    badge.textContent = ddayText(dday);
+    p.appendChild(badge);
+  }
   if (task.isCompleted) {
     const tag = document.createElement("span");
     tag.className = "done-tag";
@@ -623,10 +748,50 @@ function visibleTasks() {
   return tasks.filter(function (t) { return !isPastTask(t); });
 }
 
+// 정렬: 미완료 과제를 위, 완료 과제를 아래로 (같은 묶음 안에서는 마감 날짜가 빠른 순서, 같으면 등록 순서)
+function sortTasks(list) {
+  return list.slice().sort(function (a, b) {
+    if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
+    return a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0;
+  });
+}
+// 마감 임박 과제 = 아직 완료하지 않았고, 오늘부터 3일 안(D-3 ~ D-Day)에 마감되는 과제
+// (완료한 과제와 이미 마감이 지난 과제는 넣지 않음)
+function urgentTasks() {
+  return tasks.filter(function (t) {
+    const left = daysLeft(t.dueDate);
+    return !t.isCompleted && left >= 0 && left <= 3;
+  }).sort(function (a, b) { return a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0; });
+}
+// 시작 시간이 빠른 순서로 방과후 일정 정렬
+function byTime(a, b) {
+  return a.start < b.start ? -1 : a.start > b.start ? 1 : (a.end < b.end ? -1 : a.end > b.end ? 1 : 0);
+}
+function afterOfDay(i) {
+  return afterList.filter(function (a) { return a.day === i; }).sort(byTime);
+}
+
+// renderUrgent: 마감 임박 과제 카드 그리기
+function renderUrgent() {
+  urgentList.textContent = "";
+  const list = urgentTasks();
+  if (list.length === 0) {
+    const li = document.createElement("li");
+    li.className = "empty-note";
+    li.textContent = "3일 안에 마감되는 미완료 과제가 없어요.";
+    urgentList.appendChild(li);
+    return;
+  }
+  list.forEach(function (t) { urgentList.appendChild(createTaskItem(t, true, daysLeft(t.dueDate))); });
+}
+
 // renderTasks: 저장된 날짜로 요일을 계산해 월~금 카드와 '다음 주 이후' 카드에 나눠 그리기
 function renderTasks() {
   const monday = getThisMonday();
   const todayISO = toISO(new Date());
+  const fridayISO = toISO(addDays(monday, 4));
+  const nextMondayISO = toISO(addDays(monday, 7));
+  renderUrgent();
   weekArea.textContent = "";
   weekRange.textContent = formatShort(monday) + " ~ " + formatShort(addDays(monday, 4));
 
@@ -647,20 +812,45 @@ function renderTasks() {
     const ul = document.createElement("ul");
     ul.className = "tasks";
     // 마감 날짜가 이 카드의 날짜와 같은 과제만
-    tasks.filter(function (t) { return t.dueDate === iso; }).forEach(function (t) {
-      ul.appendChild(createTaskItem(t, false));
+    // 금요일 카드에는 이번 주 토·일 마감 과제도 날짜와 함께 넣음 (주말 카드가 따로 없으므로)
+    const isFriday = i === 4;
+    sortTasks(tasks.filter(function (t) {
+      return t.dueDate === iso || (isFriday && t.dueDate > fridayISO && t.dueDate < nextMondayISO);
+    })).forEach(function (t) {
+      ul.appendChild(createTaskItem(t, t.dueDate !== iso));
     });
     // 과제가 없는 요일은 안내 문구 없이 빈 상자로 둠
     card.appendChild(ul);
+
+    // 이 요일의 방과후 일정 (있을 때만, 시간순)
+    const afters = afterOfDay(i);
+    if (afters.length > 0) {
+      const box = document.createElement("div");
+      box.className = "day-after";
+      const h4 = document.createElement("h4");
+      h4.textContent = "방과후";
+      box.appendChild(h4);
+      const aul = document.createElement("ul");
+      afters.forEach(function (a) {
+        const li = document.createElement("li");
+        const t = document.createElement("span");
+        t.className = "t";
+        t.textContent = a.start + "~" + a.end;
+        const n = document.createElement("span");
+        n.textContent = a.name;
+        li.appendChild(t);
+        li.appendChild(n);
+        aul.appendChild(li);
+      });
+      box.appendChild(aul);
+      card.appendChild(box);
+    }
     weekArea.appendChild(card);
   }
 
-  // 다음 주 이후 과제는 마감 날짜가 빠른 순서로
+  // 다음 주 월요일 이후 과제: 미완료가 위, 그 안에서 마감 날짜가 빠른 순서
   laterList.textContent = "";
-  // (예전 버전에서 넘어온 이번 주 토·일 마감 과제도 사라지지 않게 이 목록에 날짜와 함께 보여 줌)
-  const fridayISO = toISO(addDays(monday, 4));
-  tasks.filter(function (t) { return t.dueDate > fridayISO; })
-    .sort(function (a, b) { return a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0; })
+  sortTasks(tasks.filter(function (t) { return t.dueDate >= nextMondayISO; }))
     .forEach(function (t) { laterList.appendChild(createTaskItem(t, true)); });
 
   // 개수 안내 (+ 지난 주 이전 과제·옮긴 과제 안내)
@@ -741,7 +931,7 @@ function isTime(text) {
   return typeof text === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(text);
 }
 function clearAfterInvalid() {
-  [afterNameInput, afterStartInput, afterEndInput].forEach(function (el) {
+  [afterNameInput, afterDaySelect, afterStartInput, afterEndInput].forEach(function (el) {
     el.classList.remove("invalid");
     el.removeAttribute("aria-invalid");
   });
@@ -750,20 +940,22 @@ function showAfterMsg(text) {
   afterMsg.textContent = text;
   afterMsg.className = "form-msg" + (text ? " error" : "");
 }
-// addAfter: 일정명·시작·종료 시간을 검사하고 등록
+// addAfter: 일정명·요일·시작·종료 시간을 검사하고 등록
 function addAfter() {
   clearAfterInvalid();
   const name = afterNameInput.value.trim();
+  const day = afterDaySelect.value === "" ? null : Number(afterDaySelect.value);
   const start = afterStartInput.value;
   const end = afterEndInput.value;
   // 1) 빈칸 확인
   const empty = [];
   if (name === "") empty.push(afterNameInput);
+  if (!isDayIndex(day)) empty.push(afterDaySelect);
   if (!isTime(start)) empty.push(afterStartInput);
   if (!isTime(end)) empty.push(afterEndInput);
   if (empty.length > 0) {
     empty.forEach(markInvalid);
-    showAfterMsg("일정명과 시작·종료 시간을 모두 입력해 주세요!");
+    showAfterMsg("일정명, 요일, 시작·종료 시간을 모두 입력해 주세요!");
     empty[0].focus();
     return;
   }
@@ -779,16 +971,27 @@ function addAfter() {
     showAfterMsg("방과후 일정은 최대 " + MAX_AFTER + "개까지 등록할 수 있어요.");
     return;
   }
-  afterList.push({ id: Date.now(), name: name, start: start, end: end });
+  afterList.push({ id: Date.now(), name: name, day: day, start: start, end: end });
   saveAfter();
   renderAfter();
   resetAfterForm();
   closeModal(afterLayer);
-  showMain("방과후 일정 '" + name + "'(" + start + "~" + end + ")을 등록했어요.");
+  showMain(DAY_NAMES[day] + "요일 방과후 일정 '" + name + "'(" + start + "~" + end + ")을 등록했어요. " +
+    DAY_NAMES[day] + "요일 카드와 시간표 보기에서도 보여요.");
+}
+// setAfterDay: 요일이 없던(예전 버전) 방과후 일정에 요일 정해 주기
+function setAfterDay(id, day) {
+  const a = afterList.find(function (x) { return x.id === id; });
+  if (!a || !isDayIndex(day)) return;
+  a.day = day;
+  saveAfter();
+  renderAfter();
+  showMain("'" + a.name + "' 일정을 " + DAY_NAMES[day] + "요일로 정했어요.");
 }
 function resetAfterForm() {
   clearAfterInvalid();
   afterNameInput.value = "";
+  afterDaySelect.value = "";
   afterStartInput.value = "";
   afterEndInput.value = "";
   showAfterMsg("");
@@ -803,8 +1006,14 @@ function deleteAfter(id) {
   renderAfter();
   showMain("방과후 일정을 삭제했어요.");
 }
-// renderAfter: 시작 시간이 빠른 순서로 방과후 일정 그리기
+// renderAfter: 방과후 일정을 요일(월→금, 요일 미지정은 맨 아래) → 시작 시간 순서로 그리기
+// 요일 카드·시간표 아래 목록도 함께 다시 그림
 function renderAfter() {
+  renderAfterList();
+  renderTtAfter();
+  renderTasks();
+}
+function renderAfterList() {
   afterUl.textContent = "";
   if (afterList.length === 0) {
     const p = document.createElement("li");
@@ -814,27 +1023,83 @@ function renderAfter() {
     return;
   }
   afterList.slice()
-    .sort(function (a, b) { return a.start < b.start ? -1 : a.start > b.start ? 1 : (a.end < b.end ? -1 : 1); })
+    .sort(function (a, b) {
+      const da = a.day === null ? 9 : a.day, db = b.day === null ? 9 : b.day;
+      return da !== db ? da - db : byTime(a, b);
+    })
     .forEach(function (a) {
       const li = document.createElement("li");
       li.className = "after-item";
+      const dayTag = document.createElement("span");
+      dayTag.className = "after-day" + (a.day === null ? " unset" : "");
+      dayTag.textContent = a.day === null ? "요일 미지정" : DAY_NAMES[a.day];
       const time = document.createElement("span");
       time.className = "after-time";
       time.textContent = a.start + " ~ " + a.end;
       const name = document.createElement("span");
       name.className = "after-name";
       name.textContent = a.name;
+      li.appendChild(dayTag);
+      li.appendChild(time);
+      li.appendChild(name);
+      // 예전 버전에서 넘어온 요일 없는 일정: 여기서 요일을 정할 수 있음
+      if (a.day === null) {
+        const sel = document.createElement("select");
+        sel.dataset.id = a.id;
+        sel.setAttribute("aria-label", "요일 정하기: " + a.name);
+        const first = document.createElement("option");
+        first.value = "";
+        first.textContent = "요일 정하기";
+        sel.appendChild(first);
+        DAY_NAMES.forEach(function (d, i) {
+          const op = document.createElement("option");
+          op.value = i;
+          op.textContent = d + "요일";
+          sel.appendChild(op);
+        });
+        li.appendChild(sel);
+      }
       const del = document.createElement("button");
       del.type = "button";
       del.className = "small danger";
       del.dataset.id = a.id;
       del.textContent = "삭제";
       del.setAttribute("aria-label", "삭제: " + a.name);
-      li.appendChild(time);
-      li.appendChild(name);
       li.appendChild(del);
       afterUl.appendChild(li);
     });
+}
+// renderTtAfter: 시간표 보기 팝업 아래쪽에 요일별 방과후 일정(시간순) 그리기
+function renderTtAfter() {
+  ttAfter.textContent = "";
+  if (afterList.length === 0) {
+    const p = document.createElement("p");
+    p.className = "empty-note";
+    p.textContent = "등록된 방과후 일정이 없어요.";
+    ttAfter.appendChild(p);
+    return;
+  }
+  const dl = document.createElement("dl");
+  const groups = DAY_NAMES.map(function (d, i) { return { label: d, items: afterOfDay(i) }; });
+  const unset = afterList.filter(function (a) { return a.day === null; }).sort(byTime);
+  if (unset.length > 0) groups.push({ label: "요일 미지정", items: unset });
+  groups.forEach(function (g) {
+    const dt = document.createElement("dt");
+    dt.textContent = g.label;
+    const dd = document.createElement("dd");
+    if (g.items.length === 0) {
+      dd.textContent = "-";
+      dd.style.color = "var(--muted)";
+    }
+    g.items.forEach(function (a) {
+      const s = document.createElement("span");
+      s.textContent = a.start + "~" + a.end + " " + a.name;
+      dd.appendChild(s);
+    });
+    dl.appendChild(dt);
+    dl.appendChild(dd);
+  });
+  ttAfter.appendChild(dl);
 }
 
 // ===== 팝업(모달) 열고 닫기 =====
@@ -863,12 +1128,18 @@ function openTimetable() {
 }
 function openAdd() {
   resetAddForm();
+  fillSubjectSelect();   // 지금 저장된 시간표의 과목으로 선택지 만들기
   dateInput.min = toISO(getThisMonday());
-  openModal(addLayer, subjectInput, openAddBtn);
+  openModal(addLayer, subjectSelect.value === CUSTOM_SUBJECT ? subjectInput : subjectSelect, openAddBtn);
 }
 
 // ===== 이벤트 연결 =====
+const subjectSelect = document.getElementById("subjectSelect");
+const subjectCustomField = document.getElementById("subjectCustomField");
 const subjectInput = document.getElementById("subjectInput");
+const urgentList = document.getElementById("urgentList");
+const ttAfter = document.getElementById("ttAfter");
+const afterDaySelect = document.getElementById("afterDaySelect");
 const contentInput = document.getElementById("contentInput");
 const dateInput = document.getElementById("dateInput");
 const formMsg = document.getElementById("formMsg");
@@ -903,7 +1174,22 @@ document.getElementById("afterForm").addEventListener("submit", function (e) {
 });
 
 // 입력하면 빨간 테두리 해제
-[subjectInput, contentInput, dateInput, afterNameInput, afterStartInput, afterEndInput].forEach(function (el) {
+// '직접 입력'을 고르면 직접 입력칸을 보여 주고 그곳으로 이동
+subjectSelect.addEventListener("change", function () {
+  updateSubjectCustom();
+  if (subjectSelect.value === CUSTOM_SUBJECT) {
+    subjectSelect.classList.remove("invalid");
+    subjectSelect.removeAttribute("aria-invalid");
+    subjectInput.focus();
+  }
+});
+[subjectSelect, subjectInput, contentInput, dateInput, afterNameInput, afterDaySelect, afterStartInput, afterEndInput].forEach(function (el) {
+  el.addEventListener("change", function () {
+    if (el.value.trim() !== "") {
+      el.classList.remove("invalid");
+      el.removeAttribute("aria-invalid");
+    }
+  });
   el.addEventListener("input", function () {
     if (el.value.trim() !== "") {
       el.classList.remove("invalid");
@@ -920,11 +1206,17 @@ function handleTaskClick(e) {
   if (btn.dataset.action === "toggle") toggleComplete(id);
   if (btn.dataset.action === "delete") deleteTask(id);
 }
+urgentList.addEventListener("click", handleTaskClick);
 weekArea.addEventListener("click", handleTaskClick);
 laterList.addEventListener("click", handleTaskClick);
 afterUl.addEventListener("click", function (e) {
   const btn = e.target.closest("button[data-id]");
   if (btn) deleteAfter(Number(btn.dataset.id));
+});
+// 요일 미지정 일정의 '요일 정하기' 선택
+afterUl.addEventListener("change", function (e) {
+  const sel = e.target.closest("select[data-id]");
+  if (sel && sel.value !== "") setAfterDay(Number(sel.dataset.id), Number(sel.value));
 });
 
 // 팝업 열기 버튼
