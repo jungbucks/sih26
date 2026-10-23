@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>모둠 활동 역할·할 일 정리 도우미</title>
+<meta name="description" content="모둠 활동의 할 일을 등록하고 담당자를 정해 가나다순으로 정리해 주는 도우미">
+<meta name="class" content="M반 (2-8)">
+<meta name="status" content="PRD">
+<style>
+  :root {
+    --bg: #f5f7f6;
+    --card: #ffffff;
+    --text: #1b2321;
+    --muted: #55605c;
+    --line: #d5dcd9;
+    --accent: #1e6b5c;
+    --accent-weak: #e6f2ef;
+    --err: #b42318;
+    --err-weak: #fdecea;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  main { max-width: 42rem; margin: 0 auto; padding: 24px 16px 56px; }
+  h1 { font-size: 1.5rem; line-height: 1.35; margin: 0 0 6px; }
+  h2 { font-size: 1.15rem; margin: 0; }
+  p { margin: 0 0 12px; }
+  .lead { color: var(--muted); margin-bottom: 16px; }
+  .box {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 16px;
+    margin-bottom: 16px;
+  }
+  label { display: block; font-weight: 600; margin: 0 0 4px; }
+  .field { margin-bottom: 12px; }
+  .hint { color: var(--muted); font-size: 0.93rem; margin: 4px 0 0; }
+  input[type="text"] {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid #9aa6a1;
+    border-radius: 10px;
+    font: inherit;
+    color: var(--text);
+    background: #fff;
+  }
+  input[type="text"][aria-invalid="true"] { border-color: var(--err); }
+  input[type="text"]:focus-visible, button:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .btn {
+    min-height: 44px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn.sub { background: #fff; color: var(--accent); }
+  .btn.danger { background: #fff; color: var(--err); border-color: var(--err); }
+  .btn.danger-solid { background: var(--err); color: #fff; border-color: var(--err); }
+  .btn.small { min-height: 40px; padding: 6px 12px; font-size: 0.93rem; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-row .btn { flex: 1 1 120px; }
+  .msg {
+    min-height: 1.7em;
+    margin: 10px 0 0;
+    font-size: 0.95rem;
+  }
+  .msg.err { color: var(--err); }
+  .msg.ok { color: var(--accent); }
+  .list-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .count { color: var(--muted); font-size: 0.93rem; }
+  ul.tasks { list-style: none; margin: 0; padding: 0; }
+  ul.tasks > li {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 8px;
+    background: #fff;
+  }
+  .task-name { font-weight: 700; margin: 0 0 6px; }
+  .people { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; padding: 0; list-style: none; }
+  .people li {
+    background: var(--accent-weak);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 0.93rem;
+  }
+  .people-label { color: var(--muted); font-size: 0.93rem; margin: 0 0 4px; }
+  .item-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .edit-form .field { margin-bottom: 10px; }
+  .empty {
+    color: var(--muted);
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    margin: 0 0 8px;
+  }
+  .confirm {
+    border: 1px solid var(--err);
+    background: var(--err-weak);
+    border-radius: 10px;
+    padding: 12px;
+    margin-top: 12px;
+  }
+  .confirm p { margin-bottom: 10px; }
+  .confirm[hidden] { display: none; }
+  .clear-area { margin-top: 12px; }
+  .privacy { font-size: 0.93rem; color: var(--muted); }
+  .privacy h2 { font-size: 1rem; color: var(--text); margin-bottom: 6px; }
+  .privacy ul { margin: 0; padding-left: 1.2em; }
+  .storage-warn {
+    border: 1px solid var(--err);
+    background: var(--err-weak);
+    color: var(--err);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    font-size: 0.95rem;
+  }
+  .storage-warn[hidden] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>모둠 활동 역할·할 일 정리 도우미</h1>
+  <p class="lead">할 일을 적고 맡을 사람을 정해 등록하세요. 목록은 할 일 이름의 가나다순으로 자동 정리돼요.</p>
+
+  <div id="storageWarn" class="storage-warn" role="status" hidden></div>
+
+  <section class="box" aria-labelledby="addTitle">
+    <h2 id="addTitle" style="margin-bottom:10px">할 일 등록</h2>
+    <form id="addForm" novalidate>
+      <div class="field">
+        <label for="taskInput">할 일 이름</label>
+        <input type="text" id="taskInput" maxlength="50" autocomplete="off" placeholder="예: 발표 자료 만들기">
+      </div>
+      <div class="field">
+        <label for="peopleInput">담당자 이름</label>
+        <input type="text" id="peopleInput" maxlength="100" autocomplete="off" placeholder="예: 민수, 지우" aria-describedby="peopleHint">
+        <p class="hint" id="peopleHint">여러 명이면 쉼표(,)로 나눠 적어요. 실명 대신 별칭을 써도 돼요.</p>
+      </div>
+      <button type="submit" class="btn" id="addBtn">등록하기</button>
+      <p class="msg" id="addMsg" role="status" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <section class="box" aria-labelledby="listTitle">
+    <div class="list-head">
+      <h2 id="listTitle">할 일 목록</h2>
+      <span class="count" id="countText">0 / 20개</span>
+    </div>
+    <p class="empty" id="emptyText">아직 등록된 할 일이 없어요. 위에서 첫 번째 할 일과 담당자를 등록해 보세요.</p>
+    <ul class="tasks" id="taskList"></ul>
+    <p class="msg" id="listMsg" role="status" aria-live="polite"></p>
+    <div class="clear-area">
+      <button type="button" class="btn danger" id="clearBtn">전체 목록 삭제</button>
+      <div class="confirm" id="confirmBox" hidden>
+        <p id="confirmText">정말 모든 할 일과 담당자 정보를 지울까요? 지운 뒤에는 되돌릴 수 없어요.</p>
+        <div class="btn-row">
+          <button type="button" class="btn sub" id="cancelClearBtn">취소</button>
+          <button type="button" class="btn danger-solid" id="confirmClearBtn">모두 삭제</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="box privacy" aria-labelledby="privacyTitle">
+    <h2 id="privacyTitle">개인정보 보호 안내</h2>
+    <ul>
+      <li>목록은 지금 사용하는 브라우저에만 저장돼요. 다른 기기나 다른 브라우저와 자동으로 공유되지 않고, 외부로 보내지 않아요.</li>
+      <li>브라우저를 닫아도 목록이 남아 있을 수 있어요. 학교 공용 컴퓨터에서는 다 쓴 뒤 <strong>전체 목록 삭제</strong>를 눌러 주세요.</li>
+      <li>같은 브라우저를 쓰는 다른 사람이 볼 수 있으니 실명 대신 별칭을 쓰고, 연락처 같은 민감한 정보는 적지 마세요.</li>
+    </ul>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "sih26:20303:tasks";
+  var MAX_ITEMS = 20;
+
+  var items = [];
+  var editingId = null;
+  var storageOk = true;
+
+  var taskInput = document.getElementById("taskInput");
+  var peopleInput = document.getElementById("peopleInput");
+  var addForm = document.getElementById("addForm");
+  var addMsg = document.getElementById("addMsg");
+  var listMsg = document.getElementById("listMsg");
+  var taskList = document.getElementById("taskList");
+  var emptyText = document.getElementById("emptyText");
+  var countText = document.getElementById("countText");
+  var clearBtn = document.getElementById("clearBtn");
+  var confirmBox = document.getElementById("confirmBox");
+  var cancelClearBtn = document.getElementById("cancelClearBtn");
+  var confirmClearBtn = document.getElementById("confirmClearBtn");
+  var storageWarn = document.getElementById("storageWarn");
+
+  /* ---------- 안내 메시지 ---------- */
+  function show(el, text, kind) {
+    el.textContent = text;
+    el.className = "msg" + (kind ? " " + kind : "");
+  }
+
+  function warnStorage(text) {
+    storageWarn.textContent = text;
+    storageWarn.hidden = false;
+  }
+
+  /* ---------- 입력 정리 ---------- */
+  function cleanTask(text) {
+    return String(text == null ? "" : text).trim();
+  }
+
+  // 쉼표로 나누고 앞뒤 공백 제거, 빈 이름 제거, 같은 이름이 두 번 나오면 한 번만 남김
+  function parsePeople(text) {
+    var parts = String(text == null ? "" : text).split(",");
+    var result = [];
+    for (var i = 0; i < parts.length; i++) {
+      var name = parts[i].trim();
+      if (name && result.indexOf(name) === -1) result.push(name);
+    }
+    return result;
+  }
+
+  function peopleKey(people) {
+    return people.slice().sort().join("\u0000");
+  }
+
+  // 오류 문구를 돌려줌(문제가 없으면 null)
+  function validate(task, people) {
+    if (!task) return { field: "task", text: "할 일 이름을 입력해 주세요. 공백만으로는 등록할 수 없어요." };
+    if (people.length === 0) return { field: "people", text: "담당자 이름을 한 명 이상 입력해 주세요. 여러 명이면 쉼표(,)로 나눠 적어요." };
+    return null;
+  }
+
+  function findDuplicate(task, people, exceptId) {
+    var key = peopleKey(people);
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.id === exceptId) continue;
+      if (it.task === task && peopleKey(it.people) === key) return it;
+    }
+    return null;
+  }
+
+  /* ---------- 정렬 ---------- */
+  function compareItems(a, b) {
+    var c = a.task.localeCompare(b.task, "ko");
+    if (c !== 0) return c;
+    c = a.people.join(", ").localeCompare(b.people.join(", "), "ko");
+    if (c !== 0) return c;
+    return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+  }
+
+  function sortItems() {
+    items.sort(compareItems);
+  }
+
+  /* ---------- 저장 ---------- */
+  function makeId() {
+    return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  }
+
+  function save() {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: items }));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function removeSaved() {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function load() {
+    var raw;
+    try {
+      raw = window.localStorage.getItem(STORAGE_KEY);
+    } catch (e) {
+      storageOk = false;
+      warnStorage("이 브라우저에서는 저장 기능을 쓸 수 없어요. 목록은 지금 화면에서만 쓸 수 있고, 페이지를 닫거나 새로 고치면 사라져요.");
+      return;
+    }
+    if (raw === null) return;
+    var data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      data = null;
+    }
+    var list = data && Array.isArray(data.items) ? data.items : (Array.isArray(data) ? data : null);
+    if (!list) {
+      warnStorage("저장된 목록을 읽지 못해 빈 목록으로 시작했어요. 새로 등록하면 읽지 못한 이전 기록 대신 새 목록이 저장돼요.");
+      return;
+    }
+    var seenIds = {};
+    var skipped = 0;
+    for (var i = 0; i < list.length; i++) {
+      var it = list[i] || {};
+      var task = cleanTask(it.task);
+      var people = Array.isArray(it.people) ? parsePeople(it.people.join(",")) : parsePeople(it.people);
+      if (validate(task, people) || items.length >= MAX_ITEMS || findDuplicate(task, people, null)) {
+        skipped++;
+        continue;
+      }
+      var id = typeof it.id === "string" && it.id && !seenIds[it.id] ? it.id : makeId();
+      seenIds[id] = true;
+      items.push({ id: id, task: task, people: people });
+    }
+    sortItems();
+    if (skipped > 0) {
+      warnStorage("저장된 기록 중 " + skipped + "개는 형식이 맞지 않아 불러오지 않았어요.");
+    }
+  }
+
+  function saveNotice() {
+    if (!storageOk) return " (저장 기능을 쓸 수 없어 이 화면에서만 유지돼요.)";
+    return "";
+  }
+
+  /* ---------- 화면 그리기 ---------- */
+  function setInvalid(input, bad) {
+    if (bad) input.setAttribute("aria-invalid", "true");
+    else input.removeAttribute("aria-invalid");
+  }
+
+  function makeBtn(text, cls, label) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn small " + cls;
+    b.textContent = text;
+    if (label) b.setAttribute("aria-label", label);
+    return b;
+  }
+
+  function renderView(li, it) {
+    var name = document.createElement("p");
+    name.className = "task-name";
+    name.textContent = it.task;
+    li.appendChild(name);
+
+    var lab = document.createElement("p");
+    lab.className = "people-label";
+    lab.textContent = "담당자 " + it.people.length + "명";
+    li.appendChild(lab);
+
+    var ul = document.createElement("ul");
+    ul.className = "people";
+    for (var i = 0; i < it.people.length; i++) {
+      var p = document.createElement("li");
+      p.textContent = it.people[i];
+      ul.appendChild(p);
+    }
+    li.appendChild(ul);
+
+    var acts = document.createElement("div");
+    acts.className = "item-actions";
+    var editBtn = makeBtn("수정", "sub", "‘" + it.task + "’ 수정");
+    var delBtn = makeBtn("삭제", "danger", "‘" + it.task + "’ 삭제");
+    editBtn.addEventListener("click", function () { startEdit(it.id); });
+    delBtn.addEventListener("click", function () { removeItem(it.id); });
+    acts.appendChild(editBtn);
+    acts.appendChild(delBtn);
+    li.appendChild(acts);
+  }
+
+  function renderEdit(li, it) {
+    var form = document.createElement("form");
+    form.className = "edit-form";
+    form.noValidate = true;
+
+    var f1 = document.createElement("div");
+    f1.className = "field";
+    var l1 = document.createElement("label");
+    l1.htmlFor = "editTask";
+    l1.textContent = "할 일 이름";
+    var i1 = document.createElement("input");
+    i1.type = "text";
+    i1.id = "editTask";
+    i1.maxLength = 50;
+    i1.autocomplete = "off";
+    i1.value = it.task;
+    f1.appendChild(l1);
+    f1.appendChild(i1);
+
+    var f2 = document.createElement("div");
+    f2.className = "field";
+    var l2 = document.createElement("label");
+    l2.htmlFor = "editPeople";
+    l2.textContent = "담당자 이름 (쉼표로 구분)";
+    var i2 = document.createElement("input");
+    i2.type = "text";
+    i2.id = "editPeople";
+    i2.maxLength = 100;
+    i2.autocomplete = "off";
+    i2.value = it.people.join(", ");
+    f2.appendChild(l2);
+    f2.appendChild(i2);
+
+    var acts = document.createElement("div");
+    acts.className = "item-actions";
+    var saveBtn = document.createElement("button");
+    saveBtn.type = "submit";
+    saveBtn.className = "btn small";
+    saveBtn.textContent = "수정 저장";
+    var cancelBtn = makeBtn("취소", "sub", "수정 취소");
+    acts.appendChild(saveBtn);
+    acts.appendChild(cancelBtn);
+
+    var msg = document.createElement("p");
+    msg.className = "msg";
+    msg.id = "editMsg";
+    msg.setAttribute("role", "status");
+    msg.setAttribute("aria-live", "polite");
+
+    form.appendChild(f1);
+    form.appendChild(f2);
+    form.appendChild(acts);
+    form.appendChild(msg);
+    li.appendChild(form);
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      submitEdit(it.id, i1, i2, msg);
+    });
+    cancelBtn.addEventListener("click", function () {
+      editingId = null;
+      render();
+      show(listMsg, "수정을 취소했어요.", "");
+    });
+  }
+
+  function render() {
+    taskList.textContent = "";
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      var li = document.createElement("li");
+      li.dataset.id = it.id;
+      if (it.id === editingId) renderEdit(li, it);
+      else renderView(li, it);
+      taskList.appendChild(li);
+    }
+    emptyText.hidden = items.length > 0;
+    countText.textContent = items.length + " / " + MAX_ITEMS + "개" + (items.length >= MAX_ITEMS ? " (가득 참)" : "");
+  }
+
+  /* ---------- 동작 ---------- */
+  function addItem() {
+    var task = cleanTask(taskInput.value);
+    var people = parsePeople(peopleInput.value);
+    var err = validate(task, people);
+    setInvalid(taskInput, err && err.field === "task");
+    setInvalid(peopleInput, err && err.field === "people");
+    if (err) {
+      show(addMsg, err.text, "err");
+      (err.field === "task" ? taskInput : peopleInput).focus();
+      return;
+    }
+    if (items.length >= MAX_ITEMS) {
+      show(addMsg, "할 일은 최대 " + MAX_ITEMS + "개까지 등록할 수 있어요. 새로 등록하려면 기존 항목을 삭제해 주세요.", "err");
+      return;
+    }
+    if (findDuplicate(task, people, null)) {
+      show(addMsg, "‘" + task + "’ 항목은 같은 담당자로 이미 등록되어 있어요. (이름 순서만 다른 것도 같은 항목으로 봐요.)", "err");
+      return;
+    }
+    items.push({ id: makeId(), task: task, people: people });
+    sortItems();
+    var ok = storageOk ? save() : false;
+    render();
+    if (ok) {
+      show(addMsg, "‘" + task + "’ 할 일을 등록하고 저장했어요.", "ok");
+    } else if (storageOk) {
+      show(addMsg, "‘" + task + "’ 할 일을 목록에 추가했지만 저장하지 못했어요. 페이지를 닫으면 사라질 수 있어요.", "err");
+    } else {
+      show(addMsg, "‘" + task + "’ 할 일을 목록에 추가했어요." + saveNotice(), "ok");
+    }
+    taskInput.value = "";
+    peopleInput.value = "";
+    taskInput.focus();
+  }
+
+  function startEdit(id) {
+    editingId = id;
+    show(listMsg, "", "");
+    render();
+    var el = document.getElementById("editTask");
+    if (el) el.focus();
+  }
+
+  function submitEdit(id, taskEl, peopleEl, msgEl) {
+    var task = cleanTask(taskEl.value);
+    var people = parsePeople(peopleEl.value);
+    var err = validate(task, people);
+    setInvalid(taskEl, err && err.field === "task");
+    setInvalid(peopleEl, err && err.field === "people");
+    if (err) {
+      show(msgEl, err.text + " 수정 내용은 저장하지 않았어요.", "err");
+      return;
+    }
+    if (findDuplicate(task, people, id)) {
+      show(msgEl, "같은 할 일과 담당자 조합이 이미 목록에 있어요. 수정 내용은 저장하지 않았어요.", "err");
+      return;
+    }
+    var target = null;
+    for (var i = 0; i < items.length; i++) if (items[i].id === id) target = items[i];
+    if (!target) {
+      editingId = null;
+      render();
+      return;
+    }
+    target.task = task;
+    target.people = people;
+    sortItems();
+    editingId = null;
+    var ok = storageOk ? save() : false;
+    render();
+    if (ok) show(listMsg, "‘" + task + "’ 항목을 수정하고 저장했어요.", "ok");
+    else if (storageOk) show(listMsg, "‘" + task + "’ 항목을 화면에서 수정했지만 저장하지 못했어요. 페이지를 닫으면 수정 전으로 돌아갈 수 있어요.", "err");
+    else show(listMsg, "‘" + task + "’ 항목을 수정했어요." + saveNotice(), "ok");
+  }
+
+  function removeItem(id) {
+    var removed = null;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].id === id) { removed = items[i]; items.splice(i, 1); break; }
+    }
+    if (!removed) return;
+    if (editingId === id) editingId = null;
+    var ok = storageOk ? (items.length ? save() : removeSaved()) : false;
+    render();
+    if (ok) show(listMsg, "‘" + removed.task + "’ 항목을 삭제했어요.", "ok");
+    else if (storageOk) show(listMsg, "‘" + removed.task + "’ 항목을 화면에서 지웠지만 저장된 기록은 바꾸지 못했어요. 다시 열면 남아 있을 수 있어요.", "err");
+    else show(listMsg, "‘" + removed.task + "’ 항목을 삭제했어요." + saveNotice(), "ok");
+    clearBtn.focus();
+  }
+
+  function openConfirm() {
+    if (items.length === 0) {
+      confirmBox.hidden = true;
+      show(listMsg, "지울 할 일이 없어요.", "");
+      return;
+    }
+    show(listMsg, "", "");
+    confirmBox.hidden = false;
+    clearBtn.setAttribute("aria-expanded", "true");
+    cancelClearBtn.focus();
+  }
+
+  function closeConfirm() {
+    confirmBox.hidden = true;
+    clearBtn.setAttribute("aria-expanded", "false");
+  }
+
+  function clearAll() {
+    closeConfirm();
+    items = [];
+    editingId = null;
+    var ok = storageOk ? removeSaved() : false;
+    render();
+    if (ok) show(listMsg, "모든 할 일과 담당자 정보를 삭제했어요.", "ok");
+    else if (storageOk) show(listMsg, "화면의 목록은 비웠지만 저장된 기록은 지우지 못했어요. 다시 열면 남아 있을 수 있어요.", "err");
+    else show(listMsg, "모든 할 일을 삭제했어요.", "ok");
+    clearBtn.focus();
+  }
+
+  addForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    addItem();
+  });
+  clearBtn.setAttribute("aria-expanded", "false");
+  clearBtn.setAttribute("aria-controls", "confirmBox");
+  clearBtn.addEventListener("click", openConfirm);
+  cancelClearBtn.addEventListener("click", function () {
+    closeConfirm();
+    show(listMsg, "전체 삭제를 취소했어요. 목록은 그대로예요.", "");
+    clearBtn.focus();
+  });
+  confirmClearBtn.addEventListener("click", clearAll);
+
+  load();
+  render();
+})();
+</script>
+</body>
+</html>
