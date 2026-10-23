@@ -6,7 +6,7 @@
 <title>출시 예정 게임 위시리스트 관리기</title>
 <meta name="description" content="사고 싶은 게임의 출시일을 등록하면 오늘 날짜 기준으로 구매 가능/출시 예정을 나눠 보여 주고, 산 게임은 따로 모아 기록하는 위시리스트">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="1회 개선">
+  <meta name="status" content="2회 개선">
   <meta name="design" content="컬러셋 C11 밤하늘과 보라 · 트렌드 T10 레트로 픽셀 · #8b9cff">
 
 <!-- ===================== 스타일 ===================== -->
@@ -157,7 +157,6 @@
   }
 
   /* ===== 디자인: C11 밤하늘과 보라 + T10 레트로 픽셀 ===== */
-  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
   @font-face { font-family: "Galmuri11"; src: url("../assets/fonts/Galmuri11.woff2") format("woff2"); font-weight: 400; font-display: swap; }
   @font-face { font-family: "Galmuri11"; src: url("../assets/fonts/Galmuri11-Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
   :root {
@@ -180,9 +179,11 @@
     --danger-weak: #3a1621;
     --pixel: "Galmuri11", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", "Noto Sans KR", sans-serif;
   }
-  body { font-family: "Wanted Sans", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", "Noto Sans KR", sans-serif; }
-
-  /* 픽셀 글꼴: 제목(h1·h2)·숫자(개수·D-day 배지)·버튼·배너·게임 이름 (모두 16px 이상) */
+  /* 픽셀 글꼴을 화면 전체에 쓴다: 본문·버튼·입력칸·선택칸·팝업·카드 모두.
+     글꼴 파일을 못 불러오면 뒤에 적힌 기본 고딕 글꼴로 보인다.
+     도트 글자는 작으면 뭉개지므로 가장 작은 글자도 15px 이상으로 둔다. */
+  body { font-family: var(--pixel); }
+  button, input, select, textarea { font-family: inherit; }
   h1, h2 {
     font-family: var(--pixel);
     font-weight: 400;
@@ -192,7 +193,6 @@
   .card .title { font-family: var(--pixel); }
   h2 .count { font-size: 16px; }
   .tag { font-family: var(--pixel); font-size: 16px; border-radius: 0; padding: 0 8px; }
-  main button:not(.notify-row button) { font-family: var(--pixel); }
 
   /* 제목 옆 도트 그림 2개 (CSS 배경 그림이라 글자로 읽히지 않음) */
   h1::after {
@@ -248,6 +248,27 @@
   .today-box { background: #231f0c; border: 2px solid #e0b400; border-radius: 0; }
   .confirm-box { background: var(--danger-weak); border-color: var(--danger-text); border-radius: 0; }
   .save-note.warn { color: var(--danger-text); }
+
+  /* 장르별 랜덤 추천 */
+  select {
+    font: inherit; font-size: 16px;
+    padding: 9px 10px; width: 100%; min-width: 0;
+    background: var(--card); color: var(--text);
+    border: 2px solid var(--edge); border-radius: 0;
+  }
+  select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  select.invalid { border: 2px solid var(--danger-text); background: var(--danger-weak); }
+  .rec-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .rec-row .field { flex: 1 1 12rem; }
+  .rec-row button { flex: 0 0 auto; margin: 0 2px 2px; }
+  .rec-card { margin-top: 14px; }
+  .rec-card .card { border: 2px solid var(--accent); }
+  .rec-card .btn-primary { margin-top: 0; width: auto; }
+  .tag-genre { background: var(--line); color: var(--text); }
+  .rec-note { color: var(--muted); font-size: 0.95rem; margin: 12px 0 0; }
+  @media (max-width: 480px) {
+    .rec-row button { flex: 1 1 100%; }
+  }
 </style>
 </head>
 <body>
@@ -296,6 +317,27 @@
       <button type="submit" class="btn-primary">게임 등록</button>
       <p id="form-msg" class="msg" role="status" aria-live="polite"></p>
     </form>
+  </section>
+
+  <!-- 장르별 랜덤 추천 -->
+  <section aria-labelledby="rec-title">
+    <h2 id="rec-title">장르별 랜덤 추천</h2>
+    <div class="form-box">
+      <div class="rec-row">
+        <div class="field">
+          <label for="rec-genre">장르 고르기</label>
+          <select id="rec-genre">
+            <option value="">장르를 골라 주세요</option>
+          </select>
+        </div>
+        <button type="button" id="rec-btn" class="btn-ok">랜덤 추천받기</button>
+      </div>
+      <p id="rec-msg" class="msg" role="status" aria-live="polite" tabindex="-1"></p>
+      <div id="rec-card" class="rec-card" hidden>
+        <ul class="list" id="rec-list"></ul>
+      </div>
+      <p class="rec-note">추천 목록의 게임 이름은 실제 게임이지만, 가격·출시일은 AI가 정한 예시값이라 실제와 다를 수 있어요. 사기 전에 공식 판매처에서 꼭 확인하세요.</p>
+    </div>
   </section>
 
   <!-- 수정·삭제 결과 안내 -->
@@ -398,6 +440,27 @@ const SAMPLE_GAMES = [
   { title: "픽셀 아일랜드", date: "2026-03-01", price: 25000, platform: "PC" },
   { title: "우주 탐험대", date: "2026-12-25", price: 58000, platform: "Switch" }
 ];
+
+// 장르별 랜덤 추천에 쓰는 게임 데이터 (장르 5개 × 3개 = 15개)
+// 게임 이름은 실제 게임이지만 가격·출시일은 예시값이라 실제와 다를 수 있다.
+const REC_GAMES = [
+  { title: "엘든 링", genre: "RPG", price: 64800, date: "2022-02-25" },
+  { title: "발더스 게이트 3", genre: "RPG", price: 66000, date: "2023-08-03" },
+  { title: "파이널 판타지 VII 리버스", genre: "RPG", price: 79800, date: "2024-02-29" },
+  { title: "몬스터 헌터 와일즈", genre: "액션", price: 69800, date: "2025-02-28" },
+  { title: "할로우 나이트: 실크송", genre: "액션", price: 21500, date: "2025-09-04" },
+  { title: "GTA 6", genre: "액션", price: 89800, date: "2026-11-19" },
+  { title: "오버워치 2", genre: "FPS", price: 0, date: "2022-10-04" },
+  { title: "둠: 더 다크 에이지", genre: "FPS", price: 79800, date: "2025-05-15" },
+  { title: "배틀필드 6", genre: "FPS", price: 79800, date: "2025-10-10" },
+  { title: "스타듀 밸리", genre: "시뮬레이션", price: 16000, date: "2016-02-26" },
+  { title: "모여봐요 동물의 숲", genre: "시뮬레이션", price: 64800, date: "2020-03-20" },
+  { title: "시티즈: 스카이라인 II", genre: "시뮬레이션", price: 54000, date: "2023-10-24" },
+  { title: "EA SPORTS FC 26", genre: "스포츠/전략", price: 79800, date: "2025-09-26" },
+  { title: "문명 VII", genre: "스포츠/전략", price: 69800, date: "2025-02-11" },
+  { title: "토탈 워: 워해머 III", genre: "스포츠/전략", price: 66000, date: "2022-02-17" }
+];
+const REC_GENRES = ["RPG", "액션", "FPS", "시뮬레이션", "스포츠/전략"];
 
 // ===================== 데이터·상태 =====================
 // 게임 하나 = { id, title, date, price, platform, purchased }
@@ -628,7 +691,137 @@ function render() {
   renderList(document.getElementById("up-list"), document.getElementById("up-count"), up, "upcoming", "등록된 게임이 없습니다.");
   renderList(document.getElementById("bought-list"), document.getElementById("bought-count"), bought, "bought", "아직 구매한 게임이 없습니다.");
   renderToday();
+  renderRec();
   sendTodayNotifications();
+}
+
+// ===================== 장르별 랜덤 추천 =====================
+let currentRec = null;        // 지금 추천 카드에 보이는 게임 (없으면 null)
+const lastPick = {};          // 장르마다 바로 전에 추천한 게임 이름 (연속 같은 게임 방지)
+
+// 이름 비교용: 띄어쓰기·대소문자 차이는 같은 게임으로 본다
+function sameTitle(a, b) {
+  function norm(s) { return String(s).replace(/\s+/g, "").toLowerCase(); }
+  return norm(a) === norm(b);
+}
+
+// 이미 위시리스트(산 게임 포함)에 있는 게임이면 그 게임 객체를, 없으면 undefined를 돌려준다
+function findInWishlist(title) {
+  return games.find(function (g) { return sameTitle(g.title, title); });
+}
+
+function showRecMessage(text, type) {
+  const msg = document.getElementById("rec-msg");
+  msg.className = "msg " + type;
+  msg.textContent = text;
+}
+
+// [랜덤 추천받기]
+// 1) 고른 장르의 게임 중 위시리스트에 아직 없는 게임만 후보로 둔다.
+// 2) 후보가 2개 이상이면 바로 전에 추천한 게임은 빼서 같은 게임이 연속으로 나오지 않게 한다.
+// 3) 남은 후보 중 하나를 Math.random()으로 고른다.
+function recommend() {
+  const select = document.getElementById("rec-genre");
+  const genre = select.value;
+  if (genre === "") {
+    select.classList.add("invalid");
+    select.setAttribute("aria-invalid", "true");
+    showRecMessage("장르를 먼저 골라 주세요.", "error");
+    select.focus();
+    return;
+  }
+  const pool = REC_GAMES.filter(function (r) { return r.genre === genre && !findInWishlist(r.title); });
+  if (pool.length === 0) {
+    currentRec = null;
+    renderRec();
+    showRecMessage("“" + genre + "” 장르의 추천 게임은 모두 이미 목록에 있어요. 다른 장르를 골라 보세요.", "error");
+    return;
+  }
+  let candidates = pool;
+  if (pool.length > 1) {
+    candidates = pool.filter(function (r) { return r.title !== lastPick[genre]; });
+  }
+  currentRec = candidates[Math.floor(Math.random() * candidates.length)];
+  lastPick[genre] = currentRec.title;
+  renderRec();
+  showRecMessage(pool.length === 1
+    ? "이 장르에서 아직 목록에 없는 추천 게임은 이것 하나예요."
+    : "“" + genre + "” 장르에서 하나 골라 봤어요.", "info");
+}
+
+// 추천 카드를 그린다. 이미 위시리스트에 있으면 [위시리스트에 추가] 버튼을 잠근다.
+function renderRec() {
+  const box = document.getElementById("rec-card");
+  const ul = document.getElementById("rec-list");
+  ul.textContent = "";
+  if (!currentRec) { box.hidden = true; return; }
+  box.hidden = false;
+  const r = currentRec;
+
+  const li = document.createElement("li");
+  li.className = "card";
+  const info = document.createElement("div");
+  info.className = "info";
+  const title = document.createElement("p");
+  title.className = "title";
+  title.textContent = r.title;
+  const genreTag = document.createElement("span");
+  genreTag.className = "tag tag-genre";
+  genreTag.textContent = r.genre;
+  title.appendChild(genreTag);
+  const left = daysUntil(r.date);
+  const stateTag = document.createElement("span");
+  stateTag.className = left > 0 ? "tag tag-dday" : "tag tag-ok";
+  stateTag.textContent = left > 0 ? "D-" + left : "출시됨";
+  title.appendChild(stateTag);
+  const meta = document.createElement("p");
+  meta.className = "meta";
+  meta.textContent = "출시일 " + formatDate(r.date) + " · 예상 가격 " + formatPrice(r.price);
+  info.appendChild(title);
+  info.appendChild(meta);
+  li.appendChild(info);
+
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.id = "rec-add";
+  const already = findInWishlist(r.title);
+  if (already) {
+    btn.className = "btn-ghost";
+    btn.disabled = true;
+    btn.textContent = already.purchased ? "이미 산 게임" : "위시리스트에 있음";
+  } else {
+    btn.className = "btn-primary";
+    btn.textContent = "위시리스트에 추가";
+  }
+  btn.setAttribute("aria-label", r.title + " " + btn.textContent);
+  btn.addEventListener("click", addRecToWishlist);
+  actions.appendChild(btn);
+  li.appendChild(actions);
+  ul.appendChild(li);
+}
+
+// [위시리스트에 추가]: 직접 등록할 때와 같은 모양의 게임 객체로 만들어 저장한다
+function addRecToWishlist() {
+  if (!currentRec) return;
+  const r = currentRec;
+  const already = findInWishlist(r.title);
+  if (already) {
+    showRecMessage("“" + r.title + "”은(는) 이미 " + (already.purchased ? "'내가 산 게임'" : "위시리스트") + "에 있어요.", "error");
+    return;
+  }
+  if (games.length >= MAX_GAMES) {
+    showRecMessage("게임은 최대 " + MAX_GAMES + "개까지 등록할 수 있습니다. 필요 없는 게임을 지운 뒤 다시 눌러 주세요.", "error");
+    return;
+  }
+  const game = makeGame(r.title, r.date, r.price, "");
+  games.push(game);
+  saveGames();
+  render();
+  const where = classify(game) === "available" ? "'구매 가능 게임'" : "'출시 예정 게임'";
+  showRecMessage("“" + r.title + "”을(를) " + where + " 목록에 추가했습니다.", "info");
+  document.getElementById("rec-msg").focus();
 }
 
 // ===================== 출시일 당일 알림 =====================
@@ -997,6 +1190,17 @@ function init() {
     btn.addEventListener("click", hideModal);
   });
   document.addEventListener("keydown", handleModalKey);
+
+  // 장르별 랜덤 추천: 장르 선택칸 채우기 + 버튼 연결
+  const genreSel = document.getElementById("rec-genre");
+  REC_GENRES.forEach(function (g) {
+    const opt = document.createElement("option");
+    opt.value = g;
+    opt.textContent = g;
+    genreSel.appendChild(opt);
+  });
+  genreSel.addEventListener("change", clearInvalid);
+  document.getElementById("rec-btn").addEventListener("click", recommend);
 
   // 브라우저 알림: 접속하자마자 권한을 묻고, 버튼으로도 다시 물을 수 있게 한다
   // (많은 브라우저가 클릭 없이 묻는 요청은 무시하므로 버튼이 꼭 필요하다)
