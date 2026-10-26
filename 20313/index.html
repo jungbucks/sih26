@@ -8,46 +8,63 @@
 <meta name="description" content="그림 분야·난이도·연습 목적을 고르면 조건에 맞는 그림 연습 주제 10개를 번호·설명이 있는 카드로 한꺼번에 추천해 주는 프로그램">
 <meta name="class" content="O반 (2-5)">
 <meta name="status" content="1회 개선">
+<meta name="design" content="컬러셋 C13 회색과 빨강 · 트렌드 T01 리퀴드 글래스 · #d10511">
 
 <!-- ===== 스타일 ===== -->
 <style>
+  /* 전시판 공용 글꼴 (못 불러오면 아래 대체 글꼴로 표시) */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
+
   :root {
-    --bg: #faf8f4;        /* 도화지 같은 밝은 바탕 */
+    --bg: #f2f2f0;        /* 무채색 페이지 바탕 */
     --card: #ffffff;
-    --text: #2b2a28;      /* 먹색 */
-    --muted: #5f5b55;
-    --line: #ddd7cc;
-    --accent: #2f5d62;    /* 차분한 청록 물감색 */
-    --accent-soft: #e6eeee;
-    --warn-bg: #fff5e1;
-    --warn-line: #c98a1b;
-    --ok-bg: #edf4ec;
+    --text: #111111;
+    --muted: #555555;
+    --line: #dcdcd8;      /* 옅은 구분선 */
+    --field-line: #555555; /* 선택칸·보조 버튼 테두리 */
+    --accent: #d10511;    /* 강조 빨강: 주제 추천 버튼·결과 번호에만 */
+    --accent-text: #c00410;
+    --accent-soft: #fde8e8;
+    --warn-bg: #fff5e1;   /* 경고 안내: 원래의 노랑 계열 유지 (강조 빨강과 구분) */
+    --warn-line: #b07612;
+    --ok-bg: #edf4ec;     /* 완료 안내: 원래의 초록 계열 유지 */
     --ok-line: #4f7a4a;
+    --shadow: 0 4px 16px rgba(0,0,0,.06);
+    /* 리퀴드 글래스 (버튼에만) */
+    --glass-bg: color-mix(in srgb, #ffffff 45%, transparent);
+    --glass-border: 1px solid rgba(255,255,255,.6);
+    --glass-shadow: inset 0 1px 0 rgba(255,255,255,.75), inset 0 -1px 0 rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.12);
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--bg);
+    /* 유리 버튼 뒤로 비쳐 보이는 번진 빨간 빛 (글자 아래는 12% 이하) */
+    background:
+      radial-gradient(340px circle at 30% 560px, rgba(209,5,17,.12), transparent 70%),
+      radial-gradient(260px circle at 0% 100%, rgba(209,5,17,.10), transparent 70%),
+      var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-family: "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     font-size: 17px;
     line-height: 1.7;
     word-break: keep-all;
     overflow-wrap: anywhere;
+    min-height: 100vh;
   }
   main { max-width: 40rem; margin: 0 auto; padding: 24px 16px 56px; }
-  h1 { font-size: 1.6rem; margin: 0 0 4px; line-height: 1.3; }
+  h1 { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 4px; line-height: 1.3; }
   .sub { margin: 0 0 24px; color: var(--muted); font-size: 1rem; }
 
   .panel {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: 20px;
+    box-shadow: var(--shadow);
     padding: 16px;
     margin-bottom: 16px;
   }
 
-  /* 조건 선택: fieldset + 칩 모양 라디오 버튼 */
+  /* 조건 선택: fieldset + 칩 모양 라디오 버튼 (선택칸이라 불투명 + 진한 테두리) */
   fieldset { border: 0; margin: 0 0 16px; padding: 0; min-width: 0; }
   fieldset:last-child { margin-bottom: 0; }
   legend { font-weight: 700; padding: 0; margin-bottom: 8px; }
@@ -59,7 +76,7 @@
   .chip span {
     display: inline-flex; align-items: center; gap: 6px;
     min-height: 44px; padding: 8px 16px;
-    border: 1px solid var(--line); border-radius: 999px;
+    border: 1px solid var(--field-line); border-radius: 999px;
     background: #fff; color: var(--text);
     font-size: 1rem; cursor: pointer; user-select: none;
   }
@@ -67,30 +84,43 @@
     content: none;
   }
   .chip input:checked + span {
-    background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700;
+    background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); font-weight: 700;
   }
   .chip input:checked + span::before { content: "✓"; }
-  .chip input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .chip input:focus-visible + span { outline: 3px solid var(--text); outline-offset: 2px; }
 
-  /* 버튼 */
+  /* 버튼: 리퀴드 글래스 (두께감 + 가장자리 빛 반사가 있는 반투명 유리) */
   .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
   button {
-    font: inherit; font-size: 1rem;
-    min-height: 44px; padding: 10px 16px;
-    border-radius: 10px; border: 1px solid var(--accent);
-    background: #fff; color: var(--accent);
+    font: inherit; font-size: 1rem; font-weight: 600;
+    min-height: 44px; padding: 10px 20px;
+    border-radius: 999px; border: var(--glass-border);
+    background: var(--glass-bg); color: var(--text);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    backdrop-filter: blur(12px) saturate(160%);
+    /* 마지막 그림자 한 겹: 밝은 바탕에서도 누르는 곳이 잘 보이도록 옅은 테두리 */
+    box-shadow: var(--glass-shadow), 0 0 0 1px rgba(17,17,17,.32);
     cursor: pointer;
+    transition: transform .12s ease;
   }
-  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-  .btn-primary { background: var(--accent); color: #fff; font-weight: 700; flex: 1 1 100%; }
+  button:active { transform: scale(.97); }
+  button:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
+  .btn-primary {
+    flex: 1 1 100%;
+    background: color-mix(in srgb, var(--accent) 94%, transparent);
+    color: #fff; font-weight: 800;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 -1px 0 rgba(0,0,0,.18), 0 8px 24px rgba(209,5,17,.22);
+  }
   button:disabled {
-    background: #f0eee9; color: #8a857c; border-color: #d6d1c7; border-style: dashed; cursor: not-allowed;
+    background: #ebebe8; color: #666666; border: 1px dashed #8a8a85;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    box-shadow: none; cursor: not-allowed; transform: none;
   }
 
   /* 안내 메시지 (색만이 아니라 [안내] 글자도 함께 표시) */
   .message {
-    margin: 0 0 16px; padding: 12px 14px; border-radius: 10px;
-    border: 1px solid var(--warn-line); background: var(--warn-bg); font-weight: 600;
+    margin: 0 0 16px; padding: 12px 16px; border-radius: 14px;
+    border: 1px solid var(--warn-line); background: var(--warn-bg); color: var(--text); font-weight: 600;
   }
   .message.ok { border-color: var(--ok-line); background: var(--ok-bg); }
   .message[hidden] { display: none; }
@@ -98,9 +128,9 @@
 
   /* 결과 영역 */
   .result { text-align: left; }
-  .result-label { margin: 0 0 4px; color: var(--muted); font-size: 0.95rem; }
+  .result-label { margin: 0 0 4px; color: var(--muted); font-size: 0.95rem; font-weight: 600; }
 
-  /* 추천 주제 카드: 화면 너비에 맞춰 한 줄에 들어가는 만큼 놓고, 넘치면 다음 줄로 */
+  /* 추천 주제 카드: 화면 너비에 맞춰 한 줄에 들어가는 만큼 놓고, 넘치면 다음 줄로 (불투명) */
   .cards {
     list-style: none; margin: 8px 0 0; padding: 0;
     display: grid; gap: 12px;
@@ -109,12 +139,13 @@
   .card {
     min-width: 0;
     display: flex; flex-direction: column; gap: 6px;
-    padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff;
+    /* 바깥 상자 모서리 20px = 안쪽 4px + 여백 16px */
+    padding: 14px; border: 1px solid var(--line); border-radius: 4px; background: #fff;
   }
   .card-num {
     display: inline-flex; align-items: center; justify-content: center;
     width: 32px; height: 32px; border-radius: 999px;
-    background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 0.95rem;
+    background: var(--accent-soft); color: var(--accent-text); font-weight: 800; font-size: 0.95rem;
   }
   .card-title { margin: 0; font-size: 1.1rem; font-weight: 700; line-height: 1.45; color: var(--text); }
   .card-desc { margin: 0; color: var(--muted); font-size: 0.95rem; line-height: 1.6; }
@@ -122,6 +153,11 @@
   .note {
     margin: 14px 0 0; padding-top: 12px; border-top: 1px dashed var(--line);
     color: var(--muted); font-size: 1rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button { transition: none; }
+    button:active { transform: none; }
   }
 </style>
 </head>
