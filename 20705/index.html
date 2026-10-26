@@ -6,7 +6,7 @@
 <title>쉬는 시간 매점 대기순서 계산기</title>
 <meta name="description" content="매점 대기 줄을 큐(먼저 온 사람이 먼저 나가는 구조)로 관리하고, 예상 대기 시간과 남은 쉬는 시간 안에 사 올 수 있는지를 신호등으로 보여 주는 계산기">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="PRD">
+<meta name="status" content="1회 개선">
 <style>
   :root {
     --bg: #f4f7f7;
@@ -150,15 +150,81 @@
   .line li.me { border-style: dashed; border-color: var(--muted); color: var(--muted); }
   .line-empty { color: var(--muted); margin: 0; }
   .line-guide { font-size: 0.9rem; color: var(--muted); margin: 10px 0 0; }
+
+  /* 내 기록(자동 저장) 안내 줄 */
+  .save-note {
+    margin: 0 0 16px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--accent-weak);
+    color: var(--accent);
+    font-size: 0.92rem;
+  }
+  .save-note.fail { background: var(--warn-weak); color: var(--warn); }
+
+  /* 매점 상황 고르기 (한산/보통/붐빔) */
+  fieldset.field { border: 0; margin: 0; padding: 0; min-width: 0; }
+  fieldset.field legend { font-weight: 600; padding: 0; margin: 0 0 4px; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+  .seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .seg label {
+    margin: 0;
+    min-height: 44px;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    text-align: center;
+    font-weight: 600;
+    line-height: 1.3;
+    cursor: pointer;
+  }
+  .seg label small { display: block; font-weight: 400; font-size: 0.8rem; color: var(--muted); }
+  .seg input:checked + label { border-color: var(--accent); background: var(--accent-weak); color: var(--accent); }
+  .seg input:checked + label small { color: var(--accent); }
+  .seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cond { margin: 0 0 10px; font-size: 0.95rem; color: var(--muted); }
+  .cond strong { color: var(--text); }
+
+  /* 잘못된 입력·조작 때 해당 영역을 붉게 0.5초 흔들기 */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+  }
+  .card.shake {
+    animation: shake 0.5s ease-in-out;
+    border-color: var(--err);
+    background: var(--err-weak);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card.shake { animation: none; } /* 움직임 없이 색만 바뀌어요 */
+  }
+
+  /* 휴대폰 화면 */
+  @media (max-width: 600px) {
+    body { font-size: 16px; }
+    .wrap { padding: 16px 12px 32px; }
+    h1 { font-size: 1.35rem; }
+    .card { padding: 16px 12px; }
+    .count-big { font-size: 2.6rem; }
+    .time-row #calcButton { flex: 1 1 100%; }
+    .status { align-items: flex-start; }
+    .status-text { font-size: 1.1rem; }
+    .actions { grid-template-columns: 1fr; }
+    .actions .btn-danger { grid-column: auto; }
+    .line li { min-width: 56px; padding: 4px 8px; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>쉬는 시간 매점 대기순서 계산기</h1>
   <p class="intro">매점 줄이 얼마나 긴지, 남은 쉬는 시간 안에 사 올 수 있는지 미리 계산해 봐요.</p>
+  <p class="save-note" id="saveNote" role="status" aria-live="polite">내 기록 · 줄과 설정을 이 기기에 자동으로 저장해요.</p>
 
-  <!-- 상단: 남은 쉬는 시간 + 1인당 처리 시간 -->
-  <section class="card" aria-labelledby="setTitle">
+  <!-- 상단: 남은 쉬는 시간 + 1인당 처리 시간 + 매점 상황 -->
+  <section class="card" id="setCard" aria-labelledby="setTitle">
     <h2 id="setTitle">시간 설정</h2>
     <div class="field">
       <label for="timeInput">남은 쉬는 시간 <span class="hint">1~60분 사이의 정수로 입력해요.</span></label>
@@ -174,6 +240,18 @@
         <span class="hint">한 사람이 계산을 마치는 데 걸리는 평균 시간이에요. (10~120초)</span></label>
       <input type="range" id="speedInput" min="10" max="120" step="5" value="30">
     </div>
+    <fieldset class="field">
+      <legend>매점 상황</legend>
+      <span class="hint" id="situationHint">붐빌수록 주문이 밀려 한 사람당 시간이 더 걸린다고 보고, 1인당 처리 시간에 배수를 곱해요.</span>
+      <div class="seg">
+        <input type="radio" name="situation" id="sitCalm" value="calm">
+        <label for="sitCalm">한산<small>× 0.8</small></label>
+        <input type="radio" name="situation" id="sitNormal" value="normal" checked>
+        <label for="sitNormal">보통<small>× 1.0</small></label>
+        <input type="radio" name="situation" id="sitBusy" value="busy">
+        <label for="sitBusy">붐빔<small>× 1.2</small></label>
+      </div>
+    </fieldset>
   </section>
 
   <!-- 가운데: 대기 인원 + 상태 -->
@@ -184,6 +262,7 @@
 
     <div class="result" id="result">
       <p class="wait">예상 대기 시간: <strong id="waitText">-</strong></p>
+      <p class="cond" id="condText"></p>
       <div class="status" id="statusBox" role="status" aria-live="polite">
         <div class="lights" aria-hidden="true"><span class="g"></span><span class="y"></span><span class="r"></span></div>
         <div>
@@ -196,12 +275,12 @@
   </section>
 
   <!-- 하단: 버튼 -->
-  <section class="card" aria-labelledby="ctrlTitle">
+  <section class="card" id="ctrlCard" aria-labelledby="ctrlTitle">
     <h2 id="ctrlTitle">줄 관리</h2>
     <div class="actions">
       <button type="button" class="btn-primary" id="addButton">대기자 1명 추가</button>
       <button type="button" class="btn-outline" id="enterButton">1명 입장 완료</button>
-      <button type="button" class="btn-danger" id="resetButton">리셋 (0명, 10분, 30초)</button>
+      <button type="button" class="btn-danger" id="resetButton">리셋 (0명, 10분, 30초, 보통)</button>
     </div>
     <div id="queueMessage" class="msg" role="status" aria-live="polite"></div>
   </section>
@@ -224,6 +303,17 @@
   const DEFAULT_TIME = 10;   // 기본 남은 시간 (분)
   const DEFAULT_SPEED = 30;  // 기본 1인당 처리 시간 (초)
   const SAFE_MARGIN = 2;     // '여유'로 보려면 남겨야 하는 시간 (분)
+  const DEFAULT_SITUATION = 'normal';
+
+  // 매점 상황별 배수 (예시값): 1인당 처리 시간 × 배수 = 실제로 계산에 쓰는 1인당 시간
+  const SITUATIONS = {
+    calm:   { name: '한산', rate: 0.8 },
+    normal: { name: '보통', rate: 1.0 },
+    busy:   { name: '붐빔', rate: 1.2 }
+  };
+
+  // 브라우저 저장 키 (이 작품 전용 접두사)
+  const STORE_KEY = 'sih26:20705:state';
 
   // ===== 큐(Queue) 만들기 =====
   // queue 배열이 곧 매점 대기 줄이에요.
@@ -263,6 +353,28 @@
   const queueMessage = document.getElementById('queueMessage');
   const lineList = document.getElementById('lineList');
   const lineEmpty = document.getElementById('lineEmpty');
+  const condText = document.getElementById('condText');
+  const saveNote = document.getElementById('saveNote');
+  const situationInputs = document.querySelectorAll('input[name="situation"]');
+
+  // 지금 골라 둔 매점 상황 (calm / normal / busy)
+  function getSituation() {
+    const checked = document.querySelector('input[name="situation"]:checked');
+    return checked && SITUATIONS[checked.value] ? checked.value : DEFAULT_SITUATION;
+  }
+  function setSituation(key) {
+    if (!SITUATIONS[key]) key = DEFAULT_SITUATION;
+    situationInputs.forEach(function (input) { input.checked = input.value === key; });
+  }
+
+  // 잘못된 입력·조작이 있었던 영역(카드)을 붉게 0.5초 흔들기
+  function shake(card) {
+    card.classList.remove('shake');
+    void card.offsetWidth;           // 클래스를 뺐다 다시 넣어야 애니메이션이 처음부터 다시 돌아요
+    card.classList.add('shake');
+    clearTimeout(card.shakeTimer);
+    card.shakeTimer = setTimeout(function () { card.classList.remove('shake'); }, 500);
+  }
 
   // 메시지를 페이지 안에 보여 주기 (alert 대신)
   function showMessage(el, text, kind) {
@@ -299,18 +411,22 @@
     return Number(raw);
   }
 
-  // 대기 시간을 계산하고 신호등 표시하기
+  // 대기 시간을 계산하고 신호등 표시하기 (입력이 올바르면 true, 틀리면 false)
   function calculate(showError) {
     const remain = readTime(showError);
     if (remain === null) {
       result.hidden = true; // 입력이 틀리면 예전 결과를 남기지 않아요
-      return;
+      return false;
     }
     const speed = Number(speedInput.value);        // 1인당 처리 시간 (초)
-    const waitSec = queue.length * speed;          // 총 예상 대기 시간 = 대기 인원 × 1인당 시간
+    const situation = SITUATIONS[getSituation()];  // 매점 상황 (배수)
+    const perPerson = Math.round(speed * situation.rate * 10) / 10; // 상황을 반영한 1인당 시간 (소수 오차 방지)
+    const waitSec = queue.length * perPerson;      // 총 예상 대기 시간 = 대기 인원 × 1인당 시간
     const remainSec = remain * 60;                 // 비교는 초 단위로 (소수 오차 방지)
 
     waitText.textContent = formatMinutes(waitSec);
+    condText.innerHTML = '계산 조건: <strong>' + situation.name + '</strong> 상황 · 1인당 ' + speed + '초 × ' +
+      situation.rate.toFixed(1) + ' = ' + perPerson + '초 · 대기 ' + queue.length + '명';
 
     let kind, label, sub;
     if (waitSec <= remainSec - SAFE_MARGIN * 60) {
@@ -327,6 +443,7 @@
     statusText.textContent = '[' + label + ']';
     statusSub.textContent = '남은 시간 ' + remain + '분 기준 · ' + sub;
     result.hidden = false;
+    return true;
   }
 
   // 대기 인원, 내 순번, 줄 그림 다시 그리기
@@ -350,47 +467,140 @@
     lineEmpty.hidden = queue.length !== 0;
   }
 
+  // ===== 내 기록: 이 기기(브라우저)에 지금 상태 저장하기 =====
+  // 저장하는 것: 대기 줄(순번들), 다음 순번, 남은 시간, 1인당 시간, 매점 상황, 저장 시각
+  // 저장이 막힌 브라우저에서도 계산기는 그대로 작동해요.
+  let storageOk = true;
+  let lastGoodTime = DEFAULT_TIME; // 남은 시간 칸이 잘못돼 있으면 마지막으로 올바르던 값을 저장해요
+
+  function formatSavedAt(ms) {
+    const d = new Date(ms);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + hh + ':' + mm;
+  }
+
+  function showSaveNote(text, failed) {
+    saveNote.textContent = text;
+    saveNote.className = 'save-note' + (failed ? ' fail' : '');
+  }
+
+  function saveState() {
+    const time = readTime(false);
+    if (time !== null) lastGoodTime = time;
+    const data = {
+      v: 1,
+      queue: queue.map(function (p) { return p.ticket; }),
+      nextTicket: nextTicket,
+      time: lastGoodTime,
+      speed: Number(speedInput.value),
+      situation: getSituation(),
+      savedAt: Date.now()
+    };
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(data));
+      storageOk = true;
+      showSaveNote('내 기록 · ' + formatSavedAt(data.savedAt) + ' 저장됨 (대기 ' + data.queue.length + '명, ' +
+        SITUATIONS[data.situation].name + ') — 새로고침해도 지금 줄과 설정이 그대로 남아요.', false);
+    } catch (e) {
+      storageOk = false;
+      showSaveNote('내 기록 · 이 브라우저에서는 저장할 수 없어요. 계산은 되지만 새로고침하면 처음 상태로 돌아가요.', true);
+    }
+  }
+
+  // 저장된 상태 읽기 → { ok: true, data } / { ok: false, reason: 'none' | 'blocked' | 'broken' }
+  function loadState() {
+    let raw;
+    try {
+      raw = localStorage.getItem(STORE_KEY);
+    } catch (e) {
+      return { ok: false, reason: 'blocked' };
+    }
+    if (raw === null) return { ok: false, reason: 'none' };
+    try {
+      const d = JSON.parse(raw);
+      if (!d || typeof d !== 'object' || !Array.isArray(d.queue)) throw new Error('bad');
+      // 없는 값·이상한 값은 기본값으로 채워요
+      const tickets = d.queue.filter(function (t) { return Number.isInteger(t) && t > 0; }).slice(0, MAX_PEOPLE);
+      const maxTicket = tickets.reduce(function (m, t) { return Math.max(m, t); }, 0);
+      const time = Number.isInteger(d.time) && d.time >= MIN_TIME && d.time <= MAX_TIME ? d.time : DEFAULT_TIME;
+      const speed = Number.isInteger(d.speed) && d.speed >= 10 && d.speed <= 120 && d.speed % 5 === 0 ? d.speed : DEFAULT_SPEED;
+      return {
+        ok: true,
+        data: {
+          tickets: tickets,
+          nextTicket: Number.isInteger(d.nextTicket) && d.nextTicket > maxTicket ? d.nextTicket : maxTicket + 1,
+          time: time,
+          speed: speed,
+          situation: SITUATIONS[d.situation] ? d.situation : DEFAULT_SITUATION,
+          savedAt: Number.isFinite(d.savedAt) ? d.savedAt : null
+        }
+      };
+    } catch (e) {
+      return { ok: false, reason: 'broken' };
+    }
+  }
+
   // ===== 버튼 동작 =====
+  const setCard = document.getElementById('setCard');
+  const ctrlCard = document.getElementById('ctrlCard');
+
   document.getElementById('addButton').addEventListener('click', function () {
     if (queue.length >= MAX_PEOPLE) {
       showMessage(queueMessage, '대기 인원은 최대 ' + MAX_PEOPLE + '명까지만 넣을 수 있어요.', 'info');
+      shake(ctrlCard);
       return;
     }
     const person = enqueue();
     showMessage(queueMessage, '대기 ' + person.ticket + '번이 줄 맨 뒤에 섰어요.', 'info');
     render();
     calculate(false);
+    saveState();
   });
 
   document.getElementById('enterButton').addEventListener('click', function () {
     if (queue.length === 0) {
       showMessage(queueMessage, '대기자가 없습니다.', 'error');
+      shake(ctrlCard);
       return;
     }
     const person = dequeue();
     showMessage(queueMessage, '맨 앞의 대기 ' + person.ticket + '번이 매점에 들어갔어요.', 'info');
     render();
     calculate(false);
+    saveState();
   });
 
   document.getElementById('resetButton').addEventListener('click', function () {
     resetAll(0);
-    showMessage(queueMessage, '처음 상태로 되돌렸어요. (대기 0명, 남은 시간 10분, 1인당 30초)', 'info');
+    showMessage(queueMessage, '처음 상태로 되돌렸어요. (대기 0명, 남은 시간 10분, 1인당 30초, 보통)', 'info');
+    saveState();
   });
 
-  document.getElementById('calcButton').addEventListener('click', function () {
-    calculate(true);
-  });
+  // 계산하기 버튼·Enter: 잘못된 값이면 입력 영역을 흔들어 알려요
+  function calcByUser() {
+    if (!calculate(true)) shake(setCard);
+    saveState();
+  }
+  document.getElementById('calcButton').addEventListener('click', calcByUser);
 
-  // 남은 시간을 고치면 바로 다시 계산 (틀린 값이면 결과를 숨기고 안내)
-  timeInput.addEventListener('input', function () { calculate(true); });
+  // 남은 시간을 고치면 바로 다시 계산 (틀린 값이면 결과를 숨기고 안내 — 입력 중에는 흔들지 않아요)
+  timeInput.addEventListener('input', function () { calculate(true); saveState(); });
   timeInput.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') calculate(true);
+    if (e.key === 'Enter') calcByUser();
   });
 
   speedInput.addEventListener('input', function () {
     speedValue.textContent = speedInput.value + '초';
     calculate(false);
+    saveState();
+  });
+
+  situationInputs.forEach(function (input) {
+    input.addEventListener('change', function () {
+      calculate(false);
+      saveState();
+    });
   });
 
   // 처음 상태 만들기: people명이 줄 서 있는 상태
@@ -401,13 +611,36 @@
     timeInput.value = DEFAULT_TIME;
     speedInput.value = DEFAULT_SPEED;
     speedValue.textContent = DEFAULT_SPEED + '초';
+    setSituation(DEFAULT_SITUATION);
     showMessage(queueMessage, '', '');
     render();
     calculate(true);
   }
 
-  // 시작: 예시로 6명이 줄 서 있고 남은 시간 10분
-  resetAll(START_PEOPLE);
+  // 시작: 저장된 내 기록이 있으면 그 상태로, 없으면 예시로 6명이 줄 서 있고 남은 시간 10분
+  const saved = loadState();
+  if (saved.ok) {
+    const d = saved.data;
+    queue = d.tickets.map(function (t) { return { ticket: t }; });
+    nextTicket = d.nextTicket;
+    timeInput.value = d.time;
+    lastGoodTime = d.time;
+    speedInput.value = d.speed;
+    speedValue.textContent = d.speed + '초';
+    setSituation(d.situation);
+    render();
+    calculate(true);
+    showSaveNote('내 기록 · ' + (d.savedAt ? formatSavedAt(d.savedAt) + '에 ' : '') + '저장한 상태를 불러왔어요 (대기 ' +
+      queue.length + '명, ' + SITUATIONS[d.situation].name + '). 처음부터 하려면 아래 리셋을 눌러요.', false);
+  } else {
+    resetAll(START_PEOPLE);
+    if (saved.reason === 'blocked') {
+      storageOk = false;
+      showSaveNote('내 기록 · 이 브라우저에서는 저장할 수 없어요. 계산은 되지만 새로고침하면 처음 상태로 돌아가요.', true);
+    } else if (saved.reason === 'broken') {
+      showSaveNote('내 기록 · 저장된 기록을 읽을 수 없어 처음 상태로 시작했어요. 다음에 조작하면 지금 상태로 새로 저장돼요.', true);
+    }
+  }
 </script>
 </body>
 </html>
