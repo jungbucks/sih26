@@ -7,7 +7,7 @@
 <title>당장 할 일 알리미</title>
 <meta name="description" content="가장 최근에 추가한 할 일을 맨 위에 보여 주는 스택(후입선출) 방식 할 일 목록">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C11 밤하늘과 보라 · 트렌드 T11 스위스 스타일 · #8b9cff">
 
 <!-- ===== 스타일 ===== -->
@@ -95,8 +95,12 @@
   /* 목록 덩어리는 상자 없이 */
   .panel[aria-label="할 일 목록"] { background: none; padding: 0; }
   label { display: block; font-weight: 700; margin-bottom: 6px; }
-  .add-row { display: flex; gap: 8px; }
-  input[type="text"] {
+  .add-row { display: flex; gap: 8px; align-items: flex-end; }
+  .field { min-width: 0; }
+  .field-text { flex: 1; }
+  .field-text input, .field-date input { width: 100%; }
+  .field-date { flex: 0 0 11rem; }
+  input[type="text"], input[type="date"] {
     flex: 1;
     min-width: 0;
     font: inherit;
@@ -107,7 +111,13 @@
     color: var(--text);
   }
   input[type="text"]::placeholder { color: var(--muted); opacity: 1; }
-  input[type="text"]:focus { outline: 2px solid var(--text); outline-offset: 2px; }
+  input[type="text"]:focus, input[type="date"]:focus { outline: 2px solid var(--text); outline-offset: 2px; }
+  /* 휴대폰: 할 일 입력칸은 한 줄 전체, 아래 줄에 날짜칸 + 추가 버튼 */
+  @media (max-width: 479px) {
+    .add-row { flex-wrap: wrap; }
+    .field-text { flex: 1 1 100%; }
+    .field-date { flex: 1 1 0; }
+  }
   button {
     font: inherit;
     font-size: var(--fs-m);
@@ -244,6 +254,21 @@
   }
   .todo-item.done.important::before { color: var(--muted); }
   .todo-item.done .important-tag { color: var(--warn-text); background: transparent; }
+  /* 마감일 꼬리표: 할 일 글 뒤에 테두리만 있는 네모 */
+  .due-tag {
+    display: inline-block;
+    font-size: var(--fs-s);
+    font-weight: 700;
+    color: var(--accent-text);
+    border: 1px solid var(--accent-text);
+    border-radius: 0;
+    padding: 0 6px;
+    margin-left: 8px;
+    vertical-align: 1px;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+  .todo-item.done .due-tag { color: var(--muted); border-color: var(--muted); }
   /* 좁은 화면(휴대폰): 버튼을 글 아래 줄로 내려서 글이 좁아지지 않게 */
   @media (max-width: 479px) {
     .todo-item { flex-wrap: wrap; row-gap: 8px; }
@@ -278,9 +303,15 @@
 
   <section class="panel" aria-label="할 일 추가">
     <form id="addForm" novalidate>
-      <label for="todoInput">할 일 입력</label>
       <div class="add-row">
-        <input type="text" id="todoInput" maxlength="100" placeholder="예: 과학 보고서 1쪽 쓰기" autocomplete="off" aria-describedby="inputError">
+        <div class="field field-text">
+          <label for="todoInput">할 일 입력</label>
+          <input type="text" id="todoInput" maxlength="100" placeholder="예: 과학 보고서 1쪽 쓰기" autocomplete="off" aria-describedby="inputError">
+        </div>
+        <div class="field field-date">
+          <label for="dueInput">마감일 (선택)</label>
+          <input type="date" id="dueInput" aria-describedby="inputError">
+        </div>
         <button type="submit" class="btn-primary" id="addBtn">추가</button>
       </div>
       <p class="error-msg" id="inputError" role="alert" hidden></p>
@@ -321,8 +352,8 @@
 const STORAGE_KEY = "sih26:20305:todos";
 // 처음 실행할 때 보여 줄 가상 할 일 (먼저 넣은 것 → 나중에 넣은 것 순서)
 const SAMPLE_TODOS = [
-  { text: "수학 프린트 3쪽 풀기", done: false, important: false },
-  { text: "영어 단어 30개 외우기", done: false, important: false }
+  { text: "수학 프린트 3쪽 풀기", done: false, important: false, due: "" },
+  { text: "영어 단어 30개 외우기", done: false, important: false, due: "" }
 ];
 
 // ===== 데이터·상태 =====
@@ -331,6 +362,18 @@ let stack = [];
 let canSave = true; // localStorage를 쓸 수 있는지
 
 // ===== 처리 함수 =====
+
+// "2026-10-30" 같은 날짜 글자인지 확인
+function isDateText(value) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+// 날짜 글자를 꼬리표용 글로 바꾸기: 올해면 "마감 10월 30일", 다른 해면 "마감 2027년 1월 5일"
+function formatDue(due) {
+  const parts = due.split("-").map(Number);
+  const label = parts[1] + "월 " + parts[2] + "일";
+  return "마감 " + (parts[0] === new Date().getFullYear() ? label : parts[0] + "년 " + label);
+}
 
 // 저장된 목록 불러오기 (없으면 예시 데이터, 저장소가 막혀 있으면 예시 데이터로 시작)
 function loadTodos() {
@@ -343,8 +386,8 @@ function loadTodos() {
     }
     const parsed = JSON.parse(saved);
     stack = Array.isArray(parsed)
-      // 예전에 저장한 데이터에는 important가 없으므로 false(중요 아님)로 채운다
-      ? parsed.filter(item => item && typeof item.text === "string").map(item => ({ text: item.text, done: !!item.done, important: item.important === true }))
+      // 예전에 저장한 데이터에는 important·due가 없으므로 false(중요 아님)·""(날짜 없음)로 채운다
+      ? parsed.filter(item => item && typeof item.text === "string").map(item => ({ text: item.text, done: !!item.done, important: item.important === true, due: isDateText(item.due) ? item.due : "" }))
       : [];
   } catch (e) {
     canSave = false;
@@ -363,8 +406,9 @@ function saveTodos() {
 }
 
 // 스택에 넣기(push): 새 할 일은 배열 맨 끝 = 꼭대기에 쌓인다
-function pushTodo(text) {
-  stack.push({ text: text, done: false, important: false });
+// due = 마감일("2026-10-30" 꼴), 고르지 않았으면 ""
+function pushTodo(text, due) {
+  stack.push({ text: text, done: false, important: false, due: due });
   saveTodos();
 }
 
@@ -407,6 +451,7 @@ function clearDoneTodos() {
 
 // ===== 화면 갱신 =====
 const todoInput = document.getElementById("todoInput");
+const dueInput = document.getElementById("dueInput");
 const inputError = document.getElementById("inputError");
 const todoList = document.getElementById("todoList");
 const emptyText = document.getElementById("emptyText");
@@ -416,10 +461,14 @@ const confirmBox = document.getElementById("confirmBox");
 const storageNote = document.getElementById("storageNote");
 const clearDoneBtn = document.getElementById("clearDoneBtn");
 
-function showError(message) {
+// field = 잘못 입력된 칸 (기본은 할 일 입력칸)
+function showError(message, field) {
+  const target = field || todoInput;
   inputError.textContent = message;
   inputError.hidden = false;
-  todoInput.setAttribute("aria-invalid", "true");
+  todoInput.removeAttribute("aria-invalid");
+  dueInput.removeAttribute("aria-invalid");
+  target.setAttribute("aria-invalid", "true");
   // 흔들림 애니메이션을 처음부터 다시 재생 (연속으로 눌러도 매번 흔들리게)
   inputError.classList.remove("shake");
   void inputError.offsetWidth; // 브라우저가 한 번 다시 계산하게 해서 애니메이션을 리셋
@@ -431,6 +480,7 @@ function hideError() {
   inputError.hidden = true;
   inputError.classList.remove("shake");
   todoInput.removeAttribute("aria-invalid");
+  dueInput.removeAttribute("aria-invalid");
 }
 
 // 목록 그리기: 스택의 꼭대기(배열 끝)부터 거꾸로 보여 준다 → 최신이 맨 위
@@ -461,6 +511,14 @@ function render() {
     }
     // 사용자가 쓴 글은 textContent로 넣어서 HTML로 해석되지 않게 한다
     textSpan.appendChild(document.createTextNode(item.text));
+    // 마감일이 있으면 글 뒤에 날짜 꼬리표
+    if (item.due) {
+      const dueTag = document.createElement("time");
+      dueTag.className = "due-tag";
+      dueTag.dateTime = item.due;
+      dueTag.textContent = formatDue(item.due);
+      textSpan.appendChild(dueTag);
+    }
     li.appendChild(textSpan);
 
     const actions = document.createElement("div");
@@ -516,16 +574,28 @@ document.getElementById("addForm").addEventListener("submit", function (event) {
     todoInput.focus();
     return;
   }
+  // 마감일은 비워도 되지만, 쓰다 만 날짜(예: 연도만)는 알려 준다
+  const due = dueInput.value;
+  if (dueInput.validity.badInput || (due !== "" && !isDateText(due))) {
+    showError("마감일을 끝까지 고르거나 비워 주세요!", dueInput);
+    dueInput.focus();
+    return;
+  }
   hideError();
-  pushTodo(text);
+  pushTodo(text, due);
   todoInput.value = "";
+  dueInput.value = "";
   render();
   todoInput.focus();
 });
 
 // 입력을 시작하면 오류 안내 지우기
 todoInput.addEventListener("input", function () {
-  if (todoInput.value.trim() !== "") hideError();
+  // 날짜 칸 오류는 날짜 칸을 고칠 때 지운다
+  if (todoInput.value.trim() !== "" && dueInput.getAttribute("aria-invalid") !== "true") hideError();
+});
+dueInput.addEventListener("input", function () {
+  if (dueInput.getAttribute("aria-invalid") === "true" && !dueInput.validity.badInput) hideError();
 });
 
 // 완료·중요 버튼 (목록 전체에 한 번만 연결)
