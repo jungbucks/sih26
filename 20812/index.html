@@ -6,14 +6,17 @@
 <title>피곤함까지 고려하는 할 일 순서 정하기</title>
 <meta name="description" content="오늘 컨디션(보통/피곤함)과 마감일, 소요 시간을 보고 수행평가·숙제의 순서를 정해 주는 할 일 우선순위 큐">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="1회 개선">
+<meta name="status" content="2회 개선">
 <meta name="design" content="컬러셋 C16 먹과 노랑 · 트렌드 T12 클레이모피즘 · #ffd600">
 <style>
   /* ===== 스타일 =====
      디자인: 컬러셋 '먹과 노랑' + 트렌드 '클레이모피즘'
      까만 바탕에 경고등 노랑. 버튼·체크박스·결과 카드만 찰흙처럼 통통하게, 목록·입력칸은 평평하게.
      의미 색(경고 빨강·안내 초록·중요 노랑)은 같은 계열로 남기되 어두운 바탕에 맞게 밝기를 바꿨어요.
-     (중요 태그 노랑은 강조색과 헷갈리지 않게 더 어두운 금색으로) */
+     (중요 태그 노랑은 강조색과 헷갈리지 않게 더 어두운 금색으로)
+     어두운 덩어리(보조 버튼·컨디션 버튼·체크박스·입력 카드·결과 카드·목록 카드)도
+     노란 버튼과 같은 말투로: 위쪽 밝은 테두리 빛 + 왼쪽 위 옅은 빛 + 오른쪽 아래 짙은 그늘 + 바깥 그림자,
+     바탕은 왼쪽 위가 살짝 밝은 그라데이션으로 둥근 부피를 만든다. */
   @font-face { font-family: "Gowun Dodum"; src: url("../assets/fonts/GowunDodum-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
   :root {
     color-scheme: dark;
@@ -30,8 +33,15 @@
     --warn-soft: #3a1a12;
     --ok: #7fd18e;
     --clay: 8px 10px 20px color-mix(in srgb, #ffd600 25%, transparent), inset -4px -4px 8px rgba(0,0,0,.08), inset 4px 4px 8px rgba(255,255,255,.7);
-    /* 어두운 덩어리(보조 버튼·결과 카드·빈 체크박스)는 안쪽 흰 빛이 번쩍이지 않게 더 옅게 */
-    --clay-dark: 8px 10px 20px color-mix(in srgb, #ffd600 25%, transparent), inset -4px -4px 8px rgba(0,0,0,.25), inset 4px 4px 8px rgba(255,255,255,.16);
+    /* 어두운 덩어리: 흰 빛만으로는 금속처럼 번쩍이므로, 가는 위쪽 테두리 빛 + 옅은 안쪽 빛 + 짙은 안쪽 그늘로 부피를 만든다 */
+    --surface-dark: linear-gradient(155deg, #2e2d29 0%, #1f1f1c 55%, #181816 100%);
+    --surface-block: linear-gradient(155deg, #3d3617 0%, #2a2610 55%, #221f0c 100%);
+    --clay-dark: 8px 10px 20px color-mix(in srgb, #ffd600 22%, transparent), 0 6px 12px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.2), inset 4px 4px 8px rgba(255,255,255,.1), inset -4px -5px 9px rgba(0,0,0,.6);
+    --clay-dark-pressed: 2px 3px 8px color-mix(in srgb, #ffd600 22%, transparent), inset 4px 4px 9px rgba(0,0,0,.65), inset -3px -3px 7px rgba(255,255,255,.08);
+    /* 큰 카드: 노랑 빛은 줄이고(넓은 면이 번지지 않게) 그림자·그늘을 넓게 */
+    --clay-card: 8px 12px 26px color-mix(in srgb, #ffd600 14%, transparent), 0 14px 28px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.16), inset 8px 8px 16px rgba(255,255,255,.06), inset -8px -10px 18px rgba(0,0,0,.5);
+    /* 목록 카드: 여러 개가 쌓이므로 노랑 빛 없이 작게 */
+    --clay-item: 0 6px 14px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.13), inset 5px 5px 10px rgba(255,255,255,.05), inset -5px -6px 12px rgba(0,0,0,.45);
     --clay-pressed:2px 3px 8px color-mix(in srgb, #ffd600 25%, transparent), inset 4px 4px 8px rgba(0,0,0,.35), inset -4px -4px 8px rgba(255,255,255,.35);
   }
   * { box-sizing: border-box; }
@@ -61,6 +71,8 @@
     border: 1px solid var(--line);
     border-radius: 24px;
     padding: 20px;
+    background: var(--surface-dark);
+    box-shadow: var(--clay-card);
   }
   /* 컨디션 토글: 말랑한 알약 버튼, 고른 쪽은 살짝 눌린 모양 */
   .mode-group { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -70,11 +82,12 @@
     font: inherit;
     color: var(--text);
     border: 1px solid var(--line-strong);
-    background: var(--card);
+    background: var(--surface-dark);
     border-radius: 999px;
     box-shadow: var(--clay-dark);
     cursor: pointer;
   }
+  .mode-btn:active { box-shadow: var(--clay-dark-pressed); }
   .mode-btn[aria-pressed="true"] {
     border-color: var(--accent);
     background: var(--accent);
@@ -112,8 +125,8 @@
   }
   .btn:active { box-shadow: var(--clay-pressed); }
   .btn:focus-visible, .mode-btn:focus-visible, .check-field input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-  .btn.ghost { background: var(--card); color: var(--text); border-color: var(--line-strong); box-shadow: var(--clay-dark); }
-  .btn.ghost:active { box-shadow: var(--clay-pressed); }
+  .btn.ghost { background: var(--surface-dark); color: var(--text); border-color: var(--line-strong); box-shadow: var(--clay-dark); }
+  .btn.ghost:active { box-shadow: var(--clay-dark-pressed); }
   .btn.danger { background: var(--warn); border-color: var(--warn); color: var(--accent-ink); }
   .btn.small { padding: 6px 12px; font-size: 0.95rem; }
   .msg { margin: 10px 0 0; font-weight: 600; min-height: 1.7em; }
@@ -125,8 +138,8 @@
     border: 2px solid var(--accent);
     border-radius: 28px;
     padding: 20px 22px;
-    background: var(--block);
-    box-shadow: var(--clay-dark);
+    background: var(--surface-block);
+    box-shadow: var(--clay-card);
   }
   .top-task .name { font-size: 1.25rem; font-weight: 700; }
   .top-task .meta { color: var(--text); }
@@ -150,7 +163,9 @@
     border: 1px solid var(--line);
     border-radius: 10px;
     padding: 12px 14px;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
+    background: var(--surface-dark);
+    box-shadow: var(--clay-item);
   }
   .item .info { flex: 1 1 200px; min-width: 0; }
   .rank { color: var(--text); font-weight: 700; margin-right: 6px; }
@@ -177,7 +192,7 @@
     width: 30px; height: 30px; margin: 0;
     border: 1px solid var(--line-strong);
     border-radius: 50%;
-    background: var(--card);
+    background: var(--surface-dark);
     box-shadow: var(--clay-dark);
     cursor: pointer;
   }
