@@ -6,7 +6,7 @@
 <title>응급실 환자 위급도별 대기 순서 관리기</title>
 <meta name="description" content="위급도와 도착 순서로 응급실 대기 환자를 자동 정렬하는 우선순위 큐 관리기">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T06 스크롤 3D · #1e3a8a">
 
 <!-- ===== 스타일 ===== -->
@@ -185,6 +185,48 @@
       }
     }
   }
+  /* 정렬 기준 탭: 위급도순(우선순위 큐) / 등록순(선착순 큐) */
+  .sort-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 4px 0 10px; }
+  .sort-tabs [role="tab"] {
+    border: 1px solid var(--field);
+    background: var(--card);
+    color: var(--text);
+    padding: 8px 10px;
+    line-height: 1.35;
+    text-align: center;
+  }
+  .sort-tabs [role="tab"] .tab-main { display: block; font-weight: 700; }
+  .sort-tabs [role="tab"] .tab-sub { display: block; font-size: 0.85rem; color: var(--muted); }
+  .sort-tabs [role="tab"][aria-selected="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+  .sort-tabs [role="tab"][aria-selected="true"] .tab-sub { color: var(--on-accent); }
+  /* 등록순 보기에서는 맨 위 카드가 '다음 진료 환자'가 아니므로 색 블록을 끈다 */
+  #patient-list[data-view="time"] > .patient:first-child { background: var(--card); }
+  /* 드래그 앤 드롭으로 순서 바꾸기 */
+  .patient.can-drag { cursor: grab; }
+  .drag-handle {
+    display: inline-flex; align-items: center; gap: 4px;
+    min-height: 36px; padding: 5px 10px; font-size: 0.9rem;
+    border: 1px dashed var(--field); border-radius: 12px;
+    color: var(--muted); background: var(--card);
+    cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  .patient.dragging { opacity: 0.45; border-style: dashed; border-color: var(--accent); }
+  .patient.drop-target { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .patient.drop-target.drop-before { box-shadow: 0 0 0 2px var(--accent), 0 -7px 0 -2px var(--accent); }
+  .patient.drop-target.drop-after { box-shadow: 0 0 0 2px var(--accent), 0 7px 0 -2px var(--accent); }
+  body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
+  .drag-ghost {
+    position: fixed; left: 0; top: 0; z-index: 50; pointer-events: none;
+    background: var(--accent); color: var(--on-accent);
+    padding: 6px 12px; border-radius: 999px; font-weight: 600; font-size: 0.95rem;
+    box-shadow: var(--shadow); max-width: 70vw;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -232,9 +274,16 @@
         <h2 id="list-title">진료 대기 목록</h2>
         <span class="count" id="count-text"></span>
       </div>
-      <p class="sub" style="margin-bottom:12px">정렬 규칙: ① 위급도 1단계가 위 → ② 같은 단계면 긴급 환자가 위 (긴급끼리는 먼저 긴급 지정된 환자가 위) → ③ 그다음 먼저 등록한 환자가 위. 단, [▲ 위로]/[▼ 아래로]로 직접 옮긴 환자는 옮긴 자리에 고정됩니다.</p>
-      <ol class="patients" id="patient-list" aria-label="진료 대기 중인 환자 목록"></ol>
-      <p class="empty" id="empty-text">대기 중인 환자가 없습니다. 왼쪽(위쪽) 폼에서 환자를 등록하세요.</p>
+      <!-- 정렬 기준 탭 (누르면 바로 다시 정렬) -->
+      <div class="sort-tabs" role="tablist" aria-label="대기 목록 정렬 기준">
+        <button type="button" role="tab" id="tab-priority" data-view="priority" aria-selected="true" aria-controls="list-panel"><span class="tab-main">위급도순 정렬</span><span class="tab-sub">(우선순위 큐)</span></button>
+        <button type="button" role="tab" id="tab-time" data-view="time" aria-selected="false" aria-controls="list-panel" tabindex="-1"><span class="tab-main">등록순 정렬</span><span class="tab-sub">(선착순 큐)</span></button>
+      </div>
+      <div id="list-panel" role="tabpanel" aria-labelledby="tab-priority">
+        <p class="sub" id="sort-rule" style="margin-bottom:12px"></p>
+        <ol class="patients" id="patient-list" aria-label="진료 대기 중인 환자 목록"></ol>
+        <p class="empty" id="empty-text">대기 중인 환자가 없습니다. 왼쪽(위쪽) 폼에서 환자를 등록하세요.</p>
+      </div>
 
       <!-- 진료 완료 환자: 대기 목록과 분리해서 아래쪽 접히는 영역에 모음 -->
       <details class="done-area" id="done-area" hidden>
@@ -295,6 +344,15 @@ let storageOk = true;       // localStorage 사용 가능 여부
 let editingId = null;       // 위급도 수정 중인 환자 id
 let deletingId = null;      // 삭제 확인 중인 환자 id
 let pendingAction = null;   // 하단 확인창에서 "예"를 누르면 실행할 함수
+let viewMode = "priority";  // 목록 보기: "priority" = 위급도순(우선순위 큐), "time" = 등록순(선착순 큐)
+                            // 보기만 바꾸는 것이라 저장 데이터(manualOrder 등)는 바뀌지 않는다
+let drag = null;            // 드래그 중인 카드 정보 (드래그 중이 아니면 null)
+
+// 탭별 정렬 규칙 안내 문장
+const SORT_RULES = {
+  priority: "정렬 규칙: ① 위급도 1단계가 위 → ② 같은 단계면 긴급 환자가 위 (긴급끼리는 먼저 긴급 지정된 환자가 위) → ③ 그다음 먼저 등록한 환자가 위. 단, 카드를 끌어다 놓거나 [▲ 위로]/[▼ 아래로]로 직접 옮긴 환자는 옮긴 자리에 고정됩니다. (휴대폰은 [↕ 끌어서 이동]을 누른 채 끌기)",
+  time: "정렬 규칙: 먼저 등록한 환자가 위 (선착순 큐). 위급도·긴급·수동 조정은 무시하고 도착 순서만 보여 줍니다. 이 보기에서는 순서를 옮길 수 없으니, 순서 조정은 [위급도순 정렬] 탭에서 하세요."
+};
 
 // ===== 처리 함수 =====
 
@@ -370,7 +428,7 @@ function isUrgent(p) {
   3) 긴급 여부까지 같으면 등록 시간(time)을 비교한다.
      먼저 등록된 환자(time이 작은 쪽)가 앞으로 → 선착순
   4) 등록 시간까지 같으면(같은 순간에 등록) 등록 번호(id)가 작은 쪽을 앞으로
-  5) 마지막으로 의료진이 [▲ 위로]/[▼ 아래로]로 직접 옮긴 대기 환자(manualOrder가 있는 환자)는
+  5) 마지막으로 의료진이 끌어다 놓기나 [▲ 위로]/[▼ 아래로]로 직접 옮긴 대기 환자(manualOrder가 있는 환자)는
      자동 규칙보다 우선해서 옮긴 자리(manualOrder번째)에 끼워 넣는다. 나머지 환자는 1)~4) 순서로 빈자리를 채운다
 */
 function autoCompare(a, b) {
@@ -414,6 +472,27 @@ function addLog(p, text) {
   if (p.logs.length > MAX_LOGS) p.logs = p.logs.slice(-MAX_LOGS);
 }
 
+// 대기 환자를 위급도순 목록의 to번째 자리(0부터)로 직접 옮긴다. 옮겼으면 true
+// (끌어다 놓기와 [▲ 위로]/[▼ 아래로] 둘 다 이 함수를 쓴다)
+function moveManualTo(id, to) {
+  sortPatients(patients);
+  const waiting = patients.filter(p => p.status !== "진료 완료");
+  const from = waiting.findIndex(p => p.id === id);
+  if (from < 0) return false;
+  const target = waiting[from];
+  const rest = waiting.filter(p => p !== target);
+  const j = Math.min(Math.max(to, 0), rest.length);
+  if (j === from) return false;                        // 제자리면 바꾸지 않음
+  rest.splice(j, 0, target);
+  target.manualOrder = j;
+  // 옮긴 뒤 화면 순서 그대로, 수동 조정된 환자들의 자리 번호를 실제 위치로 다시 맞춘다
+  // (자동 정렬 환자끼리의 순서는 그대로라 sortPatients가 이 순서를 똑같이 다시 만든다)
+  rest.forEach((p, k) => { if (isManual(p)) p.manualOrder = k; });
+  sortPatients(patients);
+  savePatients();
+  return true;
+}
+
 // 대기 환자를 한 칸 위(-1) 또는 아래(+1)로 직접 옮긴다. 옮겼으면 true
 function moveManual(id, dir) {
   sortPatients(patients);
@@ -421,14 +500,13 @@ function moveManual(id, dir) {
   const i = waiting.findIndex(p => p.id === id);
   const j = i + dir;
   if (i < 0 || j < 0 || j >= waiting.length) return false;
-  // 지금 수동 조정된 환자들의 자리 번호를 실제 화면 위치로 맞춘 뒤 이동
-  waiting.forEach((p, k) => { if (isManual(p)) p.manualOrder = k; });
-  const target = waiting[i], neighbor = waiting[j];
-  if (isManual(neighbor)) neighbor.manualOrder = i;   // 옆 환자도 고정 자리면 서로 자리 바꿈
-  target.manualOrder = j;
-  sortPatients(patients);
-  savePatients();
-  return true;
+  return moveManualTo(id, j);
+}
+
+// 등록순(선착순 큐) 비교: 먼저 등록한 환자가 앞, 같은 순간이면 등록 번호 순
+function fifoCompare(a, b) {
+  if (a.time !== b.time) return a.time - b.time;
+  return a.id - b.id;
 }
 
 // 수동 조정을 풀고 자동 정렬 위치로 되돌린다
@@ -611,7 +689,10 @@ const els = {
   confirmNo: document.getElementById("confirm-no"),
   listMsg: document.getElementById("list-msg"),
   storageMsg: document.getElementById("storage-msg"),
-  registerBtn: document.getElementById("register-btn")
+  registerBtn: document.getElementById("register-btn"),
+  tabs: Array.from(document.querySelectorAll('.sort-tabs [role="tab"]')),
+  listPanel: document.getElementById("list-panel"),
+  sortRule: document.getElementById("sort-rule")
 };
 
 // 위급도 라디오 버튼 만들기
@@ -652,13 +733,16 @@ function makeButton(text, cls, handler) {
 // 환자 카드 하나 만들기 (사용자 입력은 textContent로 넣어 안전하게)
 function renderPatient(p, rank) {
   const li = document.createElement("li");
-  li.className = "patient" + (p.status === "진료 완료" ? " done" : "");
+  // 위급도순 보기의 대기 환자만 끌어서 옮길 수 있다
+  const draggable = p.status !== "진료 완료" && viewMode === "priority";
+  li.className = "patient" + (p.status === "진료 완료" ? " done" : "") + (draggable ? " can-drag" : "");
   li.dataset.id = p.id;
 
   const rankEl = document.createElement("div");
   rankEl.className = "rank";
   rankEl.textContent = rank + "";
-  rankEl.setAttribute("aria-label", typeof rank === "number" ? "순위 " + rank : "진료 완료");
+  rankEl.setAttribute("aria-label", typeof rank !== "number" ? "진료 완료"
+    : viewMode === "time" ? "등록순 " + rank + "번째" : "순위 " + rank);
 
   const main = document.createElement("div");
   main.className = "p-main";
@@ -802,10 +886,17 @@ function renderPatient(p, rank) {
     actions.appendChild(delBtn);
     body.appendChild(actions);
 
-    // 대기 환자: 순서 직접 조정 버튼
-    if (p.status !== "진료 완료") {
+    // 대기 환자: 순서 직접 조정 (끌기 손잡이 + 키보드로도 쓸 수 있는 ▲/▼ 버튼). 등록순 보기에서는 숨김
+    if (draggable) {
       const move = document.createElement("div");
       move.className = "move-row";
+      // 끌기 손잡이: 휴대폰(터치)은 여기를 누른 채 끌어야 한다 (카드 다른 곳은 화면 스크롤용)
+      const handle = document.createElement("span");
+      handle.className = "drag-handle";
+      handle.textContent = "↕ 끌어서 이동";
+      handle.title = "누른 채 위아래로 끌어서 순서 바꾸기";
+      handle.setAttribute("aria-hidden", "true");   // 키보드·화면 낭독 사용자는 ▲/▼ 버튼 사용
+      move.appendChild(handle);
       const upBtn = makeButton("▲ 위로", "", () => {
         if (moveManual(p.id, -1)) { render(); showListMsg(p.name + " 환자를 한 칸 위로 옮겼습니다.", "info"); focusMove(p.id, "up"); }
       });
@@ -881,9 +972,13 @@ function focusEdit(id) {
 // 전체 화면 다시 그리기
 function render() {
   sortPatients(patients);
-  const waitingList = patients.filter(p => p.status !== "진료 완료");
+  let waitingList = patients.filter(p => p.status !== "진료 완료");
+  // 등록순 보기: 위급도·수동 조정과 상관없이 도착(등록) 순서로만 보여 준다 (저장 순서는 그대로)
+  if (viewMode === "time") waitingList = waitingList.slice().sort(fifoCompare);
   const doneList = patients.filter(p => p.status === "진료 완료");
   // 대기 환자: 순위 1, 2, 3 … (진료 완료 환자는 순위에서 빠짐)
+  els.list.dataset.view = viewMode;
+  els.sortRule.textContent = SORT_RULES[viewMode];
   els.list.textContent = "";
   waitingList.forEach((p, i) => els.list.appendChild(renderPatient(p, i + 1)));
   // 진료 완료 환자: 아래쪽 접히는 영역에 따로 모음, 순위 대신 "완료" 표시
@@ -1003,6 +1098,193 @@ els.confirmYes.addEventListener("click", () => {
 els.confirmNo.addEventListener("click", () => {
   closeConfirm();
   showListMsg("취소했습니다.", "info");
+});
+
+// ===== 정렬 기준 탭 =====
+function setViewMode(mode, moveFocus) {
+  if (mode !== "priority" && mode !== "time") return;
+  if (drag) cancelDrag();
+  const changed = viewMode !== mode;
+  viewMode = mode;
+  els.tabs.forEach(t => {
+    const on = t.dataset.view === mode;
+    t.setAttribute("aria-selected", on ? "true" : "false");
+    t.tabIndex = on ? 0 : -1;
+    if (on) {
+      els.listPanel.setAttribute("aria-labelledby", t.id);
+      if (moveFocus) t.focus();
+    }
+  });
+  if (!changed) return;
+  editingId = null;
+  deletingId = null;
+  render();
+  showListMsg(mode === "time"
+    ? "등록순(선착순 큐)으로 다시 정렬했습니다. 먼저 온 환자가 위에 있습니다."
+    : "위급도순(우선순위 큐)으로 다시 정렬했습니다. 더 위급한 환자가 위에 있습니다.", "info");
+}
+els.tabs.forEach((t, i) => {
+  t.addEventListener("click", () => setViewMode(t.dataset.view, false));
+  // 키보드: 왼쪽/오른쪽 화살표로 탭 이동
+  t.addEventListener("keydown", (e) => {
+    let k = -1;
+    if (e.key === "ArrowRight") k = (i + 1) % els.tabs.length;
+    else if (e.key === "ArrowLeft") k = (i - 1 + els.tabs.length) % els.tabs.length;
+    else if (e.key === "Home") k = 0;
+    else if (e.key === "End") k = els.tabs.length - 1;
+    if (k < 0) return;
+    e.preventDefault();
+    setViewMode(els.tabs[k].dataset.view, true);
+  });
+});
+
+// ===== 끌어다 놓기 (Pointer Events: 마우스·터치·펜 모두 같은 코드로 처리) =====
+// - 마우스: 카드 아무 곳(버튼·입력칸 제외)이나 눌러 끌기
+// - 터치: [↕ 끌어서 이동] 손잡이를 눌러 끌기 (카드 나머지 부분은 화면 스크롤에 양보)
+// - 끄는 동안 원래 카드는 반투명, 놓일 자리 옆 카드는 테두리 강조 + 들어갈 쪽에 굵은 선
+// - Esc 키를 누르거나 목록 밖에 놓으면 취소
+const DRAG_START_DISTANCE = 6;   // 이만큼(px) 움직여야 끌기로 본다 (그냥 클릭과 구분)
+
+function listCards() {
+  return Array.from(els.list.querySelectorAll(":scope > li.patient"));
+}
+
+function clearDropMarks() {
+  els.list.querySelectorAll(".drop-target").forEach(c => c.classList.remove("drop-target", "drop-before", "drop-after"));
+}
+
+els.list.addEventListener("pointerdown", (e) => {
+  if (drag || viewMode !== "priority") return;
+  if (e.button !== 0) return;                                  // 주 버튼(왼쪽 클릭·손가락)만
+  const li = e.target.closest("li.patient.can-drag");
+  if (!li) return;
+  const onHandle = !!e.target.closest(".drag-handle");
+  if (!onHandle) {
+    if (e.pointerType !== "mouse") return;                     // 터치는 손잡이로만
+    if (e.target.closest("button, input, select, textarea, label, a")) return;
+  }
+  drag = {
+    id: Number(li.dataset.id), li: li, pointerId: e.pointerId,
+    startX: e.clientX, startY: e.clientY, x: e.clientX, y: e.clientY,
+    started: false, slot: null, ghost: null, raf: 0
+  };
+  try { li.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 실패해도 목록 위에서는 동작 */ }
+  if (onHandle) e.preventDefault();
+});
+
+function startDrag() {
+  drag.started = true;
+  drag.li.classList.add("dragging");
+  document.body.classList.add("is-dragging");
+  try { window.getSelection().removeAllRanges(); } catch (err) { /* 무시 */ }
+  const p = findPatient(drag.id);
+  const ghost = document.createElement("div");
+  ghost.className = "drag-ghost";
+  ghost.setAttribute("aria-hidden", "true");
+  ghost.textContent = "↕ " + (p ? p.name : "") + " 환자 옮기는 중";
+  document.body.appendChild(ghost);
+  drag.ghost = ghost;
+  drag.raf = requestAnimationFrame(autoScroll);
+}
+
+function moveGhost() {
+  const g = drag.ghost;
+  if (!g) return;
+  const w = g.offsetWidth, h = g.offsetHeight;
+  const x = Math.min(drag.x + 14, window.innerWidth - w - 4);
+  const y = Math.min(drag.y + 14, window.innerHeight - h - 4);
+  g.style.transform = "translate(" + Math.max(4, x) + "px," + Math.max(4, y) + "px)";
+}
+
+// 손가락·마우스 위치로 "몇 번째 자리에 들어갈지" 계산하고 그 자리를 강조
+function updateDropTarget() {
+  clearDropMarks();
+  drag.slot = null;
+  const cards = listCards();
+  const others = cards.filter(c => c !== drag.li);
+  if (others.length === 0) return;
+  const lr = els.list.getBoundingClientRect();
+  const out = 40;   // 목록에서 이만큼 넘게 벗어나면 "놓을 곳 없음"(취소)
+  if (drag.x < lr.left - out || drag.x > lr.right + out || drag.y < lr.top - out || drag.y > lr.bottom + out) return;
+  let slot = others.length;
+  for (let k = 0; k < others.length; k++) {
+    const r = others[k].getBoundingClientRect();
+    if (drag.y < r.top + r.height / 2) { slot = k; break; }
+  }
+  if (slot === cards.indexOf(drag.li)) return;   // 제자리
+  drag.slot = slot;
+  if (slot < others.length) others[slot].classList.add("drop-target", "drop-before");
+  else others[others.length - 1].classList.add("drop-target", "drop-after");
+}
+
+// 화면 위·아래 끝에 가까이 끌면 저절로 스크롤 (긴 목록에서 멀리 옮길 때)
+function autoScroll() {
+  if (!drag || !drag.started) return;
+  const edge = 48;
+  let dy = 0;
+  if (drag.y < edge) dy = -10;
+  else if (drag.y > window.innerHeight - edge) dy = 10;
+  if (dy !== 0) {
+    const before = window.scrollY;
+    window.scrollBy(0, dy);
+    if (window.scrollY !== before) updateDropTarget();
+  }
+  drag.raf = requestAnimationFrame(autoScroll);
+}
+
+function endDragVisual() {
+  if (!drag) return;
+  cancelAnimationFrame(drag.raf);
+  clearDropMarks();
+  drag.li.classList.remove("dragging");
+  document.body.classList.remove("is-dragging");
+  if (drag.ghost) drag.ghost.remove();
+  try { drag.li.releasePointerCapture(drag.pointerId); } catch (err) { /* 이미 풀림 */ }
+}
+
+function cancelDrag() {
+  const wasStarted = drag && drag.started;
+  endDragVisual();
+  drag = null;
+  return wasStarted;
+}
+
+els.list.addEventListener("pointermove", (e) => {
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  drag.x = e.clientX;
+  drag.y = e.clientY;
+  if (!drag.started) {
+    if (Math.hypot(drag.x - drag.startX, drag.y - drag.startY) < DRAG_START_DISTANCE) return;
+    startDrag();
+  }
+  e.preventDefault();
+  moveGhost();
+  updateDropTarget();
+});
+
+els.list.addEventListener("pointerup", (e) => {
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  const d = drag;
+  endDragVisual();
+  drag = null;
+  if (!d.started) return;                       // 그냥 클릭이었음
+  const p = findPatient(d.id);
+  if (d.slot === null || !p) {
+    showListMsg("놓을 자리가 없어 순서를 그대로 두었습니다.", "info");
+    return;
+  }
+  if (moveManualTo(d.id, d.slot)) {
+    render();
+    showListMsg(p.name + " 환자를 " + (d.slot + 1) + "번째 자리로 옮겼습니다.", "info");
+  }
+});
+
+els.list.addEventListener("pointercancel", (e) => {
+  if (drag && e.pointerId === drag.pointerId && cancelDrag()) showListMsg("옮기기를 취소했습니다.", "info");
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && drag && cancelDrag()) showListMsg("옮기기를 취소했습니다. 순서는 그대로입니다.", "info");
 });
 
 // 시작
