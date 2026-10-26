@@ -6,7 +6,7 @@
 <title>수행평가 D-Day 챙기미</title>
 <meta name="description" content="수행평가 마감일을 D-Day순으로 정렬해 급한 것부터 보여 주고, 완료한 항목을 따로 관리하는 개인 정리 도구">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C13 회색과 빨강 · 트렌드 T11 스위스 스타일 · #d10511">
 <style>
   /* 전시판 공용 글꼴 */
@@ -107,8 +107,15 @@
     cursor: pointer;
     min-height: 40px;
   }
-  /* 카드 안 주 버튼(완료·저장 등)은 검정, 강조색은 '등록' 한 곳에만 */
+  /* 카드 안 주 버튼(저장 등)은 검정, 빨강 강조는 '등록'과 '완료' 버튼 */
   button.primary { background: var(--text); border-color: var(--text); color: #ffffff; }
+  /* 완료 버튼: 빨강(#dc3545, 흰 글자 대비 4.5:1), 마우스를 올리거나 누르면 천천히 어두워진다 */
+  button.done-btn {
+    background: #dc3545; border-color: #dc3545; color: #ffffff;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+  button.done-btn:hover { background: #bb2d3b; border-color: #bb2d3b; }
+  button.done-btn:active { background: #a52834; border-color: #a52834; }
   #addButton.primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
   button.danger { color: var(--warn); border-color: var(--warn); }
   button:disabled,
@@ -181,6 +188,29 @@
   .edit-box { grid-column: 1 / -1; display: grid; gap: 10px; margin-top: 4px; }
   .edit-box .field { margin-bottom: 0; }
   .edit-box label { font-size: var(--fs-s); }
+  /* '중요한 수행평가' 체크박스 */
+  .field.check label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; margin-bottom: 0; }
+  .field.check label > span { min-width: 0; }
+  .field.check input[type="checkbox"] { width: 22px; height: 22px; margin: 3px 0 0; flex: none; accent-color: var(--text); cursor: pointer; }
+  /* 중요 카드: 검은 굵은 테두리 + 흰 바탕 + '중요' 배지 (항상 목록 맨 위) */
+  .card.is-important {
+    background: var(--card);
+    border: 3px solid var(--text);
+    padding: 14px 14px 16px 34px;
+    margin-bottom: 8px; /* 중요 카드끼리 테두리가 겹쳐 두꺼워지지 않게 띄운다 */
+  }
+  .list .card.is-important:last-child { border-bottom: 3px solid var(--text); }
+  .card.is-important::before { left: 12px; top: 23px; }
+  .important-badge {
+    display: inline-block;
+    background: var(--text);
+    color: #ffffff;
+    font-size: var(--fs-s);
+    font-weight: 800;
+    line-height: 1.4;
+    padding: 2px 8px;
+    margin-bottom: 4px;
+  }
   .card.is-editing { background: var(--card); padding-right: 16px; }
   [hidden] { display: none !important; }
 
@@ -199,6 +229,9 @@
   }
   @media (max-width: 480px) {
     h1 { font-size: 40px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    button.done-btn { transition: none; }
   }
 </style>
 </head>
@@ -230,6 +263,9 @@
       <div class="field">
         <label for="memoInput">메모 / 준비물 <span class="opt">(선택)</span></label>
         <input type="text" id="memoInput" maxlength="60" placeholder="예: 원고지 3매 작성" autocomplete="off">
+      </div>
+      <div class="field check">
+        <label for="importantInput"><input type="checkbox" id="importantInput"><span>중요한 수행평가 <span class="opt">(선택 · 체크하면 목록 맨 위에 고정)</span></span></label>
       </div>
       <button type="submit" class="primary" id="addButton" disabled>등록</button>
       <p class="hint" id="formHint" aria-live="polite">과목명, 제목, 마감일을 모두 입력하면 '등록' 버튼이 켜집니다.</p>
@@ -276,7 +312,7 @@ function makeExampleData() {
     { subject: "국어", title: "독서 감상문 제출", due: dateAfter(2), memo: "원고지 3매 작성" },
     { subject: "수학", title: "단원평가 오답노트", due: dateAfter(5), memo: "풀이과정 적기" }
   ].map(function (item, i) {
-    return { id: Date.now() + i, createdAt: Date.now() + i, done: false, ...item };
+    return { id: Date.now() + i, createdAt: Date.now() + i, done: false, isImportant: false, ...item };
   });
 }
 
@@ -324,9 +360,10 @@ function ddayLabel(n) {
   return "D+" + (-n);
 }
 
-// 정렬: D-Day가 작은(급한) 순서, 같으면 먼저 등록한 것이 위로
+// 정렬: 중요한 항목이 무조건 맨 위, 그다음 D-Day가 작은(급한) 순서, 같으면 먼저 등록한 것이 위로
 function sortByDday(list) {
   return list.slice().sort(function (a, b) {
+    if (a.isImportant !== b.isImportant) return a.isImportant ? -1 : 1; // 중요 먼저
     const diff = calcDday(a.due) - calcDday(b.due);
     if (diff !== 0) return diff;          // 남은 일수가 다르면 적은 쪽이 앞
     return a.createdAt - b.createdAt;     // 같으면 등록 순서대로
@@ -361,7 +398,10 @@ function loadData() {
     try {
       const parsed = JSON.parse(text);
       if (Array.isArray(parsed)) {
-        assignments = parsed.filter(isValidItem).slice(0, MAX_ITEMS);
+        // 예전에 저장한 항목에는 isImportant가 없으므로 false(일반)로 채운다
+        assignments = parsed.filter(isValidItem).slice(0, MAX_ITEMS).map(function (x) {
+          return { ...x, isImportant: x.isImportant === true };
+        });
         return;
       }
     } catch (e) { /* 저장된 내용이 깨졌으면 아래에서 예시로 시작 */ }
@@ -381,7 +421,8 @@ function readForm() {
     subject: document.getElementById("subjectInput").value.trim(),
     title: document.getElementById("titleInput").value.trim(),
     due: document.getElementById("dueInput").value,
-    memo: document.getElementById("memoInput").value.trim()
+    memo: document.getElementById("memoInput").value.trim(),
+    isImportant: document.getElementById("importantInput").checked
   };
 }
 
@@ -395,7 +436,7 @@ function addAssignment() {
   if (!isFormComplete(f) || assignments.length >= MAX_ITEMS) return false;
   const now = Date.now();
   assignments.push({ id: now + Math.random(), createdAt: now, done: false,
-    subject: f.subject, title: f.title, due: f.due, memo: f.memo });
+    subject: f.subject, title: f.title, due: f.due, memo: f.memo, isImportant: f.isImportant === true });
   saveData();
   return true;
 }
@@ -421,6 +462,7 @@ function updateAssignment(id, f) {
   item.title = f.title;
   item.due = f.due;
   item.memo = f.memo;
+  item.isImportant = f.isImportant === true;
   saveData();
   return true;
 }
@@ -486,7 +528,7 @@ function updateFormState() {
 // 카드 하나 만들기 (사용자 입력은 textContent로만 넣어 안전하게)
 function makeCard(item) {
   const li = document.createElement("li");
-  li.className = "card" + (item.done ? " is-done" : "");
+  li.className = "card" + (item.done ? " is-done" : "") + (item.isImportant ? " is-important" : "");
 
   const n = calcDday(item.due);
   const badge = document.createElement("div");
@@ -501,6 +543,12 @@ function makeCard(item) {
   title.className = "title";
   title.textContent = item.title;
   head.append(subject, title);
+  if (item.isImportant) {
+    const imp = document.createElement("span");
+    imp.className = "important-badge";
+    imp.textContent = "★ 중요";
+    head.prepend(imp);
+  }
 
   const meta = document.createElement("div");
   meta.className = "meta";
@@ -517,7 +565,7 @@ function makeCard(item) {
   // 수정 중인 카드: 내용 자리에 입력 칸을 보여 주고 [저장]·[취소]만 둔다
   if (editingId === item.id && editDraft) {
     li.className += " is-editing";
-    head.replaceChildren(subject, title);
+    head.replaceChildren(subject, title); // 수정 중에는 배지 대신 체크박스로 보여 준다
     li.append(badge, head, makeEditBox(item));
     return li;
   }
@@ -542,7 +590,7 @@ function makeCard(item) {
                    makeButton("수정", "edit", item.id, ""),
                    makeButton("삭제", "delete", item.id, "danger"));
   } else {
-    actions.append(makeButton("완료", "done", item.id, "primary"),
+    actions.append(makeButton("완료", "done", item.id, "done-btn"),
                    makeButton("수정", "edit", item.id, ""),
                    makeButton("삭제", "delete", item.id, "danger"));
   }
@@ -591,7 +639,8 @@ function makeEditBox(item) {
     makeEditField("editSubject", "과목명", "(필수)", "text", "subject", 20),
     makeEditField("editTitle", "수행평가 제목", "(필수)", "text", "title", 40),
     makeEditField("editDue", "제출 마감일", "(필수)", "date", "due", 0),
-    makeEditField("editMemo", "메모 / 준비물", "(선택)", "text", "memo", 60)
+    makeEditField("editMemo", "메모 / 준비물", "(선택)", "text", "memo", 60),
+    makeEditCheck()
   );
 
   const actions = document.createElement("div");
@@ -631,13 +680,35 @@ function makeEditField(inputId, labelText, tag, type, key, maxLen) {
   return wrap;
 }
 
+// 수정 칸의 '중요한 수행평가' 체크박스
+function makeEditCheck() {
+  const wrap = document.createElement("div");
+  wrap.className = "field check";
+  const label = document.createElement("label");
+  label.htmlFor = "editImportant";
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.id = "editImportant";
+  input.dataset.key = "isImportant";
+  input.checked = editDraft.isImportant === true;
+  const span = document.createElement("span");
+  span.className = "opt";
+  span.textContent = "(선택 · 체크하면 목록 맨 위에 고정)";
+  const text = document.createElement("span");
+  text.append("중요한 수행평가 ", span);
+  label.append(input, text);
+  wrap.appendChild(label);
+  return wrap;
+}
+
 // 수정 칸의 값 읽기 (앞뒤 공백 제거)
 function readDraft() {
   return {
     subject: (editDraft.subject || "").trim(),
     title: (editDraft.title || "").trim(),
     due: editDraft.due || "",
-    memo: (editDraft.memo || "").trim()
+    memo: (editDraft.memo || "").trim(),
+    isImportant: editDraft.isImportant === true
   };
 }
 
@@ -748,14 +819,14 @@ function startEdit(id) {
   const item = assignments.find(function (a) { return a.id === id; });
   if (!item) return;
   editingId = id;
-  editDraft = { subject: item.subject, title: item.title, due: item.due, memo: item.memo || "" };
+  editDraft = { subject: item.subject, title: item.title, due: item.due, memo: item.memo || "", isImportant: item.isImportant === true };
 }
 
 // 수정 칸에 입력할 때: 값만 기억하고 버튼 상태만 바꾼다 (다시 그리면 입력 중 커서가 사라지므로)
 function handleEditInput(e) {
   const input = e.target;
   if (!editDraft || !input.dataset || !input.dataset.key) return;
-  editDraft[input.dataset.key] = input.value;
+  editDraft[input.dataset.key] = input.type === "checkbox" ? input.checked : input.value;
   const box = input.closest(".edit-box");
   if (box) updateEditState(box);
 }
