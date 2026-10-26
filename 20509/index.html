@@ -7,7 +7,7 @@
 <title>게임 강화 확률 &amp; 기댓값 시뮬레이터</title>
 <meta name="description" content="성공 확률을 넣으면 평균 몇 번 만에 성공하는지(기댓값)를 알려 주고, 직접 강화 버튼을 눌러 독립시행 결과를 쌓아 보는 시뮬레이터">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="2회 개선">
+  <meta name="status" content="3회 개선">
   <meta name="design" content="컬러셋 C16 먹과 노랑 · 트렌드 T01 리퀴드 글래스 · #ffd600">
 
 <!-- ===== 2. 스타일 ===== -->
@@ -246,6 +246,39 @@
   @media (prefers-reduced-motion: reduce) {
     section.card.fx-bad { animation: flashBad 0.9s ease-out; }
     .last.fx-ok { animation: none; }
+  }
+
+  /* 터지는 조각 연출: 성공 = 긴 종이 띠 8개, 실패 = 붉은 파편 7개
+     화면 전체를 덮는 투명한 층에 잠깐 만들었다가 애니메이션이 끝나면 지운다 */
+  .burst-layer { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 10; }
+  .piece {
+    position: absolute;
+    left: 0; top: 0;
+    will-change: transform, opacity;
+  }
+  .piece.strip { width: 8px; height: 26px; border-radius: 2px; animation: stripFly 1.2s ease-out forwards; }
+  .piece.shard {
+    width: 16px; height: 16px;
+    background: var(--bad);
+    clip-path: polygon(50% 0, 100% 40%, 70% 100%, 0 75%, 15% 20%);
+    animation: shardFly 0.7s cubic-bezier(.2, .7, .3, 1) forwards;
+  }
+  .piece.shard.dark { background: #c62828; }
+  /* --dx, --dy: 날아갈 거리 / --rot: 돌아가는 각도 (조각마다 JS가 정해 줌) */
+  @keyframes stripFly {
+    0%   { transform: translate(-50%, -50%) rotate(0deg) scale(.4); opacity: 0; }
+    12%  { opacity: 1; }
+    45%  { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(calc(var(--rot) * .6)) scale(1); opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--dx) * 1.15), calc(-50% + var(--dy) + 70px)) rotate(var(--rot)) scale(1); opacity: 0; }
+  }
+  @keyframes shardFly {
+    0%   { transform: translate(-50%, -50%) rotate(0deg) scale(1.2); opacity: 1; }
+    70%  { opacity: 1; }
+    100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)) scale(.5); opacity: 0; }
+  }
+  /* 움직임을 줄이도록 설정한 사람에게는 조각이 날아가지 않게 (JS에서도 만들지 않음) */
+  @media (prefers-reduced-motion: reduce) {
+    .burst-layer { display: none; }
   }
 </style>
 </head>
@@ -520,6 +553,46 @@ function playEffect(ok) {
   });
   tryCard.classList.add(ok ? "fx-ok" : "fx-bad");
   if (ok) lastResult.classList.add("fx-ok");
+  burst(ok);
+}
+
+// ===== 터지는 조각 연출 =====
+const STRIP_COUNT = 8;   // 성공: 긴 종이 띠 8개
+const SHARD_COUNT = 7;   // 실패: 붉은 파편 7개 (6~8개)
+const STRIP_COLORS = ["#ffd600", "#6fdc95", "#f5f5f0", "#ffd600", "#ffb300", "#6fdc95", "#f5f5f0", "#ffd600"];
+const burstLayer = document.createElement("div");
+burstLayer.className = "burst-layer";
+burstLayer.setAttribute("aria-hidden", "true"); // 꾸밈용이라 화면 읽기 프로그램은 건너뜀
+document.body.append(burstLayer);
+const reduceMotion = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+
+// ok가 참이면 종이 띠, 거짓이면 붉은 파편을 [강화 시도] 버튼 가운데에서 터뜨린다
+function burst(ok) {
+  if (reduceMotion && reduceMotion.matches) return; // 움직임 줄이기 설정이면 만들지 않음
+  burstLayer.textContent = ""; // 연달아 누르면 이전 조각은 지우고 새로 (조각이 쌓여 느려지지 않게)
+  const box = tryBtn.getBoundingClientRect();
+  const x = box.left + box.width / 2;
+  const y = box.top + box.height / 2;
+  const count = ok ? STRIP_COUNT : SHARD_COUNT;
+  for (let i = 0; i < count; i++) {
+    const piece = document.createElement("span");
+    // 조각마다 방향을 고르게 나누고 조금씩 흔들어서 사방으로 퍼지게
+    const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+    const dist = ok ? 90 + Math.random() * 60 : 80 + Math.random() * 50;
+    // 버튼이 넓으면 옆으로 더 멀리 퍼지게 (휴대폰처럼 좁으면 덜 퍼짐)
+    const wide = Math.min(box.width / 2, 220) * 0.6;
+    piece.className = ok ? "piece strip" : "piece shard" + (i % 2 ? " dark" : "");
+    piece.style.left = x + "px";
+    piece.style.top = y + "px";
+    piece.style.setProperty("--dx", Math.round(Math.cos(angle) * (dist + wide)) + "px");
+    piece.style.setProperty("--dy", Math.round(Math.sin(angle) * dist * (ok ? 0.8 : 0.7) - (ok ? 30 : 0)) + "px");
+    piece.style.setProperty("--rot", Math.round((Math.random() - 0.5) * (ok ? 720 : 540)) + "deg");
+    if (ok) piece.style.background = STRIP_COLORS[i % STRIP_COLORS.length];
+    // 애니메이션이 끝나면 조각을 지운다 (끝 신호가 안 와도 1.6초 뒤에는 꼭 지움)
+    piece.addEventListener("animationend", function () { piece.remove(); });
+    setTimeout(function () { piece.remove(); }, 1600);
+    burstLayer.append(piece);
+  }
 }
 
 // 기록 목록 다시 그리기 (최근 것이 위)
