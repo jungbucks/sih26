@@ -7,7 +7,7 @@
 <title>하루 기록 다이어리</title>
 <meta name="description" content="하루 활동 시간을 계획하고 실제 사용 시간을 기록해 차이를 돌아보는 다이어리">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C8 분홍과 민트 · 트렌드 T11 스위스 스타일 · #cdb8f7">
 
 <!-- ========== 2. 스타일 ========== -->
@@ -24,7 +24,7 @@
     --ink: #3b2a4d;         /* 글자 · 항목 사이 2px 가로줄 */
     --ink-soft: #6a5679;    /* 보조 글자 */
     --line: #e3daf3;        /* 옅은 구분선 */
-    --line-strong: #6a5679; /* 입력칸·선택칸·보조 버튼 테두리 */
+    --line-strong: #8d7da0; /* 입력칸·선택칸·보조 버튼 테두리 — 더 옅게 하되 바탕 대비 3:1 이상(흰 바탕 3.8:1, 연보라 바탕 3.5:1) */
     --accent: #cdb8f7;      /* 강조색(연보라): 가장 중요한 버튼 한 곳 */
     --accent-ink: #111111;
     --accent-text: #6b3fb0; /* 바탕 위 강조 글자(초점 표시) */
@@ -60,7 +60,6 @@
   .wrap > * { grid-column: 1 / -1; min-width: 0; }
   .wrap > .notice { grid-column: 1 / span 9; }      /* 안내 글은 9칸 폭(왼쪽 격자선 1부터) */
   @media (max-width: 600px) { .wrap > .notice { grid-column: 1 / -1; } }
-  @media (max-width: 400px) { .panel { padding: 16px 12px; } }
   h1 { font-size: var(--fs-title); font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; margin: 0 0 12px; }
   h2 { font-size: var(--fs-l); font-weight: 800; letter-spacing: -0.02em; margin: 0 0 8px; color: var(--ink); }
   h3 { font-size: var(--fs-m); font-weight: 800; margin: 20px 0 8px; }
@@ -99,7 +98,7 @@
   .notice.warn { border-left: 4px solid var(--warn); background: var(--warn-soft); color: var(--warn); padding: 10px 14px; }
 
   /* 메뉴 탭 — 3칸 = 격자 4칸씩 */
-  .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 16px 0 12px; }
+  .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 12px 0 32px; }   /* 탭 아래 32px = 8px 단위 간격 */
   .tabs button {
     min-height: 44px; font: inherit; font-weight: 700; text-align: left; padding: 6px 12px;
     background: var(--paper); color: var(--ink);
@@ -107,10 +106,13 @@
   }
   .tabs button[aria-selected="true"] { background: var(--ink); color: #ffffff; border-color: var(--ink); }
 
+  /* 패널: 안쪽 여백을 없애 모든 글·요소의 왼쪽 끝을 바깥 격자선에 맞춤.
+     흰 바탕을 그대로 두면 글자가 상자 가장자리에 붙어 보이므로 바탕·테두리 없이 페이지 바탕 위에 바로 놓음 */
   .panel {
-    background: var(--page); border: 0; border-radius: 0; padding: 18px;
+    background: none; border: 0; border-radius: 0; padding: 0;
     box-shadow: none;
   }
+  .panel > h2 { margin-bottom: 16px; }
   .panel[hidden] { display: none; }
 
   /* 활동 목록 — 상자 없이 항목 사이 2px 가로줄, 앞에 01·02·03 번호(CSS 카운터) */
@@ -120,17 +122,25 @@
   .act-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .act-name { font-weight: 700; }
   .act-plan { color: var(--ink-soft); font-size: var(--fs-s); }
-  .time-inputs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 6px; }
-  .time-inputs label { display: flex; align-items: center; gap: 4px; }
+  /* 시간·분 입력 묶음: 입력칸+단위는 한 덩어리로 줄바꿈하지 않고, 버튼 높이를 입력칸(40px)에 맞춤 */
+  .time-inputs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+  .time-inputs label { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .time-inputs .btn.small { min-height: 40px; }
+  /* 좁은 화면: 1줄 = 시간·분 입력, 2줄 = 버튼들을 같은 폭 4칸으로 (버튼 하나만 따로 떨어지지 않게) */
+  @media (max-width: 480px) {
+    .time-inputs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .time-inputs label { grid-column: span 2; }
+    .time-inputs .btn.small { padding: 2px 8px; }
+  }
   .time-inputs input {
-    width: 2.9em; min-height: 40px; font: inherit; text-align: right;
-    padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 0; background: var(--paper); color: var(--ink);
+    width: 3.25em; min-height: 40px; font: inherit; text-align: right; font-variant-numeric: tabular-nums;
+    padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 0; background: var(--paper); color: var(--ink);
   }
   .time-inputs input[aria-invalid="true"] { border-color: var(--warn); border-width: 2px; }
   /* 실제 기록의 확인 상태 표시 */
   .check-badge {
     font-size: var(--fs-s); padding: 0 10px; border-radius: 0;
-    background: var(--tint); border: 0; color: var(--ink-soft);
+    background: var(--paper); border: 0; color: var(--ink-soft);
   }
   .check-badge.done { background: var(--ok-soft); border: 0; color: var(--ok); font-weight: 700; }
   td.unchecked { color: var(--ink-soft); font-style: italic; }
@@ -143,8 +153,12 @@
   }
   button.btn:hover { background: var(--tint); }
   button.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
-  /* 강조색은 한 곳: 이 화면의 핵심 동작 '활동 추가'(계획·실제 탭마다 같은 역할, 한 번에 하나만 보임) */
-  #planAddBtn, #actualAddBtn { background: var(--accent); border-color: var(--ink); color: var(--accent-ink); font-weight: 700; }
+  /* 강조색은 한 곳: 가장 자주 누르는 실제 기록의 '확인' 버튼(스크립트가 만드는 버튼이라 aria-label 끝말로 찾음).
+     '활동 추가'는 기본 버튼. 연보라 바탕 위 글자 #111 = 대비 10.6:1 */
+  #actualRows .time-inputs button[aria-label$="기본값 그대로 실제 기록으로 확인"] {
+    background: var(--accent); border-color: var(--ink); color: var(--accent-ink); font-weight: 700;
+  }
+  #actualRows .time-inputs button[aria-label$="기본값 그대로 실제 기록으로 확인"]:hover { background: #bda4f2; }
   button.btn.danger { border-color: var(--warn); color: var(--warn); }
   button.btn.danger.solid { background: var(--warn); color: #fff; }
   button.btn.small { min-height: 36px; padding: 2px 10px; font-size: var(--fs-s); }
@@ -188,7 +202,7 @@
 
   /* 실제 기록의 이유 입력 */
   .reason-box {
-    margin-top: 8px; padding: 10px 12px; background: var(--tint); border-radius: 0;
+    margin-top: 8px; padding: 10px 12px; background: var(--paper); border-radius: 0;   /* 패널 바탕이 없어져 흰 상자로 구분 */
     display: grid; gap: 6px;
   }
   .reason-box[hidden] { display: none; }
