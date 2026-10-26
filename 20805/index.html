@@ -6,7 +6,7 @@
 <title>스택 기반 게임 플레이 최근 기록기</title>
 <meta name="description" content="게임 플레이 기록을 스택(후입선출)으로 쌓고, 가장 최근 기록부터 되돌리는 기록기">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C5 안개와 청록(어두운 바탕) · 트렌드 T03 다크 테크 · #14b8a6">
 <style>
   /* 디자인: 컬러셋 '안개와 청록(어두운 바탕)' + 트렌드 '다크 테크'
@@ -34,6 +34,11 @@
     --fail-weak: #3a1a16;
     --going: #f0c25a;
     --going-weak: #3a2d0e;
+    /* 기록 카드 테두리: 상태별로 은은하게 (글자색보다 어둡게 눌러서 과하지 않게) */
+    --edge-ok: #2c8c82;     /* 성공 = 은은한 청록 */
+    --edge-fail: #a3524a;   /* 실패 = 은은한 빨강 */
+    --edge-going: #a3843c;  /* 진행 중 = 은은한 노랑 */
+    --edge-pin: #f3f4f6;    /* 고정 = 밝은 흰색 */
   }
   * { box-sizing: border-box; }
   body {
@@ -155,8 +160,12 @@
     border-radius: 8px;
     padding: 10px 12px;
   }
-  /* 맨 위(가장 최근) 기록 = 핵심 결과: 청록 색 블록 */
-  .card.top { background: var(--result-block); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  /* 맨 위(가장 최근) 기록 = 핵심 결과: 청록 색 블록 (테두리는 상태 색을 따라요) */
+  .card.top { background: var(--result-block); }
+  /* 상태별 테두리 */
+  .card.ok { border-color: var(--edge-ok); }
+  .card.fail { border-color: var(--edge-fail); }
+  .card.going { border-color: var(--edge-going); }
   .card .title { font-weight: 600; }
   .card .detail { grid-column: 1 / -1; font-size: 0.92rem; color: var(--going); }
   .card .time { grid-column: 1 / -1; font-size: 0.88rem; color: var(--muted); }
@@ -189,8 +198,15 @@
   #detailWrap { margin-top: 14px; }
   #detailWrap[hidden] { display: none; }
   /* 카드 안 버튼(고정·수정·삭제) */
-  .card.pinned { border-color: var(--going); }
-  .card.top.pinned { box-shadow: 0 0 0 1px var(--accent); }
+  /* 고정 + 상태가 겹치면: 바깥 테두리는 흰색(고정), 바로 안쪽에 1px 띄운 상태 색 선을 한 줄 더 */
+  .card.pinned { border-color: var(--edge-pin); --edge-in: var(--edge-going); box-shadow: inset 0 0 0 1px var(--surface), inset 0 0 0 2px var(--edge-in); }
+  .card.pinned.ok { --edge-in: var(--edge-ok); }
+  .card.pinned.fail { --edge-in: var(--edge-fail); }
+  .card.top.pinned { box-shadow: inset 0 0 0 1px var(--result-block), inset 0 0 0 2px var(--edge-in); }
+  /* 카드 안 삭제 재확인 줄 */
+  .del-confirm { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 4px; padding: 8px 10px; border: 1px solid #6b2c24; border-radius: 8px; background: var(--fail-weak); }
+  .del-confirm p { margin: 0; flex: 1 1 100%; font-size: 0.92rem; font-weight: 600; color: var(--text); }
+  .del-confirm button { min-height: 36px; padding: 4px 12px; font-size: 0.9rem; }
   .pin-mark { font-size: 0.8rem; font-weight: 700; color: var(--going); margin-right: 6px; }
   .card .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
   .card .actions button { min-height: 36px; padding: 4px 12px; font-size: 0.9rem; }
@@ -311,6 +327,7 @@ let pendingAction = null;  // 확인 상자에서 '예'를 누르면 실행할 �
 let justPushed = false;    // 방금 추가했는지 (새 카드 효과용)
 let editingIndex = -1;     // 지금 수정 중인 기록의 배열 위치 (-1 = 없음)
 let editError = "";        // 수정 상자에 보여 줄 안내
+let confirmDelIndex = -1;  // 카드 안에서 '정말 삭제?'를 묻는 중인 기록의 배열 위치 (-1 = 없음)
 
 // ===== 처리 함수 =====
 
@@ -391,7 +408,7 @@ function popRecord() {
 
 /*
   중간 기록 삭제
-  - 카드의 '삭제' 버튼으로 원하는 위치의 기록 하나를 바로 지워요(확인 없이).
+  - 카드의 '삭제' 버튼을 누르면 그 카드 안에서 한 번 더 묻고, '예, 삭제'를 눌러야 지워요.
   - 스택의 원래 규칙(맨 위만 꺼내기)과 달리 중간에서도 빼낼 수 있는 예외 기능이에요.
 */
 function deleteAt(index) {
@@ -487,7 +504,7 @@ function renderStack() {
     const rec = stack[i];
     const isTop = i === stack.length - 1;
     const li = document.createElement("li");
-    li.className = "card" + (isTop ? " top" : "") + (rec.pinned ? " pinned" : "") + (isTop && justPushed ? " new" : "");
+    li.className = "card " + resultClass(rec.result) + (isTop ? " top" : "") + (rec.pinned ? " pinned" : "") + (isTop && justPushed ? " new" : "");
 
     const title = document.createElement("span");
     title.className = "title";
@@ -523,6 +540,7 @@ function renderStack() {
     }
     li.appendChild(time);
     if (i === editingIndex) li.appendChild(buildEditBox(rec, i));
+    else if (i === confirmDelIndex) li.appendChild(buildDelConfirm(rec, i));
     else li.appendChild(buildActions(rec, i));
     els.list.appendChild(li);
   });
@@ -566,6 +584,23 @@ function buildActions(rec, i) {
     makeBtn("삭제", "danger", "delete", i, rec.title + " 기록 삭제")
   );
   return row;
+}
+
+// 카드 안 삭제 재확인 줄: 알림창(confirm) 대신 같은 자리에서 한 번 더 물어봐요
+function buildDelConfirm(rec, i) {
+  const box = document.createElement("div");
+  box.className = "del-confirm";
+  box.setAttribute("role", "group");
+  const q = document.createElement("p");
+  q.id = "delQ" + i;
+  q.textContent = "'" + rec.title + "' 기록을 정말 삭제할까요?" + (rec.pinned ? " (고정된 기록이에요)" : "");
+  box.setAttribute("aria-labelledby", q.id);
+  box.append(
+    q,
+    makeBtn("예, 삭제", "danger", "delYes", i, rec.title + " 기록 삭제 확정"),
+    makeBtn("취소", "secondary", "delNo", i, rec.title + " 기록 삭제 취소")
+  );
+  return box;
 }
 
 // 카드 안 수정 상자: 결과 선택 + ('진행 중'일 때) 세부 내용 + 저장/취소
@@ -710,6 +745,7 @@ els.form.addEventListener("submit", function (e) {
   els.detail.value = "";
   els.detailCount.textContent = "0";
   closeConfirm();
+  confirmDelIndex = -1;
   justPushed = true;
   renderStack();
 });
@@ -723,6 +759,9 @@ els.list.addEventListener("click", function (e) {
   const rec = stack[i];
   if (!rec) return;
   let focusAct = null; // 다시 그린 뒤 포커스를 둘 버튼
+
+  // 삭제 확인·취소가 아닌 다른 버튼을 누르면 묻던 삭제 확인은 닫아요
+  if (act !== "delete" && act !== "delYes" && act !== "delNo") confirmDelIndex = -1;
 
   if (act === "pin") {
     togglePin(i);
@@ -752,6 +791,16 @@ els.list.addEventListener("click", function (e) {
       focusAct = "edit";
     }
   } else if (act === "delete") {
+    // 바로 지우지 않고, 카드 안에 '정말 삭제할까요?'를 띄워요
+    confirmDelIndex = i;
+    editingIndex = -1;
+    editError = "";
+    closeConfirm();
+  } else if (act === "delNo") {
+    confirmDelIndex = -1;
+    focusAct = "delete";
+  } else if (act === "delYes") {
+    confirmDelIndex = -1;
     const removed = deleteAt(i);
     editingIndex = -1;
     editError = "";
@@ -761,13 +810,16 @@ els.list.addEventListener("click", function (e) {
   renderStack();
 
   // 키보드 사용자를 위해 다시 그린 뒤 포커스를 알맞은 곳에 둬요
-  if (act === "edit") {
+  if (act === "delete") {
+    const no = els.list.querySelector("button[data-act='delNo']");
+    if (no) no.focus();
+  } else if (act === "edit") {
     const first = els.list.querySelector("input[name='editResult']:checked");
     if (first) first.focus();
   } else if (focusAct) {
     const again = els.list.querySelector("button[data-act='" + focusAct + "'][data-index='" + i + "']");
     if (again) again.focus();
-  } else if (act === "delete") {
+  } else if (act === "delYes") {
     els.listTitle.focus();
   } else if (act === "save") {
     const save = els.list.querySelector("button[data-act='save']");
@@ -775,8 +827,9 @@ els.list.addEventListener("click", function (e) {
   }
 });
 
-els.popBtn.addEventListener("click", function () { openConfirm("pop"); });
-els.resetBtn.addEventListener("click", function () { openConfirm("reset"); });
+// 아래 확인 상자를 열 때는 카드 안 삭제 확인을 닫아요 (확인 창이 두 개 동시에 뜨지 않게)
+els.popBtn.addEventListener("click", function () { if (confirmDelIndex !== -1) { confirmDelIndex = -1; renderStack(); } openConfirm("pop"); });
+els.resetBtn.addEventListener("click", function () { if (confirmDelIndex !== -1) { confirmDelIndex = -1; renderStack(); } openConfirm("reset"); });
 els.confirmNo.addEventListener("click", closeConfirm);
 
 els.confirmYes.addEventListener("click", function () {
