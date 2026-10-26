@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>진행 대시보드 · 레이트 바이브 코딩</title>
+    <meta name="description" content="학번별로 PRD부터 4회 개선·디자인까지 어느 단계를 마쳤는지 한눈에 보는 진행 현황" />
+    <link rel="stylesheet" href="assets/style.css" />
+    <script type="module" src="assets/dashboard.js"></script>
+  </head>
+  <body class="dash-page">
+    <a class="skip" href="#main">본문으로 이동</a>
+    <header>
+      <a class="brand" href="./">SIH26 <span>정보과학 수업용</span></a>
+      <a class="button about-open" href="./">전시판으로</a>
+    </header>
+    <main id="main">
+      <h1>진행 대시보드</h1>
+      <p class="intro">
+        만점 기준은 <strong>PRD · 1회 · 2회 · 3회 · 4회 개선 · 디자인</strong> 여섯 가지입니다.
+        채워진 배지는 마친 단계, 점선 배지는 아직 남은 단계입니다.
+      </p>
+      <form id="dash-filters" class="filters">
+        <label
+          >반<span class="select-field"
+            ><select id="dash-class">
+              <option value="">모든 반</option>
+            </select></span
+          ></label
+        >
+        <label class="dash-check"
+          ><input id="dash-todo" type="checkbox" /> 만점 아닌 학생만</label
+        >
+      </form>
+      <p id="dash-summary" class="dash-summary" role="status" aria-live="polite">불러오는 중…</p>
+      <div id="message" class="message"></div>
+      <div id="dash-groups"></div>
+    </main>
+    <footer id="build-info">빌드 정보를 불러오는 중…</footer>
+  </body>
+</html>
