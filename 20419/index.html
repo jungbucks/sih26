@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>수행평가 관리 플래너</title>
-<meta name="description" content="여러 과목의 수행평가를 마감일·우선순위와 함께 적어 두고, 완료한 과제는 취소선과 함께 아래로 정리해 주는 플래너">
+<meta name="description" content="여러 과목의 수행평가를 마감일과 함께 적어 두고 언제든 고칠 수 있으며, 완료한 과제는 취소선과 함께 아래로 정리해 주는 플래너">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C3 종이와 보라 · 트렌드 T00 기본 · #5645d4">
 <style>
   /* ===== 색과 기본 글꼴 ===== */
@@ -154,10 +154,6 @@
     align-items: flex-start;
     justify-content: space-between;
   }
-  .card.p-high { border-left-color: var(--warn); }
-  .card.p-mid { border-left-color: var(--accent); }
-  .card.p-low { border-left-color: var(--muted); }
-  .card.p-none { border-left-color: var(--line); }
   .card .body { min-width: 0; flex: 1; overflow-wrap: anywhere; } /* 띄어쓰기 없는 긴 글도 줄바꿈 */
   /* 카드 맨 위: 마감 날짜 + D-day를 가장 크게 */
   .due-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin-bottom: 2px; }
@@ -168,21 +164,13 @@
   .subject { font-weight: 700; }
   .task { margin: 2px 0 4px; }
   .meta { color: var(--muted); font-size: 0.93rem; display: flex; flex-wrap: wrap; gap: 4px 12px; }
-  .badge {
-    display: inline-block;
-    font-size: 0.85rem;
-    font-weight: 700;
-    padding: 0 8px;
-    border-radius: 999px;
-    border: 1px solid currentColor;
-  }
-  .badge.p-high { color: var(--warn); }
-  .badge.p-mid { color: var(--accent); }
-  .badge.p-low { color: var(--muted); }
-  .badge.p-none { color: var(--muted); border-style: dashed; font-weight: 600; }
   .late { color: var(--warn); font-weight: 700; }
   .card button { flex-shrink: 0; }
-  /* 카드 오른쪽 버튼 묶음 (완료 + 삭제) */
+  /* 카드 안 수정 폼: 카드 한 줄을 다 쓴다 */
+  .edit-form { flex: 1 1 100%; min-width: 0; }
+  .edit-form h3 { font-size: 1rem; margin: 0 0 10px; }
+  .card.editing { border-left-color: var(--accent); background: var(--bg); }
+  /* 카드 오른쪽 버튼 묶음 (완료 + 수정 + 삭제) */
   .actions { display: flex; gap: 6px; flex-shrink: 0; }
   /* 카드 안 삭제 확인 상자 */
   .card-confirm {
@@ -247,6 +235,7 @@
     .card .actions { width: 100%; }
     .card button { flex: 1; }
     .card-confirm { width: 100%; }
+    .edit-form { width: 100%; }
   }
 </style>
 </head>
@@ -265,7 +254,7 @@
   <h1>수행평가 관리 플래너</h1>
   <p class="lead">과제를 적어 두면 해야 할 일은 위로, 끝낸 일은 아래로 정리해 줍니다.</p>
 
-  <p class="notice" role="note">우선순위와 마감일은 실시간으로 다시 한번 확인하세요!</p>
+  <p class="notice" role="note">마감일은 실시간으로 다시 한번 확인하세요!</p>
 
   <!-- 입력 폼 -->
   <section class="panel" aria-labelledby="form-title">
@@ -288,15 +277,6 @@
         <div>
           <label for="in-minutes">예상 소요 시간(분)<span class="opt">선택</span></label>
           <input id="in-minutes" type="number" min="1" max="1440" step="1" inputmode="numeric" placeholder="예: 45">
-        </div>
-        <div>
-          <label for="in-priority">우선순위<span class="opt">선택</span></label>
-          <select id="in-priority">
-            <option value="">우선순위 없음</option>
-            <option value="high">높음</option>
-            <option value="mid">보통</option>
-            <option value="low">낮음</option>
-          </select>
         </div>
       </div>
       <div class="row">
@@ -336,8 +316,9 @@
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="sample-title">
     <h2 id="sample-title">이렇게 사용해요</h2>
     <ol>
-      <li>위 입력칸에 과목명과 마감 날짜를 적고 '추가'를 눌러요. 과제 내용, 소요 시간, 우선순위는 비워 둬도 돼요.</li>
-      <li>목록은 마감일이 빠른 과제가 위로, 마감일이 같으면 우선순위가 높은 과제가 위로 와요. (우선순위 없음은 맨 뒤)</li>
+      <li>위 입력칸에 과목명과 마감 날짜를 적고 '추가'를 눌러요. 과제 내용과 소요 시간은 비워 둬도 돼요.</li>
+      <li>목록은 마감일이 빠른 과제가 위로 와요. 마감일이 같으면 먼저 등록한 과제가 위에 있어요.</li>
+      <li>등록한 내용을 바꾸고 싶으면 '수정'을 눌러 고친 뒤 '저장'을 눌러요.</li>
       <li>다 끝낸 과제는 '완료'를 누르면 취소선이 그어지고 아래로 내려가요.</li>
       <li>잘못 넣은 과제는 '삭제'로 하나만 지울 수 있어요.</li>
     </ol>
@@ -353,22 +334,22 @@
 // ===== 예시 데이터·설정 =====
 const STORAGE_KEY = "sih26:20419:tasks";   // 이 프로그램 전용 저장 이름
 const MAX_TASKS = 20;                       // 최대 20개까지 저장
-const PRIORITY_NAME = { high: "높음", mid: "보통", low: "낮음", none: "없음" };
-const PRIORITY_RANK = { high: 0, mid: 1, low: 2, none: 3 }; // 숫자가 작을수록 위에 표시
 const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 
 // 예시 데이터: 마감일은 "오늘로부터 며칠 뒤"로 적어 둔다 (내일=1, 글피=3)
 // 세 번째는 필수 항목(과목명·마감 날짜)만 적은 예시
 const SAMPLE_TASKS = [
-  { subject: "국어", task: "독서 감상문 제출", daysLater: 1, minutes: 45, priority: "high" },
-  { subject: "수학", task: "학습지 3페이지 풀기", daysLater: 3, minutes: 30, priority: "mid" },
-  { subject: "영어", task: "", daysLater: 3, minutes: null, priority: "none" }
+  { subject: "국어", task: "독서 감상문 제출", daysLater: 1, minutes: 45 },
+  { subject: "수학", task: "학습지 3페이지 풀기", daysLater: 3, minutes: 30 },
+  { subject: "영어", task: "", daysLater: 3, minutes: null }
 ];
 
 // ===== 데이터·상태 =====
 let tasks = [];          // 수행평가 객체 배열
 let canSave = true;      // localStorage를 쓸 수 있는지
 let pendingDeleteId = null; // '삭제' 확인 상자를 띄운 과제의 id (없으면 null)
+let editingId = null;    // '수정' 폼을 연 과제의 id (한 번에 하나만, 없으면 null)
+let editDraft = null;    // 수정 폼에 지금 적혀 있는 값 (다시 그려도 입력 중인 글이 남도록)
 
 // ===== 처리 함수 =====
 
@@ -429,52 +410,62 @@ function isTaskLike(x) {
 }
 
 // 비어 있는 선택 항목을 기본값으로 맞춘다
-// (예전에 저장한 과제는 모든 항목이 있어 그대로 유지된다)
+// (예전 버전에서 저장한 우선순위 값은 화면에 쓰지 않지만, 지우지 않고 그대로 둔다)
 function normalizeTask(x) {
   const m = Number(x.minutes);
-  return {
+  const t = {
     id: typeof x.id === "string" && x.id ? x.id : Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     subject: x.subject,
     task: typeof x.task === "string" ? x.task : "",
     due: x.due,
     minutes: Number.isInteger(m) && m >= 1 ? m : null,    // 비면 null = 소요 시간 미정
-    priority: PRIORITY_RANK.hasOwnProperty(x.priority) ? x.priority : "none",
     done: x.done === true
   };
+  if (x.priority !== undefined) t.priority = x.priority;  // 예전 데이터 보존용 (사용 안 함)
+  return t;
 }
 
 // 새 수행평가 객체 만들기
-function makeTask(subject, task, due, minutes, priority) {
+function makeTask(subject, task, due, minutes) {
   return normalizeTask({
     subject: subject,
     task: task,
     due: due,
     minutes: minutes,
-    priority: priority,
     done: false
   });
 }
 
 // 정렬 규칙: 미완료가 위, 완료가 아래.
-// 같은 그룹 안에서는 마감일이 빠른 순, 마감일이 같으면 우선순위(높음→낮음) 순.
-// (마감일은 "2026-10-14" 꼴 문자열이라 글자 크기 비교만으로 날짜 순서가 된다)
+// 같은 그룹 안에서는 마감일이 빠른 순, 마감일이 같으면 먼저 등록한 과제가 위.
+// (마감일은 "2026-10-14" 꼴 문자열이라 글자 크기 비교만으로 날짜 순서가 된다.
+//  tasks 배열은 등록한 순서대로 쌓이고, 정렬은 같은 값끼리 원래 순서를 지킨다)
 function sortTasks(list) {
   return list.slice().sort(function (a, b) {
     if (a.done !== b.done) return a.done ? 1 : -1;
     if (a.due !== b.due) return a.due < b.due ? -1 : 1;
-    return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+    return 0;
   });
 }
 function sortedTasks() {
   return sortTasks(tasks);
 }
 
-// 폼 입력 검사: 필수 항목(과목명·마감 날짜)만 검사한다
-// 과제 내용·소요 시간·우선순위는 비워도 된다. 단, 소요 시간을 적었다면 올바른 숫자여야 한다.
-function checkForm(values) {
+// "2026-10-14" 꼴이고 실제로 있는 날짜인지 (2월 30일 같은 날짜는 거른다)
+function isValidDate(s) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const d = new Date(s + "T00:00:00");
+  return !isNaN(d) && toDateString(d) === s;
+}
+
+// 폼 입력 검사: 추가 폼과 수정 폼이 같은 규칙을 쓴다
+// ids = 그 폼의 입력칸 id 묶음 { subject, due, minutes }
+// 과제 내용·소요 시간은 비워도 된다. 단, 소요 시간을 적었다면 올바른 숫자여야 한다.
+function checkForm(values, ids) {
   const missing = [];
-  if (!values.subject) missing.push({ id: "in-subject", name: "과목명" });
-  if (!values.due) missing.push({ id: "in-due", name: "마감 날짜" });
+  if (!values.subject) missing.push({ id: ids.subject, name: "과목명" });
+  // 날짜를 반만 적다 만 경우(dueBad)는 아래에서 따로 안내한다
+  if (!values.due && !values.dueBad) missing.push({ id: ids.due, name: "마감 날짜" });
 
   if (missing.length > 0) {
     return {
@@ -482,17 +473,38 @@ function checkForm(values) {
       text: "필수 항목을 입력해 주세요. 비어 있는 항목: " + missing.map(function (m) { return m.name; }).join(", ")
     };
   }
+  if (values.dueBad || !isValidDate(values.due)) {
+    return { bad: [ids.due], text: "마감 날짜가 올바르지 않아요. 연·월·일을 모두 맞게 입력해 주세요." };
+  }
   if (values.minutesBad) {
-    return { bad: ["in-minutes"], text: "예상 소요 시간은 1~1440 사이의 정수(분)로 입력하거나 비워 두세요." };
+    return { bad: [ids.minutes], text: "예상 소요 시간은 1~1440 사이의 정수(분)로 입력하거나 비워 두세요." };
   }
   if (values.minutesText !== "") {
     const n = Number(values.minutesText);
     if (!Number.isInteger(n) || n < 1 || n > 1440) {
-      return { bad: ["in-minutes"], text: "예상 소요 시간은 1~1440 사이의 정수(분)로 입력하거나 비워 두세요." };
+      return { bad: [ids.minutes], text: "예상 소요 시간은 1~1440 사이의 정수(분)로 입력하거나 비워 두세요." };
     }
   }
   return null;
 }
+
+// 폼의 입력칸들에서 검사할 값을 모은다 (추가 폼·수정 폼 공통)
+function readForm(ids) {
+  const minutesEl = document.getElementById(ids.minutes);
+  const dueEl = document.getElementById(ids.due);
+  return {
+    subject: document.getElementById(ids.subject).value.trim(),
+    task: document.getElementById(ids.task).value.trim(),
+    due: dueEl.value,
+    // 날짜를 다 적지 않으면 value가 ""가 되므로 따로 확인한다
+    dueBad: dueEl.validity.badInput,
+    minutesText: minutesEl.value.trim(),
+    // 숫자칸에 숫자가 아닌 글자를 넣으면 value가 ""가 되므로 따로 확인한다
+    minutesBad: minutesEl.validity.badInput
+  };
+}
+const ADD_IDS = { subject: "in-subject", task: "in-task", due: "in-due", minutes: "in-minutes" };
+const EDIT_IDS = { subject: "ed-subject", task: "ed-task", due: "ed-due", minutes: "ed-minutes" };
 
 // "2026-10-20" → "10월 20일 (화)"
 function formatDue(dueString) {
@@ -521,9 +533,104 @@ function showMessage(el, text, kind) {
 
 // 카드 하나 만들기 (사용자 입력은 textContent로만 넣어 안전하게)
 // preview가 true면 예시 팝업용: 버튼 없이 모양만 보여 준다
-function buildCard(t, preview) {
+// 수정 폼용 입력칸 한 묶음(라벨 + 입력칸) 만들기
+function editField(id, labelText, required, input, full) {
+  const wrap = document.createElement("div");
+  if (full) wrap.className = "full";
+  const label = document.createElement("label");
+  label.htmlFor = id;
+  label.textContent = labelText;
+  const mark = document.createElement("span");
+  mark.className = required ? "req" : "opt";
+  mark.textContent = required ? "필수" : "선택";
+  label.append(mark);
+  input.id = id;
+  if (required) input.setAttribute("aria-required", "true");
+  wrap.append(label, input);
+  return wrap;
+}
+
+// 카드 자리에 들어가는 수정 폼 (등록 때와 같은 항목·같은 검사)
+function buildEditCard(t) {
   const li = document.createElement("li");
-  li.className = "card p-" + t.priority + (t.done ? " done" : "");
+  li.className = "card editing";
+
+  const form = document.createElement("form");
+  form.className = "edit-form";
+  form.noValidate = true;
+  form.dataset.id = t.id;
+  form.setAttribute("aria-labelledby", "ed-title");
+
+  const h = document.createElement("h3");
+  h.id = "ed-title";
+  h.textContent = "과제 수정";
+
+  const grid = document.createElement("div");
+  grid.className = "grid";
+
+  const subject = document.createElement("input");
+  subject.type = "text";
+  subject.maxLength = 20;
+  subject.autocomplete = "off";
+  subject.placeholder = "예: 국어";
+  subject.value = editDraft.subject;
+
+  const due = document.createElement("input");
+  due.type = "date";
+  due.value = editDraft.due;
+
+  const task = document.createElement("input");
+  task.type = "text";
+  task.maxLength = 60;
+  task.autocomplete = "off";
+  task.placeholder = "예: 독서 감상문 제출";
+  task.value = editDraft.task;
+
+  const minutes = document.createElement("input");
+  minutes.type = "number";
+  minutes.min = "1";
+  minutes.max = "1440";
+  minutes.step = "1";
+  minutes.inputMode = "numeric";
+  minutes.placeholder = "예: 45";
+  minutes.value = editDraft.minutes;
+
+  grid.append(
+    editField(EDIT_IDS.subject, "과목명", true, subject),
+    editField(EDIT_IDS.due, "마감 날짜", true, due),
+    editField(EDIT_IDS.task, "과제 내용", false, task, true),
+    editField(EDIT_IDS.minutes, "예상 소요 시간(분)", false, minutes)
+  );
+
+  const row = document.createElement("div");
+  row.className = "row";
+  const save = document.createElement("button");
+  save.type = "submit";
+  save.className = "primary";
+  save.textContent = "저장";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.dataset.id = t.id;
+  cancel.dataset.act = "edit-cancel";
+  cancel.textContent = "취소";
+  row.append(save, cancel);
+
+  const msg = document.createElement("p");
+  msg.className = "msg";
+  msg.id = "ed-msg";
+  msg.setAttribute("role", "status");
+  msg.setAttribute("aria-live", "polite");
+
+  form.append(h, grid, row, msg);
+  li.append(form);
+  return li;
+}
+
+function buildCard(t, preview) {
+  if (!preview && editingId === t.id && editDraft) return buildEditCard(t);
+
+  const li = document.createElement("li");
+  li.className = "card" + (t.done ? " done" : "");
 
   const body = document.createElement("div");
   body.className = "body";
@@ -553,14 +660,10 @@ function buildCard(t, preview) {
   const meta = document.createElement("div");
   meta.className = "meta";
 
-  const badge = document.createElement("span");
-  badge.className = "badge p-" + t.priority;
-  badge.textContent = "우선순위 " + PRIORITY_NAME[t.priority];
-
   const time = document.createElement("span");
   time.textContent = t.minutes ? "예상 " + t.minutes + "분" : "소요 시간 미정";
 
-  meta.append(badge, time);
+  meta.append(time);
   if (t.done) {
     const doneLabel = document.createElement("span");
     doneLabel.className = "done-label";
@@ -573,7 +676,7 @@ function buildCard(t, preview) {
   li.append(body);
   if (preview) return li;
 
-  // 오른쪽 버튼 묶음: 완료(토글) + 삭제
+  // 오른쪽 버튼 묶음: 완료(토글) + 수정 + 삭제
   const actions = document.createElement("div");
   actions.className = "actions";
 
@@ -594,7 +697,14 @@ function buildCard(t, preview) {
   del.textContent = "삭제";
   del.setAttribute("aria-label", name + " 삭제");
 
-  actions.append(btn, del);
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.dataset.id = t.id;
+  edit.dataset.act = "edit";
+  edit.textContent = "수정";
+  edit.setAttribute("aria-label", name + " 수정");
+
+  actions.append(btn, edit, del);
   li.append(actions);
 
   // 이 카드의 '삭제'를 눌렀다면 카드 안에 확인 상자를 보여 준다
@@ -655,19 +765,11 @@ function render() {
 // '추가' 버튼
 document.getElementById("task-form").addEventListener("submit", function (e) {
   e.preventDefault();
-  const values = {
-    subject: document.getElementById("in-subject").value.trim(),
-    task: document.getElementById("in-task").value.trim(),
-    due: document.getElementById("in-due").value,
-    minutesText: document.getElementById("in-minutes").value.trim(),
-    // 숫자칸에 숫자가 아닌 글자를 넣으면 value가 ""가 되므로 따로 확인한다
-    minutesBad: document.getElementById("in-minutes").validity.badInput,
-    priority: document.getElementById("in-priority").value
-  };
+  const values = readForm(ADD_IDS);
 
   // 이전 오류 표시 지우기
-  ["in-subject", "in-task", "in-due", "in-minutes", "in-priority"].forEach(function (id) {
-    document.getElementById(id).removeAttribute("aria-invalid");
+  Object.keys(ADD_IDS).forEach(function (k) {
+    document.getElementById(ADD_IDS[k]).removeAttribute("aria-invalid");
   });
 
   if (tasks.length >= MAX_TASKS) {
@@ -675,7 +777,7 @@ document.getElementById("task-form").addEventListener("submit", function (e) {
     return;
   }
 
-  const problem = checkForm(values);
+  const problem = checkForm(values, ADD_IDS);
   if (problem) {
     problem.bad.forEach(function (id) { document.getElementById(id).setAttribute("aria-invalid", "true"); });
     showMessage(formMsg, problem.text, "error");
@@ -683,10 +785,9 @@ document.getElementById("task-form").addEventListener("submit", function (e) {
     return;
   }
 
-  // 비운 항목은 기본값: 과제 내용 없음, 소요 시간 미정, 우선순위 없음
+  // 비운 항목은 기본값: 과제 내용 없음, 소요 시간 미정
   tasks.push(makeTask(values.subject, values.task, values.due,
-    values.minutesText === "" ? null : Number(values.minutesText),
-    values.priority || "none"));
+    values.minutesText === "" ? null : Number(values.minutesText)));
   saveTasks();
   this.reset();
   showMessage(formMsg, "'" + values.subject + "' 과제를 추가했어요.", "ok");
@@ -703,7 +804,8 @@ function focusButton(id, act) {
 }
 
 // 카드의 버튼들 (목록 전체에 한 번만 연결)
-// toggle=완료/완료 취소, ask-delete=삭제 확인 열기, delete-yes=정말 삭제, delete-no=취소
+// toggle=완료/완료 취소, edit=수정 폼 열기, edit-cancel=수정 취소,
+// ask-delete=삭제 확인 열기, delete-yes=정말 삭제, delete-no=취소
 listEl.addEventListener("click", function (e) {
   const btn = e.target.closest("button[data-id]");
   if (!btn) return;
@@ -712,13 +814,25 @@ listEl.addEventListener("click", function (e) {
   const t = tasks.find(function (x) { return x.id === id; });
   if (!t) return;
 
-  if (act === "toggle") {
+  if (act === "edit") {
+    // 수정 폼은 한 번에 하나만. 지금 값으로 칸을 채워서 연다
+    editingId = id;
+    editDraft = { subject: t.subject, due: t.due, task: t.task, minutes: t.minutes ? String(t.minutes) : "" };
+    pendingDeleteId = null;
+    showMessage(listMsg, "");
+    render();
+    document.getElementById(EDIT_IDS.subject).focus();
+  } else if (act === "edit-cancel") {
+    closeEdit();
+  } else if (act === "toggle") {
     t.done = !t.done;   // 다시 누르면 원래대로 (토글)
     saveTasks();
     render();
     focusButton(id, "toggle");
   } else if (act === "ask-delete") {
     pendingDeleteId = id;  // 확인 상자는 한 번에 하나만
+    editingId = null;      // 다른 카드의 수정 폼은 닫는다
+    editDraft = null;
     render();
     focusButton(id, "delete-no");
   } else if (act === "delete-no") {
@@ -735,6 +849,56 @@ listEl.addEventListener("click", function (e) {
   }
 });
 
+// 수정 폼 닫기 (저장하지 않은 내용은 버린다)
+function closeEdit() {
+  const id = editingId;
+  editingId = null;
+  editDraft = null;
+  render();
+  if (id) focusButton(id, "edit");
+}
+
+// 수정 폼에 글자를 칠 때마다 임시로 기억해 둔다
+// (다른 카드의 '완료'를 눌러 목록이 다시 그려져도 적던 내용이 남는다)
+listEl.addEventListener("input", function (e) {
+  if (!editDraft || !e.target.closest(".edit-form")) return;
+  const key = { "ed-subject": "subject", "ed-due": "due", "ed-task": "task", "ed-minutes": "minutes" }[e.target.id];
+  if (key) editDraft[key] = e.target.value;
+});
+
+// 수정 폼 '저장' (Enter 키로도 저장)
+listEl.addEventListener("submit", function (e) {
+  if (!e.target.classList.contains("edit-form")) return;
+  e.preventDefault();
+  const t = tasks.find(function (x) { return x.id === e.target.dataset.id; });
+  if (!t) { closeEdit(); return; }
+  const edMsg = document.getElementById("ed-msg");
+  const values = readForm(EDIT_IDS);
+
+  Object.keys(EDIT_IDS).forEach(function (k) {
+    document.getElementById(EDIT_IDS[k]).removeAttribute("aria-invalid");
+  });
+  const problem = checkForm(values, EDIT_IDS);
+  if (problem) {
+    problem.bad.forEach(function (id) { document.getElementById(id).setAttribute("aria-invalid", "true"); });
+    showMessage(edMsg, problem.text, "error");
+    document.getElementById(problem.bad[0]).focus();
+    return;
+  }
+
+  const minutes = values.minutesText === "" ? null : Number(values.minutesText);
+  const changed = t.subject !== values.subject || t.task !== values.task ||
+    t.due !== values.due || t.minutes !== minutes;
+  // 완료 여부·id는 그대로 두고 적은 내용만 바꾼다
+  t.subject = values.subject;
+  t.task = values.task;
+  t.due = values.due;
+  t.minutes = minutes;
+  if (changed) saveTasks();
+  showMessage(listMsg, changed ? "'" + t.subject + "' 과제를 수정했어요." : "바뀐 내용이 없어서 그대로 두었어요.", "ok");
+  closeEdit();
+});
+
 // '예시 보기' → 팝업 열기 (내 목록에는 아무것도 더하지 않음)
 const sampleOverlay = document.getElementById("sample-overlay");
 const sampleList = document.getElementById("sample-list");
@@ -742,7 +906,7 @@ const sampleList = document.getElementById("sample-list");
 function openSample() {
   // 예시 과제를 오늘 기준 날짜로 만들어 실제 목록과 같은 규칙으로 정렬해 보여 준다
   const samples = SAMPLE_TASKS.map(function (s) {
-    return makeTask(s.subject, s.task, dateAfter(s.daysLater), s.minutes, s.priority);
+    return makeTask(s.subject, s.task, dateAfter(s.daysLater), s.minutes);
   });
   sampleList.replaceChildren();
   sortTasks(samples).forEach(function (t) { sampleList.append(buildCard(t, true)); });
@@ -761,6 +925,8 @@ sampleOverlay.addEventListener("click", function (e) {
 });
 document.addEventListener("keydown", function (e) {
   if (e.key === "Escape" && !sampleOverlay.hidden) closeSample();
+  // 수정 폼 안에서 Esc를 누르면 수정 취소
+  else if (e.key === "Escape" && editingId && document.activeElement && document.activeElement.closest(".edit-form")) closeEdit();
 });
 
 // '전체 초기화' → 페이지 안 확인 상자 열기
@@ -775,6 +941,8 @@ document.getElementById("btn-reset-no").addEventListener("click", function () {
 document.getElementById("btn-reset-yes").addEventListener("click", function () {
   tasks = [];
   pendingDeleteId = null;
+  editingId = null;
+  editDraft = null;
   removeSaved();
   confirmBox.hidden = true;
   showMessage(listMsg, "모든 수행평가를 지웠어요.", "ok");
