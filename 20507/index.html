@@ -7,7 +7,7 @@
 <title>학교 분실물 단계별 찾기</title>
 <meta name="description" content="질문 세 개를 차례로 고르면 내 분실물이 접수됐는지, 어디에 언제부터 보관 중인지 바로 알려 주는 분실물 안내판 (테스트용 가상 데이터)">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="2회 개선">
+  <meta name="status" content="3회 개선">
   <meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T06 스크롤 3D · #1e3a8a">
 
 <!-- ===== 2. 스타일 ===== -->
@@ -15,7 +15,7 @@
   /* 전시판 공용 글꼴 (못 불러와도 아래 대체 글꼴로 정상 작동) */
   @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
 
-  /* 컬러셋: 신문지와 남색 · 트렌드: 스크롤 3D(전체 목록 한 곳) */
+  /* 컬러셋: 신문지와 남색 (전체 목록의 스크롤 3D 효과는 3회 개선에서 뺌) */
   :root {
     --bg: #f4f1ea;            /* 페이지 바탕: 누런 신문지 */
     --card: #fbf9f4;          /* 카드·입력칸 바탕 */
@@ -207,29 +207,8 @@
   /* 요약 한 줄: 색 블록 카드 */
   .list-count { margin: 0 0 12px; color: var(--text); background: var(--block); border-radius: var(--radius); padding: 10px 14px; }
 
-  /* 스크롤 3D(축소판): 전체 목록의 줄(휴대폰에서는 카드)이 화면 아래에서 들어올 때
-     뒤로 눕혀 있다가 똑바로 서며 다가온다. 스크립트 없이 CSS 스크롤 연동 애니메이션으로만 처리.
-     지원하지 않는 브라우저·움직임 줄이기 설정에서는 처음부터 똑바로 선 상태(완성된 화면). */
-  #list-body { perspective: 900px; }
-  @keyframes rise-in {
-    from { transform: rotateX(var(--tilt, 25deg)) translateY(18px); }
-    to   { transform: none; }
-  }
-  @supports (animation-timeline: view()) {
-    /* 표를 감싼 가로 스크롤 상자가 있으면 그 상자 기준으로만 계산되므로,
-       표가 화면에 다 들어가는 폭(휴대폰 카드형·넓은 화면)에서는 상자를 풀어 페이지 스크롤에 맞춘다 */
-    @media (max-width: 560px), (min-width: 760px) {
-      .table-wrap { overflow: visible; }
-    }
-    @media (prefers-reduced-motion: no-preference) {
-      #list-body tr {
-        transform-origin: 50% 100%;
-        animation: rise-in linear both;
-        animation-timeline: view();
-        animation-range: entry 0% entry 100%;
-      }
-    }
-  }
+  /* 등록 날짜는 항상 한 줄로 (예: 2026-10-22가 두 줄로 쪼개지지 않게) */
+  #list-body td[data-label="등록 날짜"] { white-space: nowrap; }
 
   footer { margin-top: 24px; color: var(--muted); font-size: 16px; }
   footer p { margin: 0 0 6px; }
@@ -278,7 +257,6 @@
     thead { display: none; }
     table, tbody, tr, td { display: block; width: 100%; }
     tr { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px; margin-bottom: 10px; background: var(--card); }
-    #list-body { --tilt: 12.5deg; }   /* 휴대폰에서는 기울기 절반 */
     tr.returned { background: var(--bg); }
     td { border: 0; padding: 2px 0; }
     td::before { content: attr(data-label) " : "; color: var(--muted); }
