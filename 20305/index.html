@@ -7,7 +7,7 @@
 <title>당장 할 일 알리미</title>
 <meta name="description" content="가장 최근에 추가한 할 일을 맨 위에 보여 주는 스택(후입선출) 방식 할 일 목록">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="1회 개선">
+<meta name="status" content="2회 개선">
 <meta name="design" content="컬러셋 C11 밤하늘과 보라 · 트렌드 T11 스위스 스타일 · #8b9cff">
 
 <!-- ===== 스타일 ===== -->
@@ -217,6 +217,39 @@
   .todo-item.done::before { color: var(--muted); }
   .todo-item.done .newest-tag { color: var(--muted); background: transparent; border-color: var(--muted); }
   .done-label { color: var(--muted); font-size: var(--fs-s); white-space: nowrap; }
+
+  /* 중요(⭐) 표시: 노란 바탕 줄 + 노란 번호 + '★ 중요' 꼬리표 */
+  .item-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .important-btn { padding: 10px 12px; }
+  .important-btn[aria-pressed="true"] { background: var(--warn-line); border-color: var(--warn-line); color: var(--accent-ink); font-weight: 800; }
+  .todo-item.important {
+    background: var(--warn-bg);
+    box-shadow: inset 4px 0 0 var(--warn-line);
+    margin: 0 -8px;
+    padding-left: 16px;
+    padding-right: 8px;
+  }
+  .todo-item.important::before { color: var(--warn-text); }
+  .important-tag {
+    display: inline-block;
+    font-size: var(--fs-s);
+    font-weight: 800;
+    color: var(--accent-ink);
+    background: var(--warn-line);
+    border: 1px solid var(--warn-line);
+    border-radius: 0;
+    padding: 0 6px;
+    margin-right: 8px;
+    vertical-align: 1px;
+  }
+  .todo-item.done.important::before { color: var(--muted); }
+  .todo-item.done .important-tag { color: var(--warn-text); background: transparent; }
+  /* 좁은 화면(휴대폰): 버튼을 글 아래 줄로 내려서 글이 좁아지지 않게 */
+  @media (max-width: 479px) {
+    .todo-item { flex-wrap: wrap; row-gap: 8px; }
+    .todo-text { flex: 1 1 0; }
+    .item-actions { flex-basis: 100%; justify-content: flex-start; margin-left: calc(2.2 * var(--fs-l) + 12px); }
+  }
   /* 빈 화면 안내: 상자 없이 왼쪽 정렬, 위에 굵은 가로줄 */
   .empty {
     margin: 0;
@@ -288,8 +321,8 @@
 const STORAGE_KEY = "sih26:20305:todos";
 // 처음 실행할 때 보여 줄 가상 할 일 (먼저 넣은 것 → 나중에 넣은 것 순서)
 const SAMPLE_TODOS = [
-  { text: "수학 프린트 3쪽 풀기", done: false },
-  { text: "영어 단어 30개 외우기", done: false }
+  { text: "수학 프린트 3쪽 풀기", done: false, important: false },
+  { text: "영어 단어 30개 외우기", done: false, important: false }
 ];
 
 // ===== 데이터·상태 =====
@@ -310,7 +343,8 @@ function loadTodos() {
     }
     const parsed = JSON.parse(saved);
     stack = Array.isArray(parsed)
-      ? parsed.filter(item => item && typeof item.text === "string").map(item => ({ text: item.text, done: !!item.done }))
+      // 예전에 저장한 데이터에는 important가 없으므로 false(중요 아님)로 채운다
+      ? parsed.filter(item => item && typeof item.text === "string").map(item => ({ text: item.text, done: !!item.done, important: item.important === true }))
       : [];
   } catch (e) {
     canSave = false;
@@ -330,8 +364,16 @@ function saveTodos() {
 
 // 스택에 넣기(push): 새 할 일은 배열 맨 끝 = 꼭대기에 쌓인다
 function pushTodo(text) {
-  stack.push({ text: text, done: false });
+  stack.push({ text: text, done: false, important: false });
   saveTodos();
+}
+
+// 중요 표시 켜기/끄기: important 값을 true ↔ false로 바꾼다 (순서는 그대로)
+function toggleImportant(index) {
+  if (stack[index]) {
+    stack[index].important = !stack[index].important;
+    saveTodos();
+  }
 }
 
 // 완료 표시: 지우지 않고 done 값만 true로 바꾼다
@@ -401,6 +443,7 @@ function render() {
     li.className = "todo-item";
     if (i === stack.length - 1) li.classList.add("newest"); // 맨 위 = 가장 최근
     if (item.done) li.classList.add("done");
+    if (item.important) li.classList.add("important");
 
     const textSpan = document.createElement("span");
     textSpan.className = "todo-text";
@@ -410,15 +453,34 @@ function render() {
       tag.textContent = "최신";
       textSpan.appendChild(tag);
     }
+    if (item.important) {
+      const impTag = document.createElement("span");
+      impTag.className = "important-tag";
+      impTag.textContent = "★ 중요";
+      textSpan.appendChild(impTag);
+    }
     // 사용자가 쓴 글은 textContent로 넣어서 HTML로 해석되지 않게 한다
     textSpan.appendChild(document.createTextNode(item.text));
     li.appendChild(textSpan);
+
+    const actions = document.createElement("div");
+    actions.className = "item-actions";
+
+    // 중요 버튼: 누를 때마다 켜짐(★)/꺼짐(☆), 화면 읽기 프로그램에는 aria-pressed로 상태를 알림
+    const impBtn = document.createElement("button");
+    impBtn.type = "button";
+    impBtn.className = "important-btn";
+    impBtn.textContent = item.important ? "★ 중요" : "☆ 중요";
+    impBtn.dataset.index = String(i);
+    impBtn.setAttribute("aria-pressed", item.important ? "true" : "false");
+    impBtn.setAttribute("aria-label", item.text + " 중요 표시");
+    actions.appendChild(impBtn);
 
     if (item.done) {
       const doneLabel = document.createElement("span");
       doneLabel.className = "done-label";
       doneLabel.textContent = "완료됨";
-      li.appendChild(doneLabel);
+      actions.appendChild(doneLabel);
     } else {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -426,8 +488,9 @@ function render() {
       btn.textContent = "완료";
       btn.dataset.index = String(i);
       btn.setAttribute("aria-label", item.text + " 완료하기");
-      li.appendChild(btn);
+      actions.appendChild(btn);
     }
+    li.appendChild(actions);
     todoList.appendChild(li);
   }
 
@@ -465,8 +528,18 @@ todoInput.addEventListener("input", function () {
   if (todoInput.value.trim() !== "") hideError();
 });
 
-// 완료 버튼 (목록 전체에 한 번만 연결)
+// 완료·중요 버튼 (목록 전체에 한 번만 연결)
 todoList.addEventListener("click", function (event) {
+  const impBtn = event.target.closest(".important-btn");
+  if (impBtn) {
+    const index = impBtn.dataset.index;
+    toggleImportant(Number(index));
+    render();
+    // 다시 그린 뒤에도 같은 항목의 중요 버튼에 초점을 돌려준다(키보드 사용자용)
+    const again = todoList.querySelector('.important-btn[data-index="' + index + '"]');
+    if (again) again.focus();
+    return;
+  }
   const btn = event.target.closest(".complete-btn");
   if (!btn) return;
   completeTodo(Number(btn.dataset.index));
