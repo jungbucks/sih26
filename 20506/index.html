@@ -6,7 +6,7 @@
 <title>무작위 도전 과제 뽑기</title>
 <meta name="description" content="게임·취미를 새롭게 즐기도록 무작위 도전 과제를 뽑고, 성공 기록을 스택에 쌓아 최근 성공부터 되돌릴 수 있는 프로그램">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C3 종이와 보라 · 트렌드 T00 기본 · #5645d4">
 <style>
   /* 전시판 공용 글꼴 (못 불러와도 아래 대체 글꼴로 작동) */
@@ -127,6 +127,16 @@
   .cats button { padding: 8px 14px; border-radius: 999px; }
   .cats button[aria-pressed="true"] { background: var(--accent-weak); border-color: var(--accent); color: var(--accent); font-weight: 700; }
   .cat-tag { display: inline-block; font-size: 0.85rem; font-weight: 600; color: var(--accent); background: var(--accent-weak); border-radius: 999px; padding: 0 8px; margin-right: 6px; }
+  /* 난이도 별 */
+  .diff { display: inline-block; font-size: 0.95rem; font-weight: 700; color: var(--text); letter-spacing: 1px; margin-right: 6px; white-space: nowrap; }
+  .diff .lv { font-size: 0.85rem; font-weight: 600; color: var(--muted); letter-spacing: 0; margin-left: 2px; }
+  .challenge-box .meta { display: block; margin-bottom: 4px; }
+  /* 다시 뽑기 기회 */
+  .chances { margin: 12px 0 0; font-weight: 600; }
+  .chances .dots { letter-spacing: 3px; color: var(--accent); margin-left: 4px; }
+  .chances.zero .dots { color: var(--muted); }
+  .rule { color: var(--muted); font-size: 0.95rem; margin: 4px 0 0; padding-left: 1.2em; }
+  .rule li { margin: 2px 0; }
   select { font: inherit; font-size: 16px; min-height: 44px; padding: 8px 10px; border: 1px solid var(--field); border-radius: 10px; background: var(--card); color: var(--text); }
   select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   [hidden] { display: none !important; }
@@ -146,6 +156,12 @@
     <div class="row">
       <button type="button" id="btn-draw" class="primary">도전 과제 뽑기</button>
     </div>
+    <p class="chances" id="chances" aria-live="polite">다시 뽑기 기회: <span id="chance-count">3</span>/<span id="chance-max">3</span>회 <span class="dots" id="chance-dots" aria-hidden="true">●●●</span></p>
+    <ul class="rule" aria-label="다시 뽑기 규칙">
+      <li>처음 뽑기와 성공·실패를 기록한 뒤 뽑기는 기회를 쓰지 않아요.</li>
+      <li>성공·실패를 기록하기 전에 또 뽑으면(다시 뽑기) 기회가 1회 줄어요.</li>
+      <li>기회가 0회면 지금 과제의 성공·실패를 기록해야 새로 뽑을 수 있어요. 기회는 전체 초기화나 새로고침을 해야 3회로 돌아와요.</li>
+    </ul>
     <div id="challenge" class="challenge-box empty" aria-live="polite">아직 뽑은 도전 과제가 없어요. [도전 과제 뽑기]를 눌러 보세요.</div>
     <p id="msg-draw" class="msg" role="status"></p>
   </section>
@@ -188,6 +204,7 @@
       <label for="input-task">도전 과제 내용</label>
       <div class="row">
         <select id="input-cat" aria-label="추가할 과제의 카테고리"></select>
+        <select id="input-diff" aria-label="추가할 과제의 난이도"></select>
         <input type="text" id="input-task" maxlength="50" placeholder="예: 기본 장비만으로 보스 잡기" autocomplete="off">
         <button type="submit" id="btn-add">추가</button>
       </div>
@@ -200,7 +217,7 @@
   <!-- 전체 초기화 (페이지 안 확인창) -->
   <section aria-labelledby="h-reset">
     <h2 id="h-reset">전체 초기화</h2>
-    <p class="hint">성공·실패 횟수, 성공 기록과 직접 추가한 도전 과제를 모두 지우고 처음 상태(카테고리 ‘전체’)로 되돌려요. 기록은 이 화면(메모리)에만 있어서 새로고침해도 처음으로 돌아가요.</p>
+    <p class="hint">성공·실패 횟수, 성공 기록과 직접 추가한 도전 과제를 모두 지우고 다시 뽑기 기회를 3회로 채워 처음 상태(카테고리 ‘전체’)로 되돌려요. 기록은 이 화면(메모리)에만 있어서 새로고침해도 처음으로 돌아가요.</p>
     <div class="row" style="margin-top:8px">
       <button type="button" id="btn-reset" class="danger">전체 초기화</button>
     </div>
@@ -220,19 +237,28 @@
 // 카테고리 목록 ('전체'는 버튼에만 있고, 과제에는 아래 셋 중 하나가 붙음)
 const ALL = "전체";
 const CATEGORIES = ["게임", "그리기", "시간 제한"];
-// 기본 도전 과제: { text: 과제 내용, cat: 카테고리 }
+// 난이도: 1 = 쉬움, 2 = 보통, 3 = 어려움 (별 3개 중 채운 별 개수)
+const LEVEL_NAMES = { 1: "쉬움", 2: "보통", 3: "어려움" };
+// 기본 도전 과제: { text: 과제 내용, cat: 카테고리, level: 난이도 }
+// (기본 과제의 난이도는 예시로 정한 값)
 const DEFAULT_TASKS = [
-  { text: "주 무기 없이 클리어하기", cat: "게임" },
-  { text: "한 번도 죽지 않고 진행하기", cat: "게임" },
-  { text: "오른손만 사용하여 플레이하기", cat: "게임" },
-  { text: "3가지 색으로만 그리기", cat: "그리기" },
-  { text: "평소 안 쓰는 손으로 그리기", cat: "그리기" },
-  { text: "선을 한 번도 떼지 않고 그리기", cat: "그리기" },
-  { text: "10분 안에 목표 달성하기", cat: "시간 제한" },
-  { text: "5분 안에 한 판 끝내기", cat: "시간 제한" },
-  { text: "30초마다 방법 바꿔 진행하기", cat: "시간 제한" }
+  { text: "주 무기 없이 클리어하기", cat: "게임", level: 3 },
+  { text: "한 번도 죽지 않고 진행하기", cat: "게임", level: 3 },
+  { text: "왼손만 쓰고 플레이하기", cat: "게임", level: 2 },
+  { text: "3가지 색으로만 그리기", cat: "그리기", level: 1 },
+  { text: "평소 안 쓰는 손으로 그리기", cat: "그리기", level: 2 },
+  { text: "선을 한 번도 떼지 않고 그리기", cat: "그리기", level: 2 },
+  { text: "10분 안에 목표 달성하기", cat: "시간 제한", level: 1 },
+  { text: "5분 안에 한 판 끝내기", cat: "시간 제한", level: 2 },
+  { text: "30초마다 방법 바꿔 진행하기", cat: "시간 제한", level: 3 }
 ];
 const MAX_CUSTOM = 20; // 사용자가 추가할 수 있는 도전 과제 최대 개수
+const MAX_REDRAW = 3;  // 다시 뽑기 기회 (전체 초기화·새로고침 때만 다시 채워짐)
+
+// 난이도 숫자 → 별 문자열 (예: 2 → "★★☆")
+function stars(level) {
+  return "★★★".slice(0, level) + "☆☆☆".slice(0, 3 - level);
+}
 
 // ===== 데이터·상태 (브라우저 메모리 변수에만 저장) =====
 let tasks = [];          // 등록된 도전 과제 배열: { text, cat }
@@ -242,12 +268,14 @@ let failCount = 0;       // 실패 횟수 (실패는 취소 대상이 아니라 
 let currentTask = null;  // 지금 뽑힌 도전 과제 { text, cat }
 let resolved = true;     // 현재 과제의 성공/실패가 이미 기록됐는지 (중복 클릭 방지)
 let selectedCat = ALL;   // 지금 고른 카테고리
+let redrawLeft = MAX_REDRAW; // 남은 다시 뽑기 기회
 
 // ===== 처리 함수 =====
 
 // 처음 상태로 되돌리기
 function resetAll() {
-  tasks = DEFAULT_TASKS.map(function (t) { return { text: t.text, cat: t.cat }; });
+  tasks = DEFAULT_TASKS.map(function (t) { return { text: t.text, cat: t.cat, level: t.level }; });
+  redrawLeft = MAX_REDRAW;
   customCount = 0;
   successStack = [];
   failCount = 0;
@@ -285,16 +313,36 @@ function popSuccess() {
   return successStack.pop();
 }
 
+// 지금 뽑으면 '다시 뽑기'인지 (뽑은 과제의 성공·실패를 아직 기록하지 않았으면 다시 뽑기)
+function isRedraw() {
+  return currentTask !== null && !resolved;
+}
+
 // 새 과제 추가 — 결과를 { ok, message } 로 돌려줌
-function addTask(text, cat) {
+function addTask(text, cat, level) {
   const value = text.trim();
   if (value === "") return { ok: false, message: "도전 과제 내용을 입력해 주세요." };
   if (CATEGORIES.indexOf(cat) === -1) return { ok: false, message: "카테고리를 골라 주세요." };
+  if (!LEVEL_NAMES[level]) return { ok: false, message: "난이도를 골라 주세요." };
   if (customCount >= MAX_CUSTOM) return { ok: false, message: "직접 추가할 수 있는 도전 과제는 최대 " + MAX_CUSTOM + "개예요." };
   if (tasks.some(function (t) { return t.text === value; })) return { ok: false, message: "이미 등록된 도전 과제예요." };
-  tasks.push({ text: value, cat: cat });
+  tasks.push({ text: value, cat: cat, level: level });
   customCount++;
-  return { ok: true, message: "‘" + value + "’ 도전 과제를 [" + cat + "] 카테고리에 추가했어요." };
+  return { ok: true, message: "‘" + value + "’ 도전 과제를 [" + cat + "] 카테고리에 난이도 " + stars(level) + "(" + LEVEL_NAMES[level] + ")로 추가했어요." };
+}
+
+// 난이도 표시 요소 만들기 (화면 읽기 프로그램에는 "난이도 보통"처럼 읽힘)
+function makeDiff(level) {
+  const d = document.createElement("span");
+  d.className = "diff";
+  d.setAttribute("role", "img");
+  d.setAttribute("aria-label", "난이도 " + LEVEL_NAMES[level] + "(별 3개 중 " + level + "개)");
+  d.textContent = stars(level);
+  const lv = document.createElement("span");
+  lv.className = "lv";
+  lv.textContent = LEVEL_NAMES[level];
+  d.appendChild(lv);
+  return d;
 }
 
 // 성공률(%) 계산 — 시도가 0번이면 null (0으로 나누지 않게)
@@ -336,15 +384,30 @@ function render() {
     b.setAttribute("aria-pressed", c === selectedCat ? "true" : "false");
     cb.appendChild(b);
   });
-  $("btn-draw").textContent = selectedCat === ALL ? "도전 과제 뽑기" : "도전 과제 뽑기 (" + selectedCat + ")";
+  // 뽑기 버튼: 기록 전이면 '다시 뽑기'(기회 1회 사용), 기회가 0회면 잠김
+  const redraw = isRedraw();
+  let drawLabel = redraw ? "다시 뽑기 (기회 1회 사용)" : "도전 과제 뽑기";
+  if (selectedCat !== ALL) drawLabel += " · " + selectedCat;
+  $("btn-draw").textContent = drawLabel;
+  $("btn-draw").disabled = redraw && redrawLeft <= 0;
+
+  // 남은 다시 뽑기 기회
+  $("chance-count").textContent = redrawLeft;
+  $("chance-max").textContent = MAX_REDRAW;
+  $("chance-dots").textContent = "●".repeat(redrawLeft) + "○".repeat(MAX_REDRAW - redrawLeft);
+  $("chances").classList.toggle("zero", redrawLeft <= 0);
 
   const box = $("challenge");
   if (currentTask) {
     box.textContent = "";
+    const meta = document.createElement("span");
+    meta.className = "meta";
     const tag = document.createElement("span");
     tag.className = "cat-tag";
     tag.textContent = currentTask.cat;
-    box.appendChild(tag);
+    meta.appendChild(tag);
+    meta.appendChild(makeDiff(currentTask.level));
+    box.appendChild(meta);
     box.appendChild(document.createTextNode(currentTask.text));
     box.classList.remove("empty");
   } else {
@@ -407,12 +470,13 @@ function render() {
     tag.className = "cat-tag";
     tag.textContent = t.cat;
     li.appendChild(tag);
+    li.appendChild(makeDiff(t.level));
     li.appendChild(document.createTextNode(t.text));
     tl.appendChild(li);
   });
 }
 
-// 추가 칸의 카테고리 선택지 만들기 (처음 한 번)
+// 추가 칸의 카테고리·난이도 선택지 만들기 (처음 한 번)
 function buildCatSelect() {
   const sel = $("input-cat");
   CATEGORIES.forEach(function (c) {
@@ -421,16 +485,37 @@ function buildCatSelect() {
     o.textContent = c;
     sel.appendChild(o);
   });
+  const ds = $("input-diff");
+  [1, 2, 3].forEach(function (lv) {
+    const o = document.createElement("option");
+    o.value = String(lv);
+    o.textContent = stars(lv) + " " + LEVEL_NAMES[lv];
+    ds.appendChild(o);
+  });
+  ds.value = "1";
 }
 
 // ===== 이벤트 연결 =====
 $("btn-draw").addEventListener("click", function () {
   clearMsgs();
+  const redraw = isRedraw();
+  // 기회가 없으면 다시 뽑기 막기 (버튼이 잠겨 있지만 한 번 더 확인)
+  if (redraw && redrawLeft <= 0) {
+    showMsg("msg-draw", "다시 뽑기 기회를 모두 썼어요. 지금 과제의 성공·실패를 기록하면 새 과제를 뽑을 수 있어요.", true);
+    render();
+    return;
+  }
   const picked = pickRandomTask();
   if (picked === null) {
-    currentTask = null;
+    // 뽑을 과제가 없으면 기회를 쓰지 않고 지금 과제도 그대로 둠
     showMsg("msg-draw", selectedCat === ALL ? "등록된 도전 과제가 없습니다." : "[" + selectedCat + "] 카테고리에 등록된 도전 과제가 없습니다.", true);
   } else {
+    if (redraw) {
+      redrawLeft--;
+      showMsg("msg-draw", redrawLeft > 0
+        ? "다시 뽑기 기회를 1회 썼어요. 남은 기회 " + redrawLeft + "회."
+        : "다시 뽑기 기회를 모두 썼어요. 이번 과제의 성공·실패를 기록해야 다음 과제를 뽑을 수 있어요.");
+    }
     currentTask = picked;
     resolved = false;
   }
@@ -483,7 +568,7 @@ $("form-add").addEventListener("submit", function (e) {
   e.preventDefault();
   clearMsgs();
   const input = $("input-task");
-  const result = addTask(input.value, $("input-cat").value);
+  const result = addTask(input.value, $("input-cat").value, Number($("input-diff").value));
   showMsg("msg-add", result.message, !result.ok);
   if (result.ok) input.value = "";
   input.focus();
@@ -504,6 +589,7 @@ $("btn-reset-yes").addEventListener("click", function () {
   $("confirm-reset").hidden = true;
   clearMsgs();
   $("input-cat").value = CATEGORIES[0];
+  $("input-diff").value = "1";
   showMsg("msg-reset", "전체 초기화했어요. 기본 도전 과제 " + DEFAULT_TASKS.length + "개로 돌아갔어요.");
   render();
 });
