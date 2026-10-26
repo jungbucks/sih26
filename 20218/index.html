@@ -6,7 +6,7 @@
 <title>오늘 할 양 계산기</title>
 <meta name="description" content="과제 마감일과 총 분량을 넣으면 오늘 할 공부 분량을 나눠 주고, 완료할 때마다 남은 계획을 다시 계산하는 공부 계획 도우미">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C12 먹과 형광 초록 · 트렌드 T01 리퀴드 글래스 · #1ed760">
 <style>
   /* ===== 스타일 ===== */
@@ -296,6 +296,8 @@ let editingId = null;       // 지금 수정 칸이 열린 과제 id (없으면 
 let editMsg = "";          // 수정 칸에 보여 줄 오류 문구
 let cheerTimer = null;
 let cheerCount = 0;
+let dueDefault = "";       // 등록 폼 마감 날짜에 자동으로 넣어 둔 값(오늘)
+let confirmOpener = null;   // 확인창을 연 버튼 (닫으면 이 버튼으로 포커스를 돌려줌)
 
 // ===== 날짜 도우미 =====
 
@@ -844,6 +846,7 @@ function celebrate(kind, task) {
 // 페이지 안 확인창 열기/닫기
 function askConfirm(text, action) {
   pendingAction = action;
+  confirmOpener = document.activeElement;
   document.getElementById("confirm-text").textContent = text;
   document.getElementById("confirm-box").classList.remove("hidden");
   document.getElementById("btn-confirm-no").focus();
@@ -851,11 +854,35 @@ function askConfirm(text, action) {
 function closeConfirm() {
   pendingAction = null;
   document.getElementById("confirm-box").classList.add("hidden");
+  // 확인창을 열었던 버튼으로 포커스 되돌리기
+  if (confirmOpener && document.body.contains(confirmOpener)) confirmOpener.focus();
+  confirmOpener = null;
+}
+function confirmIsOpen() {
+  return !document.getElementById("confirm-box").classList.contains("hidden");
+}
+
+// 마감 날짜 입력칸의 최소값(min)을 지금 오늘로 맞춤 (자정이 지나도 어제를 고를 수 없게)
+function refreshDueMin() {
+  const today = todayText();
+  document.querySelectorAll('input[type="date"]').forEach(function (el) { el.min = today; });
+  // 등록 폼에 자동으로 넣어 둔 오늘 날짜를 그대로 두었다면 새 오늘로 바꿔 줌
+  const dueEl = document.getElementById("in-due");
+  if (dueDefault && dueEl.value === dueDefault && dueDefault !== today) setDueDefault();
+}
+
+// 등록 폼 마감 날짜 기본값 = 오늘
+function setDueDefault() {
+  dueDefault = todayText();
+  const dueEl = document.getElementById("in-due");
+  dueEl.min = dueDefault;
+  dueEl.value = dueDefault;
 }
 
 // ===== 이벤트 연결 =====
 document.getElementById("task-form").addEventListener("submit", function (e) {
   e.preventDefault();
+  refreshDueMin();
   const nameEl = document.getElementById("in-name");
   const dueEl = document.getElementById("in-due");
   const amountEl = document.getElementById("in-amount");
@@ -866,7 +893,8 @@ document.getElementById("task-form").addEventListener("submit", function (e) {
     return;
   }
   showMessage("form-msg", "등록했어요: " + nameEl.value.trim(), false);
-  nameEl.value = ""; dueEl.value = ""; amountEl.value = ""; impEl.checked = false;
+  nameEl.value = ""; amountEl.value = ""; impEl.checked = false;
+  setDueDefault(); // 마감 날짜는 다시 오늘로
   nameEl.focus();
   renderTasks();
 });
@@ -938,6 +966,36 @@ document.getElementById("task-list").addEventListener("keydown", function (e) {
   e.target.closest(".edit-box").querySelector('button[data-action="edit-save"]').click();
 });
 
+// 수정 칸이 열려 있을 때 ESC를 누르면 [취소]와 같게 동작 (포커스는 그 카드의 [수정] 버튼으로)
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Escape" || editingId === null || confirmIsOpen()) return;
+  const card = document.querySelector('.card[data-id="' + editingId + '"]');
+  const active = document.activeElement;
+  if (!card || !(active === document.body || card.contains(active))) return;
+  e.preventDefault();
+  const id = editingId;
+  editingId = null; editMsg = "";
+  renderTasks();
+  const btn = document.querySelector('.card[data-id="' + id + '"] button[data-action="edit"]');
+  if (btn) btn.focus();
+});
+
+// 확인창이 열려 있는 동안 Tab 포커스를 확인창 안에서만 돌게 함
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Tab" || !confirmIsOpen()) return;
+  const btns = Array.prototype.slice.call(document.querySelectorAll("#confirm-box button"));
+  const first = btns[0], last = btns[btns.length - 1];
+  const inside = btns.indexOf(document.activeElement) !== -1;
+  if (!inside) { e.preventDefault(); first.focus(); return; }
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
+// 날짜 칸에 포커스가 갈 때마다 최소값을 오늘로 다시 맞춤
+document.addEventListener("focusin", function (e) {
+  if (e.target.matches && e.target.matches('input[type="date"]')) refreshDueMin();
+});
+
 document.getElementById("btn-sample").addEventListener("click", function () {
   const run = function () {
     loadSamples();
@@ -972,11 +1030,12 @@ document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "visible" && todayText() !== shownDay) {
     shownDay = todayText();
     renderTasks();
+    refreshDueMin();
   }
 });
 
 // 시작
-document.getElementById("in-due").min = todayText();
+setDueDefault(); // 마감 날짜 기본값 = 오늘
 loadData();
 renderTasks();
 </script>
