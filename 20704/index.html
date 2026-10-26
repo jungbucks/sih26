@@ -6,7 +6,7 @@
 <title>은행 대기표 호출 시스템</title>
 <meta name="description" content="번호표를 뽑으면 큐(선입선출)에 줄을 서고, 직원이 1·2번 창구에서 호출하면 맨 앞 번호와 창구를 전광판에 큰 글씨로 불러 주는 은행 창구 대기표 시스템">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C11 밤하늘과 보라 · 트렌드 T05 키네틱 타이포 · #8b9cff">
 <style>
   /* ===== 전시판 공용 글꼴 ===== */
@@ -117,7 +117,8 @@
   .board.is-calling { border-color: var(--accent); }
   .board.is-empty .call-text { font-size: clamp(1.4rem, 6vw, 2rem); color: var(--muted); }
 
-  /* 키네틱 타이포: 호출 번호가 바뀔 때 아래에서 위로 한 번 올라오며 나타남 (0.4초) */
+  /* 키네틱 타이포: 호출 번호가 바뀔 때 아래에서 위로 한 번 올라오며 나타남 (0.4초)
+     호출 때 움직임은 이것 하나만 남김 (전광판 깜빡임은 산만해서 뺐음) */
   @media (prefers-reduced-motion: no-preference) {
     .call-text .num { animation: numRise .4s ease-out both; }
     @keyframes numRise {
@@ -126,14 +127,6 @@
     }
   }
 
-  /* 반짝임: 움직임 줄이기 설정이 없을 때만 깜빡임 3번 (원래 있던 효과, 색만 새 조합으로) */
-  @media (prefers-reduced-motion: no-preference) {
-    .board.flash { animation: blink .5s ease-in-out 3; }
-    @keyframes blink {
-      0%, 100% { background: var(--block); }
-      50% { background: var(--line); }
-    }
-  }
 
   /* ===== 고객용 구역 ===== */
   .zone-title { display: flex; align-items: center; gap: 8px; }
@@ -175,18 +168,22 @@
   .recent li:first-child { border-color: var(--accent); color: var(--accent-text); }
   .empty-note { color: var(--muted); margin: 0; }
 
-  /* ===== 직원용 구역 (점선 테두리로 확실히 구분) ===== */
+  /* ===== 직원용 구역 (고객 구역의 남색과 다른 쿨그레이 바탕 + 굵은 점선 + 경고 태그로 확실히 구분) ===== */
   .staff {
-    background: var(--surface);
+    --staff-bg: #2a2d38;      /* 어두운 쿨그레이: 남색 카드들과 한눈에 다르게 */
+    background: var(--staff-bg);
     color: var(--text);
-    border: 1px dashed var(--field-line);
+    border: 3px dashed var(--field-line);
   }
-  .staff .tag { background: transparent; color: var(--text); border: 1px solid var(--field-line); }
-  .staff .role { color: var(--muted); }
+  .staff .tag {
+    background: var(--text); color: var(--bg);
+    border: 0; font-size: .9rem; padding: 3px 12px;
+  }
+  .staff .role { color: #d3d7e3; font-weight: 700; }
   .staff-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .staff-buttons .btn-reset { grid-column: 1 / -1; }
   .btn-staff { background: transparent; color: var(--text); border: 1px solid var(--field-line); }
-  .btn-staff:hover { background: var(--line); }
+  .btn-staff:hover { background: #3a3e4c; }
   .btn-reset { background: transparent; color: var(--danger-light); border: 1px solid var(--danger-light); font-size: 1rem; }
   .btn-reset:hover { background: #3a2f33; }
   .staff .result { color: var(--text); }
@@ -227,12 +224,23 @@
   .btn-danger { background: var(--danger); color: #fff; border: 2px solid var(--danger); min-height: 48px; font-size: 1rem; }
   .btn-cancel { background: transparent; color: var(--text); border: 1px solid var(--field-line); min-height: 48px; font-size: 1rem; }
 
-  /* 영수증 모양 번호표 (아래쪽 톱니 모양은 그대로, 색만 새 조합으로) */
-  .ticket {
+  /* 종이 영수증 모양 번호표: 밝은 아이보리 종이 + 아래쪽 톱니 절단선 + 은은한 그림자 */
+  .ticket-wrap {
     width: 100%; max-width: 18rem;
-    background: var(--surface);
-    color: var(--text);
-    border: 1px solid var(--line);
+    /* 톱니 모양(mask)에 그림자가 잘리지 않도록 바깥 상자에 그림자를 준다 */
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, .45));
+  }
+  .ticket {
+    --paper: #fbf6e8;         /* 아이보리 종이색 */
+    --ink: #1c2033;           /* 종이 위 진한 글자 */
+    --ink-soft: #565b6e;      /* 종이 위 옅은 글자 */
+    --ink-accent: #3a3f9a;    /* 종이 위 강조(번호) 보라 */
+    width: 100%;
+    background-color: var(--paper);
+    /* 아주 옅은 가로 결: 감열지 느낌 */
+    background-image: repeating-linear-gradient(0deg, rgba(120, 100, 60, .035) 0 1px, transparent 1px 3px);
+    color: var(--ink);
+    border: 0;
     border-radius: 8px 8px 0 0;
     padding: 20px 20px 16px;
     text-align: center;
@@ -250,17 +258,21 @@
       to { transform: translateY(0); }
     }
   }
-  .ticket-logo { display: flex; align-items: center; justify-content: center; gap: 8px; font-family: var(--title-font); font-weight: 700; color: var(--text); }
-  .ticket-logo svg circle { fill: var(--accent-text); }
-  .ticket-logo svg path, .ticket-logo svg rect { fill: var(--surface); }
-  .ticket-sub { margin: 2px 0 0; font-size: .85rem; color: var(--muted); }
-  .ticket hr { border: 0; border-top: 2px dashed var(--line); margin: 12px 0; }
-  .ticket-label { margin: 0; font-size: .95rem; color: var(--muted); }
-  .ticket-num { margin: 0; font-size: 4.2rem; font-weight: 800; line-height: 1.1; color: var(--accent-text); }
+  .ticket-logo { display: flex; align-items: center; justify-content: center; gap: 8px; font-family: var(--title-font); font-weight: 700; font-size: 1.15rem; color: var(--ink); }
+  .ticket-logo svg circle { fill: var(--ink-accent); }
+  .ticket-logo svg path, .ticket-logo svg rect { fill: var(--paper); }
+  .ticket-sub { margin: 2px 0 0; font-size: .85rem; color: var(--ink-soft); letter-spacing: .2em; }
+  .ticket hr { border: 0; border-top: 2px dashed #b9b29f; margin: 12px 0; }
+  .ticket-label { margin: 0; font-size: .95rem; color: var(--ink-soft); }
+  .ticket-num { margin: 0; font-size: 4.2rem; font-weight: 800; line-height: 1.1; color: var(--ink-accent); }
   .ticket-num small { font-size: 1.6rem; }
-  .ticket-row { display: flex; justify-content: space-between; gap: 8px; margin: 0; font-size: .98rem; text-align: left; }
-  .ticket-note { margin: 0 0 12px; font-size: .85rem; color: var(--muted); }
-  .ticket .btn-primary { min-height: 48px; font-size: 1rem; }
+  /* 항목 이름 ····· 값 처럼 점선으로 이어 영수증처럼 정렬 */
+  .ticket-row { display: flex; align-items: baseline; gap: 6px; margin: 0 0 4px; font-size: .98rem; text-align: left; }
+  .ticket-row .dots { flex: 1; min-width: 12px; border-bottom: 2px dotted #b9b29f; transform: translateY(-4px); }
+  .ticket-row b { color: var(--ink); white-space: nowrap; }
+  .ticket-note { margin: 0 0 12px; font-size: .85rem; color: var(--ink-soft); }
+  .ticket .btn-primary { min-height: 48px; font-size: 1rem; border-color: var(--ink-accent); }
+  .ticket .btn-primary:focus-visible { outline-color: var(--ink-accent); }
 
   .save-note { font-size: .9rem; color: var(--muted); margin: 8px 0 0; }
 </style>
@@ -311,9 +323,9 @@
     <ol class="recent" id="recentList"></ol>
   </section>
 
-  <!-- ===== 직원용 구역 (하단, 어두운 박스) ===== -->
+  <!-- ===== 직원용 구역 (하단, 쿨그레이 박스 + 굵은 점선) ===== -->
   <section class="panel staff" aria-labelledby="staffTitle">
-    <h2 class="zone-title" id="staffTitle"><span class="tag">직원 전용</span> 창구 관리</h2>
+    <h2 class="zone-title" id="staffTitle"><span class="tag">⚠ 직원 전용</span> 창구 관리</h2>
     <p class="role">고객은 누르지 마세요. 줄의 맨 앞 고객을 해당 창구로 부릅니다.</p>
     <div class="staff-buttons">
       <button type="button" class="btn-staff call-btn" data-window="1">1번 창구 호출</button>
@@ -343,6 +355,7 @@
 
 <!-- ===== 종이 영수증 모양 번호표 ===== -->
 <div class="overlay" id="ticketOverlay" hidden>
+  <div class="ticket-wrap">
   <div class="ticket" id="ticket" role="dialog" aria-modal="true" aria-labelledby="ticketLabel">
     <div class="ticket-logo">
       <svg width="28" height="28" viewBox="0 0 44 44" aria-hidden="true">
@@ -361,11 +374,12 @@
     <p class="ticket-label" id="ticketLabel">내 대기 번호</p>
     <p class="ticket-num"><span id="ticketNum">0</span><small>번</small></p>
     <hr>
-    <p class="ticket-row"><span>앞에 남은 대기 인원</span><b id="ticketAhead">0명</b></p>
-    <p class="ticket-row"><span>발급 시간</span><b id="ticketTime">-</b></p>
+    <p class="ticket-row"><span>앞에 남은 대기 인원</span><span class="dots" aria-hidden="true"></span><b id="ticketAhead">0명</b></p>
+    <p class="ticket-row"><span>발급 시간</span><span class="dots" aria-hidden="true"></span><b id="ticketTime">-</b></p>
     <hr>
     <p class="ticket-note">전광판에 내 번호와 창구 번호가 나오면 해당 창구로 와 주세요.</p>
     <button type="button" class="btn-primary" id="ticketOk">확인</button>
+  </div>
   </div>
 </div>
 <script>
@@ -548,9 +562,9 @@
       : "대기열(앞 → 뒤): " + list.map(n => n + "번").join(", ");
   }
 
-  // 최근 호출 목록 한 칸: "(1번) 3번" 형태. 예전 기록처럼 창구를 모르면 번호만.
+  // 최근 호출 목록 한 칸: "1번 창구 3번 고객님" 형태. 예전 기록처럼 창구를 모르면 "3번 고객님".
   function callLabel(call) {
-    return (call.w ? "(" + call.w + "번) " : "") + call.n + "번";
+    return (call.w ? call.w + "번 창구 " : "") + call.n + "번 고객님";
   }
 
   function renderRecent() {
@@ -563,8 +577,9 @@
     recentEmpty.hidden = recentCalls.length > 0;
   }
 
-  // 전광판에 "1번 창구 3번 고객님"처럼 큰 글씨로 표시한다. flash가 true면 반짝이게 한다.
-  function showCall(call, flash) {
+  // 전광판에 "1번 창구 3번 고객님"처럼 큰 글씨로 표시한다.
+  // 번호 칸(span)을 새로 만들기 때문에 호출할 때마다 "아래에서 위로 올라오기" 효과가 한 번 나온다.
+  function showCall(call) {
     callText.replaceChildren();
     const num = document.createElement("span");
     num.className = "num";
@@ -577,15 +592,12 @@
     } else {
       callText.append(num, " 고객님 창구로 오세요!");
     }
-    board.classList.remove("is-empty", "flash");
+    board.classList.remove("is-empty");
     board.classList.add("is-calling");
-    if (!flash) return;
-    void board.offsetWidth;          // 애니메이션을 처음부터 다시 시작하기 위한 트릭
-    board.classList.add("flash");
   }
 
   function showBoardMessage(message) {
-    board.classList.remove("is-calling", "flash");
+    board.classList.remove("is-calling");
     board.classList.add("is-empty");
     callText.textContent = message;
   }
@@ -670,7 +682,7 @@
         showBoardMessage("대기 중인 고객이 없습니다");
         callResult.textContent = "안내: 대기 중인 고객이 없습니다. 번호표가 발급되면 다시 눌러 주세요.";
       } else {
-        showCall(call, true);
+        showCall(call);
         callResult.textContent = windowNo + "번 창구로 " + call.n + "번을 호출했습니다. 남은 대기 " + waitingQueue.size() + "명";
         saveState();
       }
@@ -733,7 +745,7 @@
 
   // ===== 시작: 저장된 상태가 있으면 이어서 보여 준다 =====
   if (loadState() && recentCalls.length > 0) {
-    showCall(recentCalls[0], false);   // 새로고침 직후에는 반짝이지 않고 마지막 호출만 표시
+    showCall(recentCalls[0]);   // 새로고침 직후에는 마지막 호출을 다시 표시
   }
   renderStatus();
   renderRecent();
