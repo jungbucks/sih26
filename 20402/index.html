@@ -6,7 +6,7 @@
 <title>10초 등교 준비물 체크리스트</title>
 <meta name="description" content="요일과 날씨를 고르면 오늘 챙길 준비물을 보여 주고, 챙긴 것을 눌러 하나씩 지우는 등교 준비물 체크리스트">
 <meta name="class" content="M반 (2-8)">
-<meta name="status" content="1회 개선">
+<meta name="status" content="2회 개선">
 <meta name="design" content="컬러셋 C8 분홍과 민트 · 트렌드 T06 스크롤 3D · #ffb3d1">
 <style>
   :root {
@@ -205,26 +205,22 @@
   .undo-btn:disabled { border-color: var(--line); color: var(--muted); }
   .done-msg, .msg { border-radius: 12px; }
 
-  /* 스크롤 3D(축소판): 준비물 목록 한 곳만.
-     목록 줄이 화면 아래에서 들어올 때 뒤로 눕혀 있다가 똑바로 서며 다가온다.
-     CSS 스크롤 연동(view timeline)만 사용 — 지원하지 않는 브라우저에서는 처음부터 똑바로 서 있다.
-     글자를 숨기지 않으므로 스크롤하지 않아도 내용은 모두 보인다. */
-  .items { perspective: 900px; --tilt: 25deg; }
-  @media (max-width: 600px) { .items { --tilt: 12.5deg; } }
+  /* 3D 등장(짧게): 준비물 줄이 새로 나타날 때만 0.35초 동안 뒤로 누웠다가 똑바로 선다.
+     처음 열 때, 요일·날씨를 바꿔 새로 생긴 줄, 직접 추가한 줄, 되돌린 줄만 움직이고
+     이미 있던 줄은 다시 움직이지 않는다. 움직임이 끝나면 기울기 없이 똑바로 서 있어서
+     누를 수 있는 영역이 화면에 보이는 그대로다. (마지막 줄까지 0.5초 안에 끝남) */
+  .items { perspective: 900px; --tilt: 40deg; }
+  @media (max-width: 600px) { .items { --tilt: 30deg; } }
   @keyframes stand-up {
-    from { transform: rotateX(var(--tilt)) translateY(12px); }
-    to { transform: none; }
+    from { transform: rotateX(var(--tilt)) translateY(10px); opacity: 0.35; }
+    to { transform: none; opacity: 1; }
   }
-  @supports (animation-timeline: view()) {
-    .items li {
-      transform-origin: 50% 100%;
-      animation: stand-up linear both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 100%;
-    }
+  .items li.enter {
+    transform-origin: 50% 100%;
+    animation: stand-up 0.35s cubic-bezier(.2, .8, .3, 1) backwards;
   }
   @media (prefers-reduced-motion: reduce) {
-    .items li { animation: none !important; transform: none !important; }
+    .items li.enter { animation: none !important; }
   }
 </style>
 </head>
@@ -325,6 +321,7 @@ let selectedWeather = "맑음";
 let customItems = [];   // 직접 추가한 준비물 이름 배열 (✕로 지우기 전까지 계속 남는다)
 let checkedNames = [];  // 오늘 이미 챙겨서 지운 준비물 이름 (요일·날씨를 바꿔도 유지)
 let undoStack = [];     // 챙긴 순서대로 쌓아 두는 이름 (맨 끝 = 가장 최근)
+let shownNames = null;  // 바로 전 화면에 있던 준비물 이름 (새로 나타난 줄에만 등장 효과를 주려고)
 let checklist = [];     // 지금 화면에 남아 있는 준비물: { name, type: "day" | "weather" | "common" | "custom" }
 
 // 화면 요소
@@ -505,14 +502,25 @@ function render() {
   condSummary.innerHTML = "";
   const head = document.createElement("strong");
   head.textContent = selectedDay + "요일 · " + weatherWord + " → ";
+  // 이미 챙겨서 목록에서 지운 것은 "(챙김 ✓)"를 붙여, 아래 목록에 왜 없는지 알 수 있게 한다
+  const condText = condNames.map(function (n) {
+    return checkedNames.includes(n) ? n + "(챙김 ✓)" : n;
+  });
   condSummary.append(head,
-    (condNames.length > 0 ? "추가로 챙길 것: " + condNames.join(", ") : "추가로 챙길 것 없음") +
+    (condNames.length > 0 ? "추가로 챙길 것: " + condText.join(", ") : "추가로 챙길 것 없음") +
     " / 매일: " + BASE_DATA.common.join(", "));
 
   // 목록을 비우고 배열 내용대로 다시 만든다
   itemList.innerHTML = "";
+  let newCount = 0;
   checklist.forEach(function (item, index) {
     const li = document.createElement("li");
+    // 바로 전 화면에 없던 줄만 3D 등장 효과 (줄마다 0.05초씩 늦게, 최대 0.15초까지만)
+    if (shownNames === null || !shownNames.has(item.name)) {
+      li.classList.add("enter");
+      li.style.animationDelay = (Math.min(newCount, 3) * 50) + "ms";
+      newCount++;
+    }
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "item-btn" + (item.type === "custom" ? " custom" : "");
@@ -535,7 +543,7 @@ function render() {
 
     // 직접 추가한 준비물에만 ✕(완전히 삭제) 버튼을 따로 붙인다
     if (item.type === "custom") {
-      li.className = "custom-row";
+      li.classList.add("custom-row");
       const del = document.createElement("button");
       del.type = "button";
       del.className = "del-btn";
@@ -546,6 +554,7 @@ function render() {
     }
     itemList.appendChild(li);
   });
+  shownNames = new Set(checklist.map(function (item) { return item.name; }));
 
   // 남은 개수와 완료 메시지
   remainText.textContent = "남은 준비물 " + checklist.length + "개";
