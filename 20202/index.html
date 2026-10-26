@@ -7,146 +7,206 @@
 <meta name="description" content="자주 다니는 장소끼리의 연결을 직접 등록해 두고, 두 장소가 바로 이어져 있는지 한 화면에서 확인하는 그래프(인접 리스트) 연습 프로그램">
 <meta name="class" content="M반 (2-8)">
 <meta name="status" content="1회 개선">
+<meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T11 스위스 스타일 · #1e3a8a">
 <style>
+  /* 디자인: 신문지와 남색 · 스위스 스타일 (12칸 격자, 굵은 고딕, 장식 없음) */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
   :root {
-    --bg: #f4f7f8;
-    --card: #ffffff;
-    --text: #1d2428;
-    --muted: #56636b;
-    --line: #d5dde1;
-    --accent: #0f7b74;
-    --accent-weak: #e3f3f1;
+    --bg: #f4f1ea;
+    --card: #fbf9f4;
+    --text: #1b1b1b;
+    --muted: #5a564e;
+    --line: #d9d3c7;
+    --rule: #1b1b1b;          /* 목록·결과 사이 2px 가로줄 */
+    --field: #5a564e;         /* 입력칸·선택칸·보조 버튼 1px 테두리 */
+    --accent: #1e3a8a;        /* 가장 중요한 버튼 한 곳에만 */
     --ok: #1a7f37;
     --ok-weak: #e9f6ec;
     --err: #b42318;
     --err-weak: #fdecea;
     --warn: #8a5a00;
     --warn-weak: #fff6e0;
+    /* 글자 크기 3단계 (제목 제외) */
+    --fs-l: 22px;
+    --fs-m: 17px;
+    --fs-s: 15px;
+    --gap: 16px;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-    font-size: 17px;
+    font-family: "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: var(--fs-m);
     line-height: 1.7;
     word-break: keep-all;
     overflow-wrap: anywhere;
+    text-align: left;
   }
-  .wrap { max-width: 42rem; margin: 0 auto; padding: 24px 16px 48px; }
-  h1 { font-size: 1.5rem; margin: 0 0 4px; line-height: 1.35; }
-  h2 { font-size: 1.15rem; margin: 0 0 12px; }
-  .intro { color: var(--muted); margin: 0 0 12px; }
 
-  /* 실제 교통 정보가 아니라는 안내: 눈에 띄게 */
+  /* 12칸 격자: 모든 덩어리의 왼쪽 끝을 격자선에 맞춘다 */
+  .wrap {
+    max-width: 48rem;
+    margin: 0;
+    padding: 32px 16px 48px;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    column-gap: var(--gap);
+    align-items: start;
+  }
+  .wrap > * { grid-column: 1 / -1; min-width: 0; }
+  @media (min-width: 600px) { .wrap { padding: 48px 32px 64px; } }
+
+  header { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gap); }
+  header > * { grid-column: 1 / -1; min-width: 0; }
+  @media (min-width: 720px) { header .intro { grid-column: 1 / span 9; } }
+
+  h1 {
+    font-size: clamp(40px, 7vw, 60px);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    line-height: 1.12;
+    margin: 0 0 16px;
+  }
+  h2 { font-size: var(--fs-l); font-weight: 800; letter-spacing: -0.01em; line-height: 1.35; margin: 0 0 12px; }
+  .intro { color: var(--muted); margin: 0 0 24px; font-size: var(--fs-m); }
+
+  /* 실제 교통 정보가 아니라는 안내: 경고 색 그대로, 모서리만 각지게 */
   .notice {
     margin: 0 0 20px;
     padding: 12px 14px;
-    border-radius: 10px;
+    border-radius: 0;
     background: var(--warn-weak);
     color: var(--warn);
     border-left: 4px solid var(--warn);
-    font-weight: 600;
-    font-size: 0.97rem;
+    font-weight: 700;
+    font-size: var(--fs-s);
   }
 
   .card {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 20px 16px;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 24px 16px;
     margin-bottom: 20px;
   }
-  label { display: block; font-weight: 600; margin: 12px 0 4px; }
-  .hint { display: block; font-size: 0.9rem; color: var(--muted); font-weight: 400; }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .two > div { min-width: 0; }
+  @media (min-width: 600px) { .card { padding: 28px 24px; } }
+  label { display: block; font-weight: 700; margin: 12px 0 4px; }
+  .hint { display: block; font-size: var(--fs-s); color: var(--muted); font-weight: 400; }
+
+  /* 카드 안도 같은 12칸 격자: 두 칸 입력은 6칸 + 6칸 */
+  .two { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gap); row-gap: 12px; }
+  .two > div { grid-column: span 6; min-width: 0; }
   .two label { margin-top: 0; }
-  @media (max-width: 420px) { .two { grid-template-columns: 1fr; } }
+  @media (max-width: 420px) { .two > div { grid-column: 1 / -1; } }
+
   input[type="text"], select {
     width: 100%;
     font: inherit;
+    font-size: var(--fs-m);
     padding: 10px 12px;
     min-height: 44px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #fff;
+    border: 1px solid var(--field);
+    border-radius: 0;
+    background: var(--card);
     color: var(--text);
   }
-  input[type="text"]:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  input[type="text"]::placeholder { color: var(--muted); opacity: 1; }
+  input[type="text"]:focus, select:focus { outline: 2px solid var(--text); outline-offset: 1px; border-color: var(--text); }
   input[aria-invalid="true"] { border-color: var(--err); border-width: 2px; }
+
   button {
     font: inherit;
-    font-size: 1rem;
+    font-size: var(--fs-m);
     min-height: 44px;
     padding: 8px 16px;
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    background: #fff;
+    border-radius: 0;
+    border: 1px solid var(--field);
+    background: var(--card);
     color: var(--text);
+    font-weight: 700;
     cursor: pointer;
+    box-shadow: none;
   }
-  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-  .btn-danger { border-color: var(--err); color: var(--err); }
-  .btn-danger-solid { background: var(--err); border-color: var(--err); color: #fff; font-weight: 600; }
-  .btn-small { min-height: 40px; padding: 6px 12px; font-size: 0.95rem; }
-  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  /* 주요 버튼: 검정 잉크. 강조색(남색)은 가장 중요한 [연결 확인] 한 곳에만 */
+  .btn-primary { background: var(--text); border-color: var(--text); color: #ffffff; font-weight: 800; }
+  #checkButton.btn-primary { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+  .btn-danger { border-color: var(--err); color: var(--err); background: var(--card); }
+  .btn-danger-solid { background: var(--err); border-color: var(--err); color: #ffffff; font-weight: 800; }
+  .btn-small { min-height: 40px; padding: 6px 12px; font-size: var(--fs-s); }
+  .row { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; margin-top: 16px; }
 
   /* 안내 메시지: 색 + 글자로 함께 구분 */
-  .msg { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 0.95rem; }
+  .msg { margin-top: 12px; padding: 10px 12px; border-radius: 0; font-size: var(--fs-s); }
   .msg:empty { display: none; }
   .msg-error { background: var(--err-weak); color: var(--err); border-left: 4px solid var(--err); }
   .msg-ok { background: var(--ok-weak); color: var(--ok); border-left: 4px solid var(--ok); }
   .msg-warn { background: var(--warn-weak); color: var(--warn); border-left: 4px solid var(--warn); }
   #storageStatus { margin: 0 0 20px; }
 
-  /* 결과 표시창 */
+  /* 결과 표시창: 상자 없이 2px 가로줄로만 나눈다 (의미 색은 줄과 글자에) */
   .result {
-    margin-top: 16px;
-    padding: 14px;
-    border-radius: 10px;
-    border: 2px solid var(--line);
-    background: #fafbfb;
+    margin-top: 20px;
+    padding: 12px 0 0;
+    border: 0;
+    border-top: 2px solid var(--rule);
+    border-radius: 0;
+    background: transparent;
   }
-  .result-main { margin: 0; font-size: 1.08rem; font-weight: 700; }
-  .result.yes { border-color: var(--ok); background: var(--ok-weak); }
+  .result-main { margin: 0; font-size: var(--fs-m); font-weight: 800; }
+  .result.yes { border-top-color: var(--ok); background: transparent; }
   .result.yes .result-main { color: var(--ok); }
-  .result.no { border-color: var(--muted); }
-  .result.warn { border-color: var(--warn); background: var(--warn-weak); }
+  .result.no { border-top-color: var(--rule); }
+  .result.warn { border-top-color: var(--warn); background: transparent; }
   .result.warn .result-main { color: var(--warn); }
-  .result-notice { margin: 8px 0 0; font-size: 0.88rem; color: var(--warn); font-weight: 600; }
+  .result-notice { margin: 8px 0 0; font-size: var(--fs-s); color: var(--warn); font-weight: 700; }
 
-  .list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-  .count { color: var(--muted); font-size: 0.92rem; }
-  .edges { list-style: none; margin: 0; padding: 0; }
-  .edge { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .list-head { display: block; margin-bottom: 8px; }
+  .list-head h2 { margin-bottom: 4px; }
+  .count { display: block; color: var(--muted); font-size: var(--fs-s); }
+
+  /* 연결 목록: 상자 없이 항목 사이 2px 가로줄, 앞에 01·02·03 번호 (CSS 카운터) */
+  .edges { list-style: none; margin: 0; padding: 0; counter-reset: edge; }
+  .edge { padding: 12px 0; border-bottom: 2px solid var(--rule); counter-increment: edge; }
   .edge:last-child { border-bottom: none; }
-  .edge-main { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .edge-text { flex: 1 1 auto; min-width: 0; font-weight: 600; }
-  .edge-text .arrow { color: var(--accent); margin: 0 6px; }
+  .edge-main { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .edge-main::before {
+    content: counter(edge, decimal-leading-zero);
+    flex: none;
+    min-width: 2.2em;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .edge-text { flex: 1 1 auto; min-width: 0; font-weight: 700; }
+  .edge-text .arrow { color: var(--text); font-weight: 900; margin: 0 6px; }
   .edge-main button { flex: none; white-space: nowrap; }
   .empty { color: var(--muted); padding: 12px 0; margin: 0; }
-  .confirm-box { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--err-weak); }
-  .confirm-box p { margin: 0 0 8px; color: var(--err); font-size: 0.95rem; }
+  .confirm-box { margin-top: 8px; padding: 10px 12px; border-radius: 0; background: var(--err-weak); }
+  .confirm-box p { margin: 0 0 8px; color: var(--err); font-size: var(--fs-s); }
   .confirm-box .row { margin-top: 0; }
   .reset-area { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
 
   /* 연결 방향 선택 (양방향 / 단방향) */
   .dir { border: 0; margin: 12px 0 0; padding: 0; min-width: 0; }
-  .dir legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
-  .dir-options { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dir legend { font-weight: 700; padding: 0; margin-bottom: 4px; }
+  .dir-options { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gap); row-gap: 8px; }
   .dir-options label {
     display: flex; align-items: center; gap: 8px;
+    grid-column: span 6;
     margin: 0; padding: 8px 12px; min-height: 44px;
-    border: 1px solid var(--line); border-radius: 8px; background: #fff;
-    font-weight: 600; cursor: pointer; flex: 1 1 12rem; min-width: 0;
+    border: 1px solid var(--field); border-radius: 0; background: var(--card);
+    font-weight: 700; cursor: pointer; min-width: 0; flex-wrap: wrap;
   }
-  .dir-options input { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--accent); }
-  .dir-options label:has(input:checked) { border-color: var(--accent); background: var(--accent-weak); }
+  @media (max-width: 520px) { .dir-options label { grid-column: 1 / -1; } }
+  .dir-options input { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--text); }
+  .dir-options label:has(input:checked) { border-color: var(--text); outline: 2px solid var(--text); outline-offset: -2px; background: var(--bg); }
   .dir-options .hint { display: inline; }
-  .result-sub { margin: 6px 0 0; font-size: 0.95rem; color: var(--muted); }
+  .result-sub { margin: 6px 0 0; font-size: var(--fs-s); color: var(--muted); }
   .result-sub:empty { display: none; }
 </style>
 </head>
