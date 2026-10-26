@@ -7,7 +7,7 @@
 <title>포트폴리오 리스크 시각화 및 수식 해설기</title>
 <meta name="description" content="자산 3개의 비중과 상관계수를 조절하며 위험-수익률 그래프와 분산 공식 대입 과정을 실시간으로 확인하는 경제수학 학습 도구">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="1회 개선">
+  <meta name="status" content="2회 개선">
   <meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T01 리퀴드 글래스 · #1e3a8a">
 
 <!-- ===== 2. 스타일 ===== -->
@@ -33,8 +33,13 @@
     /* 유리 뒤로 비쳐 보일 남색 빛: 진한 빛은 글자 없는 구석에만, 글자 아래는 12% 이하 */
     background-image:
       radial-gradient(circle at 100% 0%, rgba(30,58,138,.30) 0, rgba(30,58,138,.10) 90px, rgba(30,58,138,0) 320px),
-      radial-gradient(ellipse 55% 35% at 85% 55%, rgba(30,58,138,.09), rgba(30,58,138,0) 70%);
+      radial-gradient(ellipse 55% 35% at 85% 55%, rgba(30,58,138,.09), rgba(30,58,138,0) 70%),
+      /* 2회 개선: 유리 카드 뒤로 비칠 빛을 왼쪽·아래에도 은은하게 추가 (글자 대비 유지 위해 12% 이하) */
+      radial-gradient(ellipse 45% 30% at 0% 30%, rgba(30,58,138,.10), rgba(30,58,138,0) 70%),
+      radial-gradient(ellipse 60% 25% at 20% 100%, rgba(30,58,138,.11), rgba(30,58,138,0) 70%),
+      radial-gradient(ellipse 40% 20% at 70% 85%, rgba(255,255,255,.7), rgba(255,255,255,0) 70%);
     background-repeat: no-repeat;
+    min-height: 100vh;
     color: var(--text);
     font-family: "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     font-size: 16px;
@@ -46,13 +51,16 @@
   h2 { font-size: 1.1rem; margin: 0 0 12px; }
   p.lead { margin: 0 0 20px; color: var(--muted); }
   section.card {
-    background: var(--card);
+    /* 2회 개선: 살짝 비치는 유리 카드 — 뒤 배경 빛이 은은하게 보이고 위쪽 가장자리에 빛 반사 */
+    background: color-mix(in srgb, var(--card) 86%, transparent);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
     border: 1px solid var(--line);
     border-radius: 20px;
     padding: 18px;
     margin-bottom: 16px;
     min-width: 0;
-    box-shadow: 0 4px 16px rgba(0,0,0,.06);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 4px 16px rgba(0,0,0,.06), 0 18px 40px rgba(30,58,138,.07);
   }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   /* 리퀴드 글래스 버튼: 반투명 유리 + 가장자리 빛 + 두께감 */
@@ -61,11 +69,14 @@
     font-size: 15px;
     padding: 8px 16px;
     border-radius: 999px;
-    border: 1px solid rgba(255,255,255,.6);
-    background: color-mix(in srgb, #fbf9f4 45%, transparent);
+    /* 2회 개선: 밝은 화면·빔프로젝터에서도 보이도록 남색 테두리(카드 바탕 대비 약 4.5:1) */
+    border: 1.5px solid rgba(30,58,138,.72);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.08) 55%, rgba(30,58,138,.05)),
+      color-mix(in srgb, #fbf9f4 45%, transparent);
     -webkit-backdrop-filter: blur(12px) saturate(160%);
     backdrop-filter: blur(12px) saturate(160%);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.75), inset 0 -1px 0 rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.12);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 0 rgba(30,58,138,.12), 0 1px 2px rgba(30,58,138,.18), 0 8px 24px rgba(0,0,0,.12);
     color: var(--text);
     cursor: pointer;
     min-height: 40px;
@@ -73,8 +84,15 @@
   }
   button:hover { border-color: var(--accent); }
   button:active { transform: scale(.97); }
-  button.primary { background: color-mix(in srgb, var(--accent) 90%, transparent); border-color: rgba(255,255,255,.6); color: #fff; }
-  button.primary:hover { border-color: var(--accent); }
+  button.primary { background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,0) 60%), color-mix(in srgb, var(--accent) 90%, transparent); border-color: #0f1f4d; color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 1px 2px rgba(15,31,77,.3), 0 8px 24px rgba(0,0,0,.14); }
+  button.primary:hover { border-color: #000; }
+  /* 자산 개수 모드 버튼: 선택된 쪽은 남색으로 채움 */
+  .mode-switch { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+  .mode-switch button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 90%, transparent); border-color: #0f1f4d; color: #fff; font-weight: 700; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button:disabled:active { transform: none; }
+  input:disabled { opacity: .55; cursor: not-allowed; }
+  .locked { color: var(--accent); font-weight: 600; }
   button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) {
     button { transition: none; }
@@ -168,6 +186,14 @@
   <!-- 상단: 프리셋 + 자산 데이터 입력 -->
   <section class="card" aria-labelledby="sec-assets">
     <h2 id="sec-assets">1. 자산 설정</h2>
+    <div class="row" style="margin-bottom:10px">
+      <span class="small" id="mode-label">자산 개수</span>
+      <div class="mode-switch" role="group" aria-labelledby="mode-label">
+        <button type="button" id="mode-2" data-mode="2" aria-pressed="false">자산 2개 모드</button>
+        <button type="button" id="mode-3" data-mode="3" aria-pressed="true">자산 3개 모드</button>
+      </div>
+    </div>
+    <p class="small" id="mode-help" style="margin:0 0 10px">3개 모드: 자산 A·B·C의 비중을 각각 따로 조절합니다. (합계 100%)</p>
     <div class="row">
       <label for="preset-target">프리셋을 채울 자산</label>
       <select id="preset-target" style="width:auto">
@@ -203,10 +229,10 @@
       <ul class="legend" aria-label="그래프 범례">
         <li><svg width="28" height="10" aria-hidden="true"><line x1="1" y1="5" x2="27" y2="5" stroke="#3d6fa8" stroke-width="3" stroke-linecap="round"/></svg>효율적 투자선</li>
         <li><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="#8a979d"/></svg>각 자산</li>
-        <li><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="6" fill="#0f7a73"/></svg>현재 포트폴리오 P</li>
+        <li><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="6" fill="#1e3a8a"/></svg>현재 포트폴리오 P</li>
       </ul>
       <p class="small">회색 점 = 각 자산, 진한 점 = 현재 포트폴리오. 비중을 바꾸면 진한 점이 움직입니다.</p>
-      <p class="small">효율적 투자선 = 지금 세 자산으로(공매도 없이, 비중 합 100%) 만들 수 있는 조합 중, 같은 위험에서 기대수익률이 가장 높은 조합들을 이은 선입니다. 자산 값이나 상관계수를 바꾸면 선이 다시 그려집니다.</p>
+      <p class="small" id="frontier-help">효율적 투자선 = 지금 세 자산으로(공매도 없이, 비중 합 100%) 만들 수 있는 조합 중, 같은 위험에서 기대수익률이 가장 높은 조합들을 이은 선입니다. 자산 값이나 상관계수를 바꾸면 선이 다시 그려집니다.</p>
       <p class="message" id="frontier-note" hidden></p>
     </section>
   </div>
@@ -256,6 +282,7 @@ const DEFAULT_CORR = [
 // ===== 5. 데이터·상태 =====
 let assets = [];   // { label, name, ret, sd, weight } 배열 (입력칸의 원래 글자는 raw에 보관)
 let corr = [];     // 상관계수 행렬
+let twoMode = false; // 2회 개선: true면 자산 2개 모드 (C 비중 0% 고정, wB = 100 − wA)
 
 // 깊은 복사로 기본값을 상태에 넣는다 (기본값이 바뀌지 않도록)
 function loadDefaults() {
@@ -367,14 +394,15 @@ let frontierCache = { key: "", data: null };  // 비중만 바뀔 때는 다시 
 
 function calcFrontier() {
   // 자산 값과 상관계수가 같으면 지난번 결과를 그대로 쓴다
-  const key = JSON.stringify([assets.map(a => [a.ret, a.sd]), corr]);
+  const key = JSON.stringify([assets.map(a => [a.ret, a.sd]), corr, twoMode]);
   if (frontierCache.key === key) return frontierCache.data;
 
   const n = assets.length;      // 이 계산은 자산 3개 기준
   const pts = [];               // { sd, ret }
   let negCount = 0;             // 분산이 음수가 나온 조합 수
   for (let a = 0; a <= 100; a++) {
-    for (let b = 0; a + b <= 100; b++) {
+    // 2개 모드에서는 C = 0 이므로 b = 100 − a 한 가지만 본다 (A·B 두 자산의 투자선)
+    for (let b = twoMode ? 100 - a : 0; a + b <= 100; b++) {
       const w = [a / 100, b / 100, (100 - a - b) / 100];
       let ret = 0, v = 0;
       for (let i = 0; i < n; i++) {
@@ -553,6 +581,11 @@ function renderLabels() {
   assets.forEach((a, i) => {
     $("asset-title-" + i).textContent = "자산 " + a.label + " (" + a.name + ")";
     $("w-label-" + i).textContent = "자산 " + a.label + " (" + a.name + ") 비중 (%)";
+    // 2개 모드 안내 꼬리표
+    const tag = document.createElement("span");
+    tag.className = "locked";
+    if (twoMode && i === 2) { tag.textContent = " · 0% 고정"; $("w-label-" + i).appendChild(tag); }
+    if (twoMode && i === 1) { tag.textContent = " · 자동 = 100 − A"; $("w-label-" + i).appendChild(tag); }
   });
   for (let i = 0; i < assets.length; i++) {
     for (let j = i + 1; j < assets.length; j++) {
@@ -695,7 +728,7 @@ function drawChart(result) {
 
   // 포트폴리오 점 (강조색) + 좌표값
   const px = X(result.sd), py = Y(result.expRet);
-  ctx.fillStyle = "#0f7a73";
+  ctx.fillStyle = "#1e3a8a";  // 2회 개선: 결과 숫자와 같은 남색
   ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
   const text = "P (" + fmt(result.sd) + ", " + fmt(result.expRet) + ")";
@@ -705,7 +738,7 @@ function drawChart(result) {
   const leftSide = px + 12 + tw > cssW - 4;
   ctx.textAlign = leftSide ? "right" : "left";
   ctx.textBaseline = "bottom";
-  ctx.fillStyle = "#0f7a73";
+  ctx.fillStyle = "#1e3a8a";
   ctx.fillText(text, leftSide ? px - 12 : px + 12, Math.max(py - 6, pad.t + 14));
 }
 
@@ -771,7 +804,59 @@ function setAssetValue(i, key, text) {
   if (text.trim() !== "" && !isNaN(v)) assets[i][key] = v;
 }
 
+// ----- 2회 개선: 자산 2개 / 3개 모드 -----
+// 2개 모드에서 자산 i(A 또는 B)의 비중이 바뀌면 짝 자산을 100 − (그 비중)으로 맞춘다.
+// 입력이 비었거나 0~100 밖이면 짝을 건드리지 않고 기존 오류 안내가 뜨게 둔다.
+function linkPair(i) {
+  if (!twoMode || i > 1) return;
+  const txt = assets[i].raw.weight.trim();
+  const v = Number(txt);
+  if (txt === "" || isNaN(v) || v < 0 || v > 100) return;
+  const o = 1 - i;
+  const ov = Math.round((100 - v) * 1e6) / 1e6;   // 100 − 33.3 같은 소수 오차 정리
+  setAssetValue(o, "weight", String(ov));
+  $("w-num-" + o).value = String(ov);
+  $("w-range-" + o).value = ov;
+}
+
+// 2개 모드 규칙을 상태에 적용: C = 0, B = 100 − A
+function enforceTwoMode() {
+  setAssetValue(2, "weight", "0");
+  let a = Number(assets[0].raw.weight);
+  if (assets[0].raw.weight.trim() === "" || isNaN(a)) a = Number($("w-range-0").value);
+  a = Math.min(100, Math.max(0, a));
+  setAssetValue(0, "weight", String(a));
+  setAssetValue(1, "weight", String(Math.round((100 - a) * 1e6) / 1e6));
+}
+
+// C의 비중 조절 칸, C가 들어간 상관계수 칸을 2개 모드에서 잠근다
+function applyModeLock() {
+  const lock = twoMode;
+  ["w-num-2", "w-range-2", "c-range-02", "c-range-12"].forEach(id => { $(id).disabled = lock; });
+  document.querySelectorAll('button[data-step="w"][data-i="2"], button[data-step="c"][data-j="2"]').forEach(b => { b.disabled = lock; });
+  $("mode-2").setAttribute("aria-pressed", String(lock));
+  $("mode-3").setAttribute("aria-pressed", String(!lock));
+  $("mode-help").textContent = lock
+    ? "2개 모드: 자산 C는 비중 0%로 고정되고, 자산 A 비중을 바꾸면 자산 B 비중이 100 − A로 자동으로 바뀝니다. (B를 바꾸면 A가 맞춰집니다) C와 관련된 상관계수는 결과에 영향이 없어 잠급니다."
+    : "3개 모드: 자산 A·B·C의 비중을 각각 따로 조절합니다. (합계 100%)";
+  $("frontier-help").textContent = lock
+    ? "효율적 투자선 = 지금 두 자산 A·B로(공매도 없이, 비중 합 100%) 만들 수 있는 조합 중, 같은 위험에서 기대수익률이 가장 높은 조합들을 이은 선입니다. 자산 값이나 상관계수를 바꾸면 선이 다시 그려집니다."
+    : "효율적 투자선 = 지금 세 자산으로(공매도 없이, 비중 합 100%) 만들 수 있는 조합 중, 같은 위험에서 기대수익률이 가장 높은 조합들을 이은 선입니다. 자산 값이나 상관계수를 바꾸면 선이 다시 그려집니다.";
+}
+
+function setMode(n) {
+  twoMode = n === 2;
+  if (twoMode) enforceTwoMode();   // 3개 모드로 돌아갈 때는 지금 값 그대로 두고 개별 조절만 다시 허용
+  fillInputs();
+  applyModeLock();
+  update();
+}
+
 function bindEvents() {
+  // 자산 개수 모드 버튼
+  $("mode-2").addEventListener("click", () => setMode(2));
+  $("mode-3").addEventListener("click", () => setMode(3));
+
   // 프리셋 버튼: 선택한 자산 칸에 이름·수익률·표준편차를 채운다
   $("preset-buttons").addEventListener("click", e => {
     const btn = e.target.closest("button[data-preset]");
@@ -805,6 +890,7 @@ function bindEvents() {
       const v = Number(t.value);
       if (t.value.trim() !== "" && !isNaN(v)) $("w-range-" + i).value = Math.min(100, Math.max(0, v));
     }
+    linkPair(i);   // 2개 모드: A ↔ B 자동 연동
     update();
   });
 
@@ -835,6 +921,7 @@ function bindEvents() {
       setAssetValue(i, "weight", String(v));
       $("w-num-" + i).value = String(v);
       $("w-range-" + i).value = v;
+      linkPair(i);   // 2개 모드: A ↔ B 자동 연동
     } else {
       const j = Number(b.dataset.j);
       // 0.1을 여러 번 더하면 0.30000000000000004 같은 오차가 생기므로 소수 첫째 자리로 반올림
@@ -851,6 +938,7 @@ function bindEvents() {
   // 데이터 초기화
   $("reset-btn").addEventListener("click", () => {
     loadDefaults();
+    if (twoMode) enforceTwoMode();   // 지금 모드는 유지
     $("preset-target").value = "0";
     fillInputs();
     update();
@@ -865,6 +953,7 @@ loadDefaults();
 buildControls();
 fillInputs();
 bindEvents();
+applyModeLock();
 update();
 </script>
 </body>
