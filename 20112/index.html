@@ -6,7 +6,7 @@
 <title>출시 예정 게임 위시리스트 관리기</title>
 <meta name="description" content="사고 싶은 게임의 출시일을 등록하면 오늘 날짜 기준으로 구매 가능/출시 예정을 나눠 보여 주고, 산 게임은 따로 모아 기록하는 위시리스트">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="2회 개선">
+  <meta name="status" content="3회 개선">
   <meta name="design" content="컬러셋 C11 밤하늘과 보라 · 트렌드 T10 레트로 픽셀 · #8b9cff">
 
 <!-- ===================== 스타일 ===================== -->
@@ -269,6 +269,19 @@
   @media (max-width: 480px) {
     .rec-row button { flex: 1 1 100%; }
   }
+
+  /* 산 게임 별점 (1~5점) */
+  .rating { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 4px; margin-top: 6px; }
+  .rating .label { color: var(--muted); font-size: 16px; margin-right: 4px; }
+  .rating button.star {
+    background: transparent; box-shadow: none; border: 0;
+    padding: 0; width: 36px; height: 36px;
+    font-size: 26px; line-height: 1; color: var(--muted);
+  }
+  .rating button.star.on { color: #ffd75e; }
+  .rating button.star:hover { color: #ffe9a3; }
+  .rating .score { font-size: 16px; color: var(--text); margin-left: 4px; }
+  .rating button.clear-rate { padding: 4px 10px; font-size: 15px; margin-left: 8px; }
 </style>
 </head>
 <body>
@@ -441,29 +454,55 @@ const SAMPLE_GAMES = [
   { title: "우주 탐험대", date: "2026-12-25", price: 58000, platform: "Switch" }
 ];
 
-// 장르별 랜덤 추천에 쓰는 게임 데이터 (장르 5개 × 3개 = 15개)
+// 장르별 랜덤 추천에 쓰는 게임 데이터 (장르 10개 × 4개 = 40개)
 // 게임 이름은 실제 게임이지만 가격·출시일은 예시값이라 실제와 다를 수 있다.
 const REC_GAMES = [
   { title: "엘든 링", genre: "RPG", price: 64800, date: "2022-02-25" },
   { title: "발더스 게이트 3", genre: "RPG", price: 66000, date: "2023-08-03" },
   { title: "파이널 판타지 VII 리버스", genre: "RPG", price: 79800, date: "2024-02-29" },
+  { title: "페르소나 5 로열", genre: "RPG", price: 64800, date: "2022-10-21" },
   { title: "몬스터 헌터 와일즈", genre: "액션", price: 69800, date: "2025-02-28" },
   { title: "할로우 나이트: 실크송", genre: "액션", price: 21500, date: "2025-09-04" },
   { title: "GTA 6", genre: "액션", price: 89800, date: "2026-11-19" },
-  { title: "오버워치 2", genre: "FPS", price: 0, date: "2022-10-04" },
-  { title: "둠: 더 다크 에이지", genre: "FPS", price: 79800, date: "2025-05-15" },
-  { title: "배틀필드 6", genre: "FPS", price: 79800, date: "2025-10-10" },
+  { title: "세키로: 섀도우 다이 트와이스", genre: "액션", price: 64800, date: "2019-03-22" },
+  { title: "오버워치 2", genre: "FPS/TPS", price: 0, date: "2022-10-04" },
+  { title: "둠: 더 다크 에이지", genre: "FPS/TPS", price: 79800, date: "2025-05-15" },
+  { title: "배틀필드 6", genre: "FPS/TPS", price: 79800, date: "2025-10-10" },
+  { title: "헬다이버즈 2", genre: "FPS/TPS", price: 44800, date: "2024-02-08" },
   { title: "스타듀 밸리", genre: "시뮬레이션", price: 16000, date: "2016-02-26" },
   { title: "모여봐요 동물의 숲", genre: "시뮬레이션", price: 64800, date: "2020-03-20" },
   { title: "시티즈: 스카이라인 II", genre: "시뮬레이션", price: 54000, date: "2023-10-24" },
+  { title: "심즈 4", genre: "시뮬레이션", price: 0, date: "2014-09-02" },
   { title: "EA SPORTS FC 26", genre: "스포츠/전략", price: 79800, date: "2025-09-26" },
   { title: "문명 VII", genre: "스포츠/전략", price: 69800, date: "2025-02-11" },
-  { title: "토탈 워: 워해머 III", genre: "스포츠/전략", price: 66000, date: "2022-02-17" }
+  { title: "토탈 워: 워해머 III", genre: "스포츠/전략", price: 66000, date: "2022-02-17" },
+  { title: "스타크래프트: 리마스터", genre: "스포츠/전략", price: 16500, date: "2017-08-14" },
+  { title: "셀레스트", genre: "인디", price: 21500, date: "2018-01-25" },
+  { title: "언더테일", genre: "인디", price: 10500, date: "2015-09-15" },
+  { title: "하데스 II", genre: "인디", price: 32000, date: "2025-09-25" },
+  { title: "발라트로", genre: "인디", price: 16500, date: "2024-02-20" },
+  { title: "바이오하자드 RE:4", genre: "공포", price: 59800, date: "2023-03-24" },
+  { title: "사일런트 힐 2", genre: "공포", price: 79800, date: "2024-10-08" },
+  { title: "리썰 컴퍼니", genre: "공포", price: 10500, date: "2023-10-23" },
+  { title: "파스모포비아", genre: "공포", price: 21500, date: "2020-09-18" },
+  { title: "마리오 카트 월드", genre: "레이싱", price: 89800, date: "2025-06-05" },
+  { title: "포르자 호라이즌 5", genre: "레이싱", price: 69000, date: "2021-11-09" },
+  { title: "그란 투리스모 7", genre: "레이싱", price: 79800, date: "2022-03-04" },
+  { title: "F1 25", genre: "레이싱", price: 69800, date: "2025-05-30" },
+  { title: "디제이맥스 리스펙트 V", genre: "리듬/음악", price: 34000, date: "2020-03-12" },
+  { title: "비트 세이버", genre: "리듬/음악", price: 33000, date: "2019-05-21" },
+  { title: "하이파이 러시", genre: "리듬/음악", price: 32000, date: "2023-01-25" },
+  { title: "크립트 오브 더 네크로댄서", genre: "리듬/음악", price: 16000, date: "2015-04-23" },
+  { title: "테트리스 이펙트: 커넥티드", genre: "퍼즐/캐주얼", price: 44800, date: "2021-11-10" },
+  { title: "포탈 2", genre: "퍼즐/캐주얼", price: 10500, date: "2011-04-19" },
+  { title: "폴 가이즈", genre: "퍼즐/캐주얼", price: 0, date: "2020-08-04" },
+  { title: "더 위트니스", genre: "퍼즐/캐주얼", price: 43000, date: "2016-01-26" }
 ];
-const REC_GENRES = ["RPG", "액션", "FPS", "시뮬레이션", "스포츠/전략"];
+const REC_GENRES = ["RPG", "액션", "FPS/TPS", "시뮬레이션", "스포츠/전략", "인디", "공포", "레이싱", "리듬/음악", "퍼즐/캐주얼"];
 
 // ===================== 데이터·상태 =====================
-// 게임 하나 = { id, title, date, price, platform, purchased }
+// 게임 하나 = { id, title, date, price, platform, purchased, rating }
+// rating은 산 게임의 별점(1~5). 아직 안 매겼거나 이전 버전에서 저장한 게임은 값이 없다.
 let games = [];
 let canSave = true;   // localStorage를 쓸 수 있는지 여부
 
@@ -569,6 +608,24 @@ function markPurchased(id) {
   render();
 }
 
+// 별점 매기기: 산 게임에만. 지금 별점과 같은 별을 다시 누르면 그대로 둔다(지우기는 [별점 지우기]).
+function rateGame(id, score) {
+  const game = games.find(function (g) { return g.id === id; });
+  if (!game || !game.purchased) return;
+  game.rating = score;
+  saveGames();
+  render();
+  setListMessage(score
+    ? "“" + game.title + "”에 별점 " + score + "점을 매겼습니다."
+    : "“" + game.title + "”의 별점을 지웠습니다.");
+}
+
+// 별점을 1~5 정수로 읽는다. 그 밖의 값(없음·이상한 값)은 0 = 평가 안 함.
+function ratingOf(game) {
+  const n = Number(game.rating);
+  return Number.isInteger(n) && n >= 1 && n <= 5 ? n : 0;
+}
+
 // 전체 데이터 초기화: 배열을 비우고, 빈 배열을 저장해 예시 데이터가 다시 생기지 않게 한다.
 function resetAll() {
   games = [];
@@ -636,6 +693,7 @@ function makeCard(game, kind) {
 
   info.appendChild(title);
   info.appendChild(meta);
+  if (kind === "bought") info.appendChild(makeRating(game));
   li.appendChild(info);
 
   // 오른쪽 버튼 묶음
@@ -662,6 +720,52 @@ function makeCard(game, kind) {
 
   li.appendChild(actions);
   return li;
+}
+
+// 산 게임 카드의 별점 줄: ★ 버튼 5개 + 점수 글자 + [별점 지우기]
+// 버튼은 data-action="rate"로 목록 클릭 처리(handleListClick)에서 함께 받는다.
+function makeRating(game) {
+  const score = ratingOf(game);
+  const box = document.createElement("div");
+  box.className = "rating";
+  box.setAttribute("role", "group");
+  box.setAttribute("aria-label", game.title + " 별점");
+
+  const label = document.createElement("span");
+  label.className = "label";
+  label.textContent = "내 별점";
+  box.appendChild(label);
+
+  for (let i = 1; i <= 5; i++) {
+    const star = document.createElement("button");
+    star.type = "button";
+    star.className = "star" + (i <= score ? " on" : "");
+    star.textContent = i <= score ? "★" : "☆";
+    star.setAttribute("aria-label", i + "점");
+    star.setAttribute("aria-pressed", i === score ? "true" : "false");
+    star.dataset.id = game.id;
+    star.dataset.action = "rate";
+    star.dataset.score = i;
+    box.appendChild(star);
+  }
+
+  const text = document.createElement("span");
+  text.className = "score";
+  text.textContent = score ? score + "점" : "아직 평가 안 함";
+  box.appendChild(text);
+
+  if (score) {
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.className = "btn-ghost clear-rate";
+    clear.textContent = "별점 지우기";
+    clear.setAttribute("aria-label", game.title + " 별점 지우기");
+    clear.dataset.id = game.id;
+    clear.dataset.action = "rate";
+    clear.dataset.score = 0;
+    box.appendChild(clear);
+  }
+  return box;
 }
 
 // 목록 하나를 그린다. 비어 있으면 안내 문구를 넣는다.
@@ -1032,10 +1136,19 @@ function clearInvalid(event) {
   event.target.removeAttribute("aria-invalid");
 }
 
-// 카드의 [구매 완료]·[수정]·[삭제] 버튼 (목록마다 하나의 이벤트만 걸어 둔다)
+// 카드의 [구매 완료]·[수정]·[삭제]·별점 버튼 (목록마다 하나의 이벤트만 걸어 둔다)
 function handleListClick(event) {
   const btn = event.target.closest("button[data-id]");
   if (!btn) return;
+  if (btn.dataset.action === "rate") {
+    const id = btn.dataset.id;
+    const score = Number(btn.dataset.score);
+    rateGame(id, score);
+    // 다시 그려진 카드에서 누른 별(지웠으면 1점 별)에 커서를 돌려준다
+    const again = document.querySelector('button[data-id="' + id + '"][data-action="rate"][data-score="' + (score || 1) + '"]');
+    if (again) again.focus();
+    return;
+  }
   if (btn.dataset.action === "buy") markPurchased(btn.dataset.id);
   else if (btn.dataset.action === "edit") openEdit(btn.dataset.id, btn);
   else if (btn.dataset.action === "delete") openDelete(btn.dataset.id, btn);
