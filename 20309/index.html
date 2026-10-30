@@ -6,7 +6,7 @@
 <title>마인크래프트 다단계 아이템 재료 계산기</title>
 <meta name="description" content="만들 아이템과 개수를 고르면 단계별 조합 트리, 창고에서 챙길 기본 원재료 총합, 올림 조합 횟수와 남는 재료, 64개 세트 단위를 계산해 주는 마인크래프트 재료 계산기">
 <meta name="class" content="M반 (2-8)">
-<meta name="status" content="1회 개선">
+<meta name="status" content="2회 개선">
 <style>
   :root {
     --bg: #f5f6f3;
@@ -133,13 +133,26 @@
   .area-a .result-head { background: var(--base-weak); border-bottom-color: #a9c9a6; }
   .area-a .step-no { background: var(--base); }
   .sum-list { list-style: none; margin: 0; padding: 0; }
-  .sum-list li {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center; gap: 2px 12px;
-    padding: 12px 0; border-bottom: 1px solid var(--line);
-  }
+  .sum-list li { border-bottom: 1px solid var(--line); }
   .sum-list li:last-child { border-bottom: 0; }
+  /* 줄 전체가 체크박스 라벨: 아무 곳이나 눌러도 챙김 표시가 켜지고 꺼진다 */
+  .sum-check {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center; gap: 2px 12px;
+    padding: 12px 0; margin: 0;
+    font-weight: 400; cursor: pointer;
+  }
+  .sum-check input {
+    width: 24px; height: 24px; margin: 0;
+    accent-color: var(--accent); cursor: pointer;
+  }
+  .sum-check input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  /* 챙긴 재료: 이름·개수에 줄을 긋고 회색으로 (글자 대비는 4.5:1 이상 유지) */
+  .sum-list li.checked .sum-name,
+  .sum-list li.checked .sum-count {
+    text-decoration: line-through; text-decoration-thickness: 2px; color: var(--muted);
+  }
   .sum-label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; }
   .sum-name { font-weight: 700; }
   .sum-amount { text-align: right; }
@@ -544,17 +557,27 @@ function resultCard(areaClass, stepNo, titleId, titleText, desc) {
   return { card: card, body: body };
 }
 
+// 요약 목록 한 줄: 맨 앞 체크박스로 "챙김" 표시를 켜고 끈다.
+// 체크 상태는 화면에서만 바뀌고 저장하지 않아요. (다시 계산하면 모두 풀려요)
 function sumRow(name, badgeEl, count, extraClass) {
   const li = el("li", extraClass || "");
+  const row = el("label", "sum-check");
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.addEventListener("change", function () {
+    li.classList.toggle("checked", box.checked);
+  });
+  row.appendChild(box);
   const label = el("span", "sum-label");
   label.appendChild(el("span", "sum-name", name));
   label.appendChild(badgeEl);
-  li.appendChild(label);
+  row.appendChild(label);
   const amount = el("span", "sum-amount");
   amount.appendChild(el("span", "sum-count", count + "개"));
   const sets = setText(count);
   if (sets) amount.appendChild(el("span", "sets", sets));
-  li.appendChild(amount);
+  row.appendChild(amount);
+  li.appendChild(row);
   return li;
 }
 
@@ -576,7 +599,7 @@ function calculate() {
   // 영역 A: 창고에서 챙길 기본 원재료 요약
   const a = resultCard("area-a", "1", "areaATitle",
     "창고에서 챙길 기본 원재료 (" + tree.item.name + " " + n + "개)",
-    "이 목록대로 창고에서 꺼내 가면 돼요.");
+    "이 목록대로 창고에서 꺼내 가면 돼요. 챙긴 재료는 눌러서 체크해 두세요.");
   const list = el("ul", "sum-list");
   totals.forEach(function (count, id) {
     list.appendChild(sumRow(ITEMS[id].name, badge("base"), count));
