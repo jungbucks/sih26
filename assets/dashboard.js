@@ -26,7 +26,8 @@ function badge(step, p) {
     b.classList.add("dash-step");
     return b;
   }
-  const b = el("span", SHORT[step.name] || step.name, "dash-step" + (step.done ? " done" : ""));
+  const gold = step.done && step.name === "4회 개선";
+  const b = el("span", SHORT[step.name] || step.name, "dash-step" + (step.done ? " done" : "") + (gold ? " gold" : ""));
   b.title = step.name + (step.done ? " 완료" : " 아직");
   return b;
 }

@@ -4,6 +4,7 @@ import {
   json,
   date,
   designBadge,
+  statusBadge,
   loadView,
   filterProjects,
   markSeen,
@@ -81,7 +82,7 @@ async function init() {
     $("identity").replaceChildren(
       el("strong", id, "student-id"),
       el("span", p.class, "student-class"),
-      ...(p.status ? [el("span", p.status, "student-status")] : []),
+      ...(p.status ? [statusBadge(p.status)] : []),
       ...(p.design ? [designBadge(p.design)] : []),
     );
     $("title").textContent = p.title;

@@ -18,6 +18,13 @@ export function date(value) {
       }).format(new Date(value))
     : "수정일 미확인";
 }
+// 진행 단계 배지. 4회 개선(이상)까지 마친 작품은 금빛 '골드' 배지
+export const GOLD_STAGES = ["4회 개선", "5회 개선"];
+export function statusBadge(status) {
+  const b = el("span", status, "student-status");
+  if (GOLD_STAGES.includes(status)) b.classList.add("gold");
+  return b;
+}
 // 디자인 개선을 반영한 작품: 진행 단계 옆 '디자인' 칩 (바탕·빛 = 학생이 고른 강조색)
 export function designBadge(d) {
   const b = el("span", "디자인", "student-design");
