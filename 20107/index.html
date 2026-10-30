@@ -6,7 +6,7 @@
 <title>나만의 공부 계획표</title>
 <meta name="description" content="과목, 할 일, 목표 시간을 적어 두면 과목별로 묶어 보여 주고 이 브라우저에 저장해 주는 공부 계획표">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="1회 개선">
+  <meta name="status" content="2회 개선">
   <meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T09 맥시멀리즘 · #1e3a8a">
 <style>
   @font-face { font-family: "Gowun Dodum"; src: url("../assets/fonts/GowunDodum-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
@@ -22,6 +22,7 @@
     --accent-weak: #e4e9f5;
     --ok: #1a7f37;
     --ok-weak: #e9f6ec;
+    --ok-text: #14532d;   /* 연한 초록 바탕 위 안내 글자용 진한 초록 */
     --err: #b42318;
     --err-weak: #fdecea;
     --warn: #8a5a00;
@@ -97,7 +98,7 @@
   /* 저장 상태 배지: 목록 위에서 바로 보이게 (색 + 글자로 구분) */
   .save-badge { font-size: 0.9rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
   .save-badge:empty { display: none; }
-  .save-badge.ok { background: var(--ok-weak); color: var(--ok); }
+  .save-badge.ok { background: var(--ok-weak); color: var(--ok-text); }
   .save-badge.warn { background: var(--warn-weak); color: var(--warn); }
 
   /* 완료한 공부 */
@@ -114,7 +115,7 @@
   .msg { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-size: 0.95rem; }
   .msg:empty { display: none; }
   .msg-error { background: var(--err-weak); color: var(--err); border-left: 4px solid var(--err); }
-  .msg-ok { background: var(--ok-weak); color: var(--ok); border-left: 4px solid var(--ok); }
+  .msg-ok { background: var(--ok-weak); color: var(--ok-text); border-left: 4px solid var(--ok); }
   .msg-warn { background: var(--warn-weak); color: var(--warn); border-left: 4px solid var(--warn); }
   .msg ul { margin: 4px 0 0; padding-left: 20px; }
 
@@ -159,14 +160,21 @@
     border-radius: 16px;
     box-shadow: 3px 3px 0 var(--ink);
   }
-  header { padding: 20px 16px 4px; margin-bottom: 20px; }
+  header { padding: 20px 16px 4px; margin-bottom: 36px; }
+  /* 카드 사이·바깥 여백을 넓혀 줄무늬가 더 드러나게 */
+  .wrap { padding: 40px 20px 64px; }
+  .card { margin-bottom: 36px; }
+  #storageStatus { margin-bottom: 36px; }
+  @media (min-width: 600px) { .wrap { max-width: 46rem; padding: 56px 32px 80px; } }
   .privacy { margin-bottom: 16px; }
   /* 제목 옆 기울어진 장식 스티커 2개 (CSS 장식이라 화면 읽기 프로그램에는 읽히지 않음) */
-  h1 { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 6px; }
+  /* 스티커 두 개는 한 줄에 붙여 두고, 좁으면 제목 글자만 줄바꿈 */
+  h1 { display: flex; flex-wrap: nowrap; align-items: center; column-gap: 8px; }
   h1::before, h1::after {
     display: inline-flex; align-items: center; justify-content: center;
     font-size: 0.8rem; line-height: 1; padding: 6px 10px; min-height: 28px;
     border: 2px solid var(--ink); border-radius: 999px; box-shadow: 2px 2px 0 var(--ink);
+    flex: none; white-space: nowrap;
   }
   h1::before { order: 1; content: "NEW!"; content: "NEW!" / ""; background: #e4e9f5; color: var(--accent); transform: rotate(-8deg); }
   h1::after { order: 2; content: "★"; content: "★" / ""; background: var(--ink); color: var(--card); transform: rotate(6deg); }
