@@ -6,7 +6,7 @@
 <title>집중 공부 타이머</title>
 <meta name="description" content="15분·25분·50분 중 공부 시간을 골라 카운트다운하고, 끝나면 5분 휴식으로 이어 주는 공부 타이머">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="PRD">
+<meta name="status" content="1회 개선">
 <meta name="design" content="컬러셋 C11 밤하늘과 보라 · 트렌드 T02 벤토 그리드 · #8b9cff">
 <style>
   /* ===== 글꼴: 전시판 공용 글꼴 (못 불러오면 아래 대체 글꼴로) ===== */
@@ -60,7 +60,7 @@
   }
 
   /* ===== 2026 트렌드 T02 벤토 그리드: 결과·요약 영역(타이머 칸) =====
-     칸 3개 — 남은 시간(가장 중요한 숫자, 2칸 크기) / 지금 상태 / 시간 설명.
+     칸 4개 — 남은 시간(가장 중요한 숫자, 2칸 크기) / 지금 상태 / 시간 설명 / 오늘 집중 완료 횟수(2칸 크기).
      모든 칸 모서리 18px, 칸 사이 12px. 휴대폰(좁은 화면)에서는 1열로 내려와요. */
   .card[aria-label="타이머"] {
     background: none;
@@ -71,7 +71,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 12px;
   }
-  .card[aria-label="타이머"] > .status, .card[aria-label="타이머"] > .time, .card[aria-label="타이머"] > .time-label {
+  .card[aria-label="타이머"] > .status, .card[aria-label="타이머"] > .time, .card[aria-label="타이머"] > .time-label, .card[aria-label="타이머"] > .done-count {
     margin: 0;
     border: 1px solid var(--line);
     border-radius: 18px;
@@ -82,6 +82,7 @@
   .card[aria-label="타이머"] > .time-label { background: var(--card); }
   .card[aria-label="타이머"] > .time { order: -1; grid-column: 1 / -1; background: var(--accent-weak); padding: 20px 16px; }
   .card[aria-label="타이머"] > .btn-rest, .card[aria-label="타이머"] > .msg { grid-column: 1 / -1; }
+  .card[aria-label="타이머"] > .done-count { grid-column: 1 / -1; background: var(--card); }
   @media (max-width: 480px) {
     .card[aria-label="타이머"] { grid-template-columns: 1fr; }
   }
@@ -114,6 +115,11 @@
     letter-spacing: 0.02em;
   }
   .time-label { color: var(--muted); margin: 0; font-size: 0.95rem; display: flex; align-items: center; }
+
+  /* 오늘 집중 완료 횟수 칸 */
+  .done-count { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; font-weight: 700; }
+  .done-count .label { color: var(--muted); }
+  .done-count .num { font-size: 1.6rem; line-height: 1.2; color: var(--accent-text); font-variant-numeric: tabular-nums; }
 
   /* 하단: 버튼들 */
   .group-title { font-weight: 700; margin: 0 0 8px; font-size: 1rem; }
@@ -172,6 +178,9 @@
     <p class="time" id="timeDisplay" aria-label="남은 시간">25:00</p>
     <p class="time-label" id="timeLabel">공부 25분 준비</p>
 
+    <!-- 오늘 집중 완료 횟수 (공부 타이머가 끝날 때마다 +1, 초기화·새로고침하면 0) -->
+    <p class="done-count" id="doneCountBox"><span class="label">오늘 집중 완료:</span> <span><span class="num" id="doneCount">0</span>회</span></p>
+
     <!-- '휴식 시작' 버튼은 공부가 끝났을 때만 보인다 -->
     <button type="button" class="btn-rest" id="breakBtn" hidden>☕ 휴식 시작 (5분)</button>
 
@@ -215,6 +224,7 @@
   let remainingSeconds = DEFAULT_MINUTES * 60; // 화면에 보이는 남은 시간(초)
   let endTime = 0;               // 타이머가 끝날 '시각'(밀리초)
   let timerId = null;            // setInterval이 돌려준 번호. clearInterval로 멈출 때 필요하다.
+  let completedCount = 0;        // 오늘 공부 타이머를 끝까지 마친 횟수 (저장하지 않음: 새로고침하면 0)
 
   // ===== 화면 요소 =====
   const statusBox = document.getElementById('status');
@@ -228,6 +238,7 @@
   const resetBtn = document.getElementById('resetBtn');
   const breakBtn = document.getElementById('breakBtn');
   const modeButtons = document.querySelectorAll('.mode');
+  const doneCount = document.getElementById('doneCount');
 
   // 초(예: 1500)를 "25:00" 모양의 글자로 바꾼다.
   function formatTime(totalSeconds) {
@@ -267,6 +278,8 @@
       timeLabel.textContent = '공부 ' + selectedMinutes + '분' + (phase === 'idle' ? ' 준비' : '');
     }
 
+    doneCount.textContent = String(completedCount);
+
     startBtn.textContent = isPaused ? '이어서 시작' : '시작';
     breakBtn.hidden = phase !== 'breakReady';
 
@@ -292,6 +305,7 @@
       stopInterval();
       if (phase === 'study') {
         phase = 'breakReady';
+        completedCount += 1; // 공부 타이머가 끝났을 때만 센다 (휴식 끝은 세지 않음)
         remainingSeconds = 0; // 00:00에서 멈춘 채로 휴식 시작을 기다린다
         render();
         showMessage('🎉 공부 완료! 휴식을 시작하세요', 'done');
@@ -362,8 +376,9 @@
   });
 
   resetBtn.addEventListener('click', function () {
-    // 모든 것을 처음 상태(25분, 대기 중)로 되돌린다.
+    // 모든 것을 처음 상태(25분, 대기 중, 완료 0회)로 되돌린다.
     stopInterval();
+    completedCount = 0;
     isPaused = false;
     phase = 'idle';
     setMode(DEFAULT_MINUTES);
