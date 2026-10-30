@@ -6,7 +6,7 @@
 <title>출시 예정 게임 위시리스트 관리기</title>
 <meta name="description" content="사고 싶은 게임의 출시일을 등록하면 오늘 날짜 기준으로 구매 가능/출시 예정을 나눠 보여 주고, 산 게임은 따로 모아 기록하는 위시리스트">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="3회 개선">
+  <meta name="status" content="4회 개선">
   <meta name="design" content="컬러셋 C11 밤하늘과 보라 · 트렌드 T10 레트로 픽셀 · #8b9cff">
 
 <!-- ===================== 스타일 ===================== -->
@@ -282,7 +282,72 @@
   .rating button.star:hover { color: #ffe9a3; }
   .rating .score { font-size: 16px; color: var(--text); margin-left: 4px; }
   .rating button.clear-rate { padding: 4px 10px; font-size: 15px; margin-left: 8px; }
+
+  /* 심의 등급 배지 (카드 맨 위) — 등급마다 고유 색 */
+  .grade-row { margin: 0 0 4px; }
+  .grade { display: inline-block; font-size: 15px; font-weight: 700; padding: 0 8px; line-height: 1.6; }
+  .grade-all { background: #1d7a3e; color: #ffffff; }
+  .grade-12 { background: #1d5fa8; color: #ffffff; }
+  .grade-15 { background: #ffd75e; color: #111111; }
+  .grade-19 { background: #b3261e; color: #ffffff; }
+
+  /* 예상 플레이 타임 배지 */
+  .playtime {
+    display: block; width: fit-content; max-width: 100%;
+    margin: 6px 0 0; padding: 0 8px; font-size: 16px;
+    background: var(--accent-weak); color: var(--accent-text);
+  }
+
+  /* 화면 테마 고르기 (맨 위) */
+  .theme-row { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 10px 12px; margin: 0 0 12px; }
+  .theme-row .label { color: var(--muted); font-size: 16px; }
+  .theme-row button { padding: 6px 12px; font-size: 15px; background: var(--card); color: var(--text); }
+  .theme-row button[aria-pressed="true"] { background: var(--accent); color: #111111; font-weight: 700; }
+
+  /* ===== 모던 다크 테마: 무채색 어두운 바탕 + 고딕 글꼴 + 둥근 모서리 =====
+     --pixel 자리에 고딕 글꼴을 넣어 화면 전체 글꼴을 한 번에 바꾼다. */
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+  :root[data-theme="modern"] {
+    --bg: #121418;
+    --card: #1c1f26;
+    --text: #eceef2;
+    --muted: #aab1bd;
+    --line: #363b45;
+    --edge: #7c8494;
+    --accent-weak: #252b45;
+    --pixel: "Wanted Sans", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", "Noto Sans KR", sans-serif;
+  }
+  :root[data-theme="modern"] h1,
+  :root[data-theme="modern"] h2 { font-weight: 700; text-shadow: none; }
+  :root[data-theme="modern"] h1::after { display: none; }
+  :root[data-theme="modern"] .form-box,
+  :root[data-theme="modern"] .notify-row,
+  :root[data-theme="modern"] .today-box,
+  :root[data-theme="modern"] .confirm-box { border-width: 1px; border-radius: 12px; box-shadow: none; }
+  :root[data-theme="modern"] .form-box,
+  :root[data-theme="modern"] .notify-row { border-color: var(--line); }
+  :root[data-theme="modern"] .modal { border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  :root[data-theme="modern"] .card,
+  :root[data-theme="modern"] .empty { border-radius: 10px; }
+  :root[data-theme="modern"] input,
+  :root[data-theme="modern"] select { border-width: 1px; border-radius: 8px; }
+  :root[data-theme="modern"] input.invalid,
+  :root[data-theme="modern"] select.invalid { border-width: 2px; }
+  :root[data-theme="modern"] button { border-radius: 8px; box-shadow: none; }
+  :root[data-theme="modern"] .btn-ghost,
+  :root[data-theme="modern"] .modal-x,
+  :root[data-theme="modern"] .theme-row button { border-color: var(--edge); }
+  :root[data-theme="modern"] .btn-danger { border-color: var(--danger-text); }
+  :root[data-theme="modern"] .theme-row button[aria-pressed="true"] { border-color: var(--accent); }
+  :root[data-theme="modern"] .tag,
+  :root[data-theme="modern"] .grade,
+  :root[data-theme="modern"] .playtime { border-radius: 999px; }
+  :root[data-theme="modern"] .tag { font-size: 14px; padding: 1px 9px; }
 </style>
+<script>
+  // 저장된 화면 테마를 그리기 전에 먼저 적용한다(새로고침 때 깜빡임 방지)
+  try { if (localStorage.getItem("sih26:20112:theme") === "modern") document.documentElement.setAttribute("data-theme", "modern"); } catch (e) { /* 저장소를 못 쓰면 기본 테마 */ }
+</script>
 </head>
 <body>
 
@@ -290,6 +355,13 @@
 <div class="banner" role="note">계획적인 소비를 합시다!</div>
 
 <main>
+  <!-- 화면 테마 전환: 고른 테마는 저장돼 새로고침해도 유지된다 -->
+  <div class="theme-row" role="group" aria-label="화면 테마 고르기">
+    <span class="label">화면 테마</span>
+    <button type="button" class="theme-btn" data-theme-name="retro" aria-pressed="true">레트로 픽셀</button>
+    <button type="button" class="theme-btn" data-theme-name="modern" aria-pressed="false">모던 다크</button>
+  </div>
+
   <h1>출시 예정 게임 위시리스트 관리기</h1>
   <p class="lead">사고 싶은 게임과 출시일을 적어 두면, 오늘 날짜를 기준으로 지금 살 수 있는 게임과 아직 기다려야 하는 게임을 나눠서 보여 줍니다.</p>
 
@@ -325,6 +397,20 @@
         <div class="field">
           <label for="in-platform">실행 기종 <span class="opt">(선택)</span></label>
           <input id="in-platform" type="text" maxlength="20" placeholder="예: PC, Switch" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="in-playtime">예상 플레이 타임 <span class="opt">(선택, 시간)</span></label>
+          <input id="in-playtime" type="number" min="0" step="1" inputmode="decimal" placeholder="예: 30">
+        </div>
+        <div class="field">
+          <label for="in-grade">심의 등급 <span class="opt">(선택)</span></label>
+          <select id="in-grade">
+            <option value="">고르지 않음</option>
+            <option value="all">전체 이용가</option>
+            <option value="12">12세 이용가</option>
+            <option value="15">15세 이용가</option>
+            <option value="19">청소년 이용 불가</option>
+          </select>
         </div>
       </div>
       <button type="submit" class="btn-primary">게임 등록</button>
@@ -413,6 +499,20 @@
           <label for="ed-platform">실행 기종 <span class="opt">(선택)</span></label>
           <input id="ed-platform" type="text" maxlength="20" autocomplete="off">
         </div>
+        <div class="field">
+          <label for="ed-playtime">예상 플레이 타임 <span class="opt">(선택, 시간)</span></label>
+          <input id="ed-playtime" type="number" min="0" step="1" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="ed-grade">심의 등급 <span class="opt">(선택)</span></label>
+          <select id="ed-grade">
+            <option value="">고르지 않음</option>
+            <option value="all">전체 이용가</option>
+            <option value="12">12세 이용가</option>
+            <option value="15">15세 이용가</option>
+            <option value="19">청소년 이용 불가</option>
+          </select>
+        </div>
       </div>
       <p id="edit-msg" class="msg error" role="status" aria-live="polite"></p>
       <div class="confirm-actions">
@@ -443,6 +543,11 @@
 const STORAGE_KEY = "sih26:20112:games";   // 게임 배열을 저장하는 이름표
 const MAX_GAMES = 30;                       // 등록 가능한 최대 개수
 const NOTIFIED_KEY = "sih26:20112:notified"; // 오늘 이미 알림을 보낸 게임 id 기록
+const THEME_KEY = "sih26:20112:theme";       // 고른 화면 테마 ("retro" 또는 "modern")
+const MAX_PLAYTIME = 9999;                   // 예상 플레이 타임 최댓값(시간)
+
+// 한국 게임 심의 등급: 저장값 → 화면 글자
+const GRADES = { all: "전체 이용가", "12": "12세 이용가", "15": "15세 이용가", "19": "청소년 이용 불가" };
 
 // 전시판 미리보기(샌드박스 iframe) 안에서 실행 중인지 확인한다.
 // 이때는 저장과 브라우저 알림이 막혀 있으므로 '새 탭 실행'을 안내한다.
@@ -450,8 +555,8 @@ const IN_PREVIEW = window.origin === "null" && location.protocol !== "file:";
 
 // 처음 실행할 때 자동으로 넣어 주는 가상 예시 데이터
 const SAMPLE_GAMES = [
-  { title: "픽셀 아일랜드", date: "2026-03-01", price: 25000, platform: "PC" },
-  { title: "우주 탐험대", date: "2026-12-25", price: 58000, platform: "Switch" }
+  { title: "픽셀 아일랜드", date: "2026-03-01", price: 25000, platform: "PC", playtime: 25, grade: "all" },
+  { title: "우주 탐험대", date: "2026-12-25", price: 58000, platform: "Switch", playtime: 40, grade: "12" }
 ];
 
 // 장르별 랜덤 추천에 쓰는 게임 데이터 (장르 10개 × 4개 = 40개)
@@ -501,8 +606,9 @@ const REC_GAMES = [
 const REC_GENRES = ["RPG", "액션", "FPS/TPS", "시뮬레이션", "스포츠/전략", "인디", "공포", "레이싱", "리듬/음악", "퍼즐/캐주얼"];
 
 // ===================== 데이터·상태 =====================
-// 게임 하나 = { id, title, date, price, platform, purchased, rating }
+// 게임 하나 = { id, title, date, price, platform, purchased, rating, playtime, grade }
 // rating은 산 게임의 별점(1~5). 아직 안 매겼거나 이전 버전에서 저장한 게임은 값이 없다.
+// playtime(예상 플레이 타임, 시간)·grade(심의 등급)도 이전 버전 게임에는 없을 수 있다 → 표시만 생략.
 let games = [];
 let canSave = true;   // localStorage를 쓸 수 있는지 여부
 
@@ -538,13 +644,15 @@ function saveGames() {
 }
 
 // 새 게임 객체를 만든다. id는 겹치지 않도록 시간+난수로 만든다.
-function makeGame(title, date, price, platform) {
+function makeGame(title, date, price, platform, playtime, grade) {
   return {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
     title: title,
     date: date,
     price: price,
     platform: platform,
+    playtime: playtime || null,
+    grade: grade || "",
     purchased: false
   };
 }
@@ -626,6 +734,17 @@ function ratingOf(game) {
   return Number.isInteger(n) && n >= 1 && n <= 5 ? n : 0;
 }
 
+// 예상 플레이 타임을 숫자로 읽는다. 없거나 이상한 값이면 0 = 표시 안 함.
+function playtimeOf(game) {
+  const n = Number(game.playtime);
+  return isFinite(n) && n > 0 && n <= MAX_PLAYTIME ? n : 0;
+}
+
+// 심의 등급 저장값을 읽는다. 목록에 없는 값이면 "" = 표시 안 함.
+function gradeOf(game) {
+  return Object.prototype.hasOwnProperty.call(GRADES, game.grade) ? game.grade : "";
+}
+
 // 전체 데이터 초기화: 배열을 비우고, 빈 배열을 저장해 예시 데이터가 다시 생기지 않게 한다.
 function resetAll() {
   games = [];
@@ -657,6 +776,18 @@ function makeCard(game, kind) {
 
   const info = document.createElement("div");
   info.className = "info";
+
+  // 카드 맨 위: 심의 등급 배지 (등급을 고른 게임만)
+  const grade = gradeOf(game);
+  if (grade) {
+    const row = document.createElement("p");
+    row.className = "grade-row";
+    const badge = document.createElement("span");
+    badge.className = "grade grade-" + grade;
+    badge.textContent = GRADES[grade];
+    row.appendChild(badge);
+    info.appendChild(row);
+  }
 
   const title = document.createElement("p");
   title.className = "title";
@@ -693,6 +824,14 @@ function makeCard(game, kind) {
 
   info.appendChild(title);
   info.appendChild(meta);
+  // 예상 플레이 타임 (적은 게임만)
+  const hours = playtimeOf(game);
+  if (hours) {
+    const pt = document.createElement("p");
+    pt.className = "playtime";
+    pt.textContent = "⏱️ 예상 플레이 타임: " + hours.toLocaleString("ko-KR") + "시간";
+    info.appendChild(pt);
+  }
   if (kind === "bought") info.appendChild(makeRating(game));
   li.appendChild(info);
 
@@ -1063,14 +1202,16 @@ function showMessage(text, type) {
 
 // ===================== 이벤트 연결 =====================
 
-// 입력칸 4개(이름·날짜·가격·기종)를 검사한다. 등록 폼과 수정 팝업이 함께 쓴다.
+// 입력칸 6개(이름·날짜·가격·기종·플레이 타임·심의 등급)를 검사한다. 등록 폼과 수정 팝업이 함께 쓴다.
 // 문제가 있으면 빨간 테두리 + 안내 문구(say 함수로 표시) 후 null을 돌려준다.
-// 문제가 없으면 { title, date, price, platform } 객체를 돌려준다.
+// 문제가 없으면 { title, date, price, platform, playtime, grade } 객체를 돌려준다.
 function readFields(prefix, say) {
   const titleIn = document.getElementById(prefix + "-title");
   const dateIn = document.getElementById(prefix + "-date");
   const priceIn = document.getElementById(prefix + "-price");
   const platIn = document.getElementById(prefix + "-platform");
+  const timeIn = document.getElementById(prefix + "-playtime");
+  const gradeIn = document.getElementById(prefix + "-grade");
 
   const title = titleIn.value.trim();
   const date = dateIn.value;
@@ -1103,7 +1244,22 @@ function readFields(prefix, say) {
     }
     price = Math.round(n);
   }
-  return { title: title, date: date, price: price, platform: platIn.value.trim() };
+  // 4) 예상 플레이 타임 검사 (선택 항목, 적었다면 0보다 큰 숫자. 소수 첫째 자리까지)
+  let playtime = null;
+  timeIn.classList.remove("invalid");
+  if (timeIn.value !== "" || (timeIn.validity && timeIn.validity.badInput)) {
+    const h = Number(timeIn.value);
+    if (timeIn.value === "" || !isFinite(h) || h <= 0 || h > MAX_PLAYTIME) {
+      timeIn.classList.add("invalid");
+      timeIn.setAttribute("aria-invalid", "true");
+      say("예상 플레이 타임은 0보다 크고 " + MAX_PLAYTIME + " 이하인 숫자(시간)로 적어 주세요. 모르면 비워 두어도 됩니다.");
+      timeIn.focus();
+      return null;
+    }
+    playtime = Math.max(0.1, Math.round(h * 10) / 10);
+  }
+  const grade = Object.prototype.hasOwnProperty.call(GRADES, gradeIn.value) ? gradeIn.value : "";
+  return { title: title, date: date, price: price, platform: platIn.value.trim(), playtime: playtime, grade: grade };
 }
 
 // [게임 등록]
@@ -1119,7 +1275,7 @@ function handleSubmit(event) {
     return;
   }
 
-  const game = makeGame(v.title, v.date, v.price, v.platform);
+  const game = makeGame(v.title, v.date, v.price, v.platform, v.playtime, v.grade);
   games.push(game);
   saveGames();
   render();
@@ -1192,7 +1348,7 @@ function handleModalKey(event) {
     return;
   }
   if (event.key === "Tab") {
-    const items = openModal.querySelectorAll("button, input");
+    const items = openModal.querySelectorAll("button, input, select");
     const first = items[0], last = items[items.length - 1];
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
@@ -1209,7 +1365,9 @@ function openEdit(id, opener) {
   document.getElementById("ed-date").value = game.date;
   document.getElementById("ed-price").value = (game.price === null || game.price === undefined) ? "" : game.price;
   document.getElementById("ed-platform").value = game.platform || "";
-  ["ed-title", "ed-date", "ed-price"].forEach(function (k) {
+  document.getElementById("ed-playtime").value = playtimeOf(game) || "";
+  document.getElementById("ed-grade").value = gradeOf(game);
+  ["ed-title", "ed-date", "ed-price", "ed-playtime"].forEach(function (k) {
     const el = document.getElementById(k);
     el.classList.remove("invalid");
     el.removeAttribute("aria-invalid");
@@ -1229,6 +1387,8 @@ function handleEditSubmit(event) {
   game.date = v.date;
   game.price = v.price;
   game.platform = v.platform;
+  game.playtime = v.playtime;
+  game.grade = v.grade;
   saveGames();
   render();
   setListMessage("“" + game.title + "” 정보를 수정했습니다.");
@@ -1273,11 +1433,34 @@ function closeConfirm() {
   document.getElementById("reset-btn").focus();
 }
 
+// ===================== 화면 테마 =====================
+// "retro" = 레트로 픽셀(기본), "modern" = 모던 다크. <html data-theme>으로 CSS를 바꾼다.
+function applyTheme(name) {
+  if (name !== "modern") name = "retro";
+  if (name === "modern") document.documentElement.setAttribute("data-theme", "modern");
+  else document.documentElement.removeAttribute("data-theme");
+  document.querySelectorAll(".theme-btn").forEach(function (btn) {
+    btn.setAttribute("aria-pressed", btn.dataset.themeName === name ? "true" : "false");
+  });
+}
+function loadTheme() {
+  try { return localStorage.getItem(THEME_KEY) === "modern" ? "modern" : "retro"; } catch (e) { return "retro"; }
+}
+function setTheme(name) {
+  applyTheme(name);
+  try { localStorage.setItem(THEME_KEY, name); } catch (e) { /* 저장 못 해도 지금 화면에는 적용 */ }
+}
+
 function init() {
+  applyTheme(loadTheme());
+  document.querySelectorAll(".theme-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () { setTheme(btn.dataset.themeName); });
+  });
+
   const saved = loadGames();
   if (saved === null) {
     // 처음 실행: 예시 데이터를 넣는다
-    games = SAMPLE_GAMES.map(function (s) { return makeGame(s.title, s.date, s.price, s.platform); });
+    games = SAMPLE_GAMES.map(function (s) { return makeGame(s.title, s.date, s.price, s.platform, s.playtime, s.grade); });
     if (canSave) saveGames();
   } else {
     games = saved.slice(0, MAX_GAMES);
@@ -1286,10 +1469,10 @@ function init() {
   renderSaveNote();
 
   document.getElementById("game-form").addEventListener("submit", handleSubmit);
-  ["in-title", "in-date", "in-price"].forEach(function (id) {
+  ["in-title", "in-date", "in-price", "in-playtime"].forEach(function (id) {
     document.getElementById(id).addEventListener("input", clearInvalid);
   });
-  ["ed-title", "ed-date", "ed-price"].forEach(function (id) {
+  ["ed-title", "ed-date", "ed-price", "ed-playtime"].forEach(function (id) {
     document.getElementById(id).addEventListener("input", clearInvalid);
   });
   // 세 목록 모두 카드 버튼(구매 완료·수정·삭제)을 처리한다
