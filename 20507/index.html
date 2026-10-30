@@ -7,15 +7,15 @@
 <title>학교 분실물 단계별 찾기</title>
 <meta name="description" content="질문 세 개를 차례로 고르면 내 분실물이 접수됐는지, 어디에 언제부터 보관 중인지 바로 알려 주는 분실물 안내판 (테스트용 가상 데이터)">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="3회 개선">
-  <meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T06 스크롤 3D · #1e3a8a">
+  <meta name="status" content="4회 개선">
+  <meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T00 기본 · #1e3a8a">
 
 <!-- ===== 2. 스타일 ===== -->
 <style>
   /* 전시판 공용 글꼴 (못 불러와도 아래 대체 글꼴로 정상 작동) */
   @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
 
-  /* 컬러셋: 신문지와 남색 (전체 목록의 스크롤 3D 효과는 3회 개선에서 뺌) */
+  /* 컬러셋: 신문지와 남색 (신문지 바탕에 남색 포인트만 쓰는 기본 디자인) */
   :root {
     --bg: #f4f1ea;            /* 페이지 바탕: 누런 신문지 */
     --card: #fbf9f4;          /* 카드·입력칸 바탕 */
@@ -44,11 +44,8 @@
     overflow-wrap: break-word;
   }
 
-  /* 화면 최상단에 항상 고정되는 가상 데이터 경고 */
+  /* 화면 맨 위에 놓이는 가상 데이터 경고 (스크롤하면 함께 올라감) */
   .warning-bar {
-    position: sticky;
-    top: 0;
-    z-index: 10;
     background: var(--warn-bg);
     color: var(--warn-text);
     border-bottom: 2px solid var(--warn-text);
