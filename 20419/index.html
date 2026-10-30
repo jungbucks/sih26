@@ -6,7 +6,7 @@
 <title>수행평가 관리 플래너</title>
 <meta name="description" content="여러 과목의 수행평가를 마감일과 함께 적어 두고 언제든 고칠 수 있으며, 완료한 과제는 취소선과 함께 아래로 정리해 주는 플래너">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="3회 개선">
+<meta name="status" content="4회 개선">
 <meta name="design" content="컬러셋 C3 종이와 보라 · 트렌드 T00 기본 · #5645d4">
 <style>
   /* ===== 색과 기본 글꼴 ===== */
@@ -142,6 +142,27 @@
   /* ===== 목록 ===== */
   .list-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
   .count { color: var(--muted); font-size: 0.95rem; }
+  /* 목록 위 보기 탭 (전체 / 진행 중 / 완료됨): 바깥 둥글기 12 = 안쪽 8 + 여백 4 */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    margin: 0 0 12px;
+    border: 1px solid var(--field-line);
+    border-radius: 12px;
+    background: var(--card);
+  }
+  .tabs button {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    border-radius: 8px;
+    padding: 8px 6px;
+    background: transparent;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .tabs button[aria-pressed="true"] { background: var(--accent); color: #fff; }
   ul.cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
   .card {
     background: var(--card);
@@ -292,6 +313,11 @@
       <h2 id="list-title">수행평가 목록</h2>
       <span class="count" id="count-text"></span>
     </div>
+    <div class="tabs" id="filter-tabs" role="group" aria-label="목록 보기">
+      <button type="button" data-filter="all" aria-pressed="true">전체</button>
+      <button type="button" data-filter="active" aria-pressed="false">진행 중</button>
+      <button type="button" data-filter="done" aria-pressed="false">완료됨</button>
+    </div>
     <ul class="cards" id="task-list"></ul>
     <p class="empty" id="empty-box">등록된 수행평가가 없습니다. 새로운 과제를 추가해 보세요!</p>
 
@@ -321,6 +347,7 @@
       <li>등록한 내용을 바꾸고 싶으면 '수정'을 눌러 고친 뒤 '저장'을 눌러요.</li>
       <li>다 끝낸 과제는 '완료'를 누르면 취소선이 그어지고 아래로 내려가요.</li>
       <li>잘못 넣은 과제는 '삭제'로 하나만 지울 수 있어요.</li>
+      <li>목록 위의 '전체·진행 중·완료됨' 탭을 누르면 그 과제만 골라 볼 수 있어요.</li>
     </ol>
     <p class="note">아래는 예시 화면이에요. 내 목록에는 추가되지 않아요.</p>
     <ul class="cards" id="sample-list"></ul>
@@ -350,6 +377,15 @@ let canSave = true;      // localStorage를 쓸 수 있는지
 let pendingDeleteId = null; // '삭제' 확인 상자를 띄운 과제의 id (없으면 null)
 let editingId = null;    // '수정' 폼을 연 과제의 id (한 번에 하나만, 없으면 null)
 let editDraft = null;    // 수정 폼에 지금 적혀 있는 값 (다시 그려도 입력 중인 글이 남도록)
+let filter = "all";      // 목록 보기: all=전체, active=진행 중, done=완료됨
+
+// 탭별로 보여 줄 과제인지, 그 탭에 과제가 없을 때 안내 문구
+const FILTERS = {
+  all:    { name: "전체",    show: function () { return true; } },
+  active: { name: "진행 중", show: function (t) { return !t.done; }, empty: "진행 중인 과제가 없어요. 모두 끝냈거나 아직 추가하지 않았어요." },
+  done:   { name: "완료됨",  show: function (t) { return t.done; },  empty: "완료한 과제가 아직 없어요. 다 끝낸 과제에서 '완료'를 눌러 보세요." }
+};
+const EMPTY_TEXT = "등록된 수행평가가 없습니다. 새로운 과제를 추가해 보세요!";
 
 // ===== 처리 함수 =====
 
@@ -525,6 +561,7 @@ const confirmBox = document.getElementById("confirm-box");
 const saveAlert = document.getElementById("save-alert");
 const saveAlertTitle = document.getElementById("save-alert-title");
 const saveAlertText = document.getElementById("save-alert-text");
+const tabButtons = Array.prototype.slice.call(document.querySelectorAll("#filter-tabs button"));
 
 function showMessage(el, text, kind) {
   el.textContent = text;
@@ -735,12 +772,17 @@ function buildCard(t, preview) {
 
 function render() {
   listEl.replaceChildren();
-  const list = sortedTasks();
+  // 고른 탭에 맞는 과제만 (정렬 규칙은 그대로)
+  const list = sortedTasks().filter(FILTERS[filter].show);
   list.forEach(function (t) { listEl.append(buildCard(t)); });
 
   // 데이터가 없으면 안내 문구, 있으면 목록
   emptyEl.hidden = list.length > 0;
   listEl.hidden = list.length === 0;
+  emptyEl.textContent = tasks.length === 0 ? EMPTY_TEXT : FILTERS[filter].empty || EMPTY_TEXT;
+
+  // 지금 고른 탭만 눌린 모양
+  tabButtons.forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.filter === filter)); });
 
   const doneCount = tasks.filter(function (t) { return t.done; }).length;
   countEl.textContent = tasks.length === 0 ? "" :
@@ -790,6 +832,8 @@ document.getElementById("task-form").addEventListener("submit", function (e) {
     values.minutesText === "" ? null : Number(values.minutesText)));
   saveTasks();
   this.reset();
+  // '완료됨' 탭에서는 새 과제가 안 보이므로 '전체' 탭으로 돌아간다
+  if (filter === "done") filter = "all";
   showMessage(formMsg, "'" + values.subject + "' 과제를 추가했어요.", "ok");
   showMessage(listMsg, "");
   render();
@@ -828,7 +872,13 @@ listEl.addEventListener("click", function (e) {
     t.done = !t.done;   // 다시 누르면 원래대로 (토글)
     saveTasks();
     render();
-    focusButton(id, "toggle");
+    if (FILTERS[filter].show(t)) {
+      focusButton(id, "toggle");
+    } else {
+      // 지금 탭에서 사라진 과제는 어느 탭으로 갔는지 알려 주고, 초점은 탭 버튼으로
+      showMessage(listMsg, "'" + t.subject + "' 과제를 " + (t.done ? "완료했어요. '완료됨'" : "다시 진행 중으로 돌렸어요. '진행 중'") + " 탭에서 볼 수 있어요.", "ok");
+      tabButtons.find(function (b) { return b.dataset.filter === filter; }).focus();
+    }
   } else if (act === "ask-delete") {
     pendingDeleteId = id;  // 확인 상자는 한 번에 하나만
     editingId = null;      // 다른 카드의 수정 폼은 닫는다
@@ -847,6 +897,17 @@ listEl.addEventListener("click", function (e) {
     showMessage(listMsg, "'" + t.subject + "' 과제를 삭제했어요.", "ok");
     render();
   }
+});
+
+// 목록 위 탭: 누른 탭의 과제만 보여 준다
+// (열려 있던 삭제 확인은 닫고, 수정 중이던 내용은 다른 탭에 다녀와도 남는다)
+document.getElementById("filter-tabs").addEventListener("click", function (e) {
+  const b = e.target.closest("button[data-filter]");
+  if (!b || b.dataset.filter === filter) return;
+  filter = b.dataset.filter;
+  pendingDeleteId = null;
+  showMessage(listMsg, "");
+  render();
 });
 
 // 수정 폼 닫기 (저장하지 않은 내용은 버린다)
