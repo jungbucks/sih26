@@ -6,7 +6,7 @@
 <title>D-Day 수행평가 알림이</title>
 <meta name="description" content="과목·과제·마감일을 적으면 마감이 가까운 순으로 D-Day를 보여 주고, 제출 완료한 과제는 아래로 모아 주는 수행평가 알림이">
 <meta name="class" content="M반 (2-8)">
-<meta name="status" content="PRD">
+<meta name="status" content="1회 개선">
 <style>
   @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 900; font-display: swap; }
   :root {
@@ -49,11 +49,14 @@
   form.panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
   .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
   .field label { font-size: 0.9rem; font-weight: 600; }
-  .field input {
-    font: inherit; font-size: 1rem; padding: 10px 12px; border: 1px solid #c9ccd6; border-radius: 8px;
+  .field input, .field select {
+    font: inherit; font-size: 1rem; padding: 10px 12px; border: 1px solid #868b99; border-radius: 8px;
     background: #fff; color: var(--text); width: 100%; min-width: 0;
   }
-  .field input:focus-visible { outline: 3px solid var(--accent-soft); border-color: var(--accent); }
+  .field input:focus-visible, .field select:focus-visible { outline: 3px solid var(--accent-soft); border-color: var(--accent); }
+  .color-row { display: flex; gap: 8px; align-items: center; }
+  .color-row select { flex: 1 1 0; }
+  .color-row .subject { flex: 0 0 auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .field input[aria-invalid="true"] { border-color: var(--today); }
   .hint { font-size: 0.82rem; color: var(--muted); margin: 0; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -80,7 +83,7 @@
   .empty { color: var(--muted); font-size: 0.95rem; margin: 0; padding: 14px 16px; border: 1px dashed var(--line); border-radius: var(--radius); background: var(--card); }
   .task { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
   .task.is-today { border: 2px solid var(--today); background: var(--today-soft); }
-  .task.is-over { border: 1px dashed #c9a43a; background: var(--over-soft); }
+  .task.is-over { border: 2px dashed var(--today); background: var(--today-soft); }
   .task.is-done { background: var(--done-bg); }
   .task.is-done .content, .task.is-done .due, .task.is-done .subject { text-decoration: line-through; }
   .task.is-done .content, .task.is-done .due { color: var(--muted); }
@@ -89,11 +92,11 @@
   .subject { display: inline-block; color: #fff; font-size: 0.85rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; max-width: 100%; }
   .dday { font-weight: 800; font-size: 1rem; padding: 2px 10px; border-radius: 8px; background: #eef0f4; color: var(--text); white-space: nowrap; }
   .is-today .dday { background: var(--today); color: #fff; }
-  .is-over .dday { background: #fff; color: var(--over); border: 1px solid #c9a43a; }
+  .is-over .dday { background: #fff; color: #9b1c1c; border: 2px solid var(--today); }
   .is-done .dday { background: #e2e4ea; color: var(--muted); }
   .content { margin: 8px 0 2px; font-size: 1.02rem; font-weight: 600; }
   .due { margin: 0 0 10px; font-size: 0.88rem; color: var(--muted); }
-  .over-note { color: var(--over); font-weight: 700; }
+  .over-note { color: #9b1c1c; font-weight: 700; }
   .today-note { color: var(--today); font-weight: 700; }
   .confirm-box { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: #fff; border: 1px solid #e6b3b3; }
   .confirm-box p { margin: 0 0 8px; font-size: 0.92rem; font-weight: 600; color: #9b1c1c; }
@@ -119,6 +122,14 @@
     <div class="field">
       <label for="subjectInput">과목명</label>
       <input id="subjectInput" type="text" maxlength="20" autocomplete="off" placeholder="예: 정보">
+    </div>
+    <div class="field">
+      <label for="colorSelect">과목 색</label>
+      <div class="color-row">
+        <select id="colorSelect" aria-describedby="colorHint"></select>
+        <span class="subject" id="colorPreview" aria-hidden="true">과목</span>
+      </div>
+      <p class="hint" id="colorHint">국어·수학·영어·정보·과학·사회·한국사는 정해진 색이 있어요. 다른 색을 고르면 그 과목 카드 전체에 적용돼요.</p>
     </div>
     <div class="field">
       <label for="contentInput">과제 내용</label>
@@ -175,8 +186,17 @@
   // (빨강 계열은 '오늘 마감' 강조와 헷갈리지 않게 뺐어요.)
   var PALETTE = ["#1d4ed8", "#0f766e", "#7c3aed", "#b45309", "#15803d", "#4338ca",
                  "#0e7490", "#9333ea", "#475569", "#c2410c", "#a21caf", "#3f6212"];
+  // 색 고르기 목록에 보여 줄 이름 (PALETTE와 같은 순서)
+  var COLOR_NAMES = ["파랑", "청록", "보라", "갈색", "초록", "남색",
+                     "하늘", "연보라", "회색", "주황", "자주", "올리브"];
+  // 주요 과목은 서로 겹치지 않는 색을 미리 정해 둬요.
+  var FIXED = { "국어": "#c2410c", "수학": "#1d4ed8", "영어": "#7c3aed", "정보": "#0f766e",
+                "과학": "#15803d", "사회": "#475569", "한국사": "#a21caf" };
+  var COLOR_KEY = PREFIX + "colors";
 
   var tasks = [];          // 메모리에 있는 과제 목록 (저장이 안 돼도 이걸로 동작해요)
+  var customColors = Object.create(null); // 내가 직접 고른 과목 색 { 과목이름: 색 }
+  var colorTouched = false; // 이번 입력에서 색 목록을 직접 골랐는지
   var canStore = true;     // localStorage 사용 가능 여부
   var editingId = null;    // 지금 수정 중인 과제의 id
   var confirmDeleteId = null; // 삭제 확인을 띄운 과제의 id
@@ -224,9 +244,22 @@
     return (withYear ? p[0] + "년 " : "") + p[1] + "월 " + p[2] + "일 (" + w + ")";
   }
 
-  // 과목명이 같으면 항상 같은 색이 나오도록, 글자들로 숫자를 만들어 색 목록에서 골라요.
+  function subjectKey(name) { return name.replace(/\s+/g, "").toLowerCase(); }
+
+  // ★ 과목 색 정하기: 내가 고른 색 → 주요 과목의 정해진 색 → 자동 색 순서로 써요.
   function subjectColor(name) {
-    var key = name.replace(/\s+/g, "").toLowerCase();
+    var key = subjectKey(name);
+    if (customColors[key]) return customColors[key];
+    return Object.prototype.hasOwnProperty.call(FIXED, key) ? FIXED[key] : autoColor(key);
+  }
+
+  // 그 밖의 과목은 글자들로 숫자를 만들어 '주요 과목이 쓰지 않는 색' 중에서 골라요.
+  // 과목명이 같으면 항상 같은 색이 나와요.
+  var AUTO_PALETTE = PALETTE.filter(function (c) {
+    for (var k in FIXED) if (FIXED[k] === c) return false;
+    return true;
+  });
+  function autoColor(key) {
     var h = 2166136261;
     for (var i = 0; i < key.length; i++) {          // 글자 하나씩 섞어서 숫자 만들기
       h ^= key.charCodeAt(i);
@@ -235,7 +268,7 @@
     h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b) >>> 0;  // 한 번 더 고루 섞기
     h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35) >>> 0;
     h ^= h >>> 16;
-    return PALETTE[(h >>> 0) % PALETTE.length];
+    return AUTO_PALETTE[(h >>> 0) % AUTO_PALETTE.length];
   }
 
   // ---- 예시 데이터 ----
@@ -282,6 +315,7 @@
       tasks = sampleTasks();
       return;
     }
+    loadColors();
     if (raw === null) {           // 처음 실행
       tasks = sampleTasks();
       save();
@@ -308,15 +342,49 @@
     }
   }
 
+  // 직접 고른 과목 색은 과제 목록과 따로 저장해요. (예전 과제 데이터는 그대로 열려요)
+  function loadColors() {
+    customColors = Object.create(null);
+    try {
+      var obj = JSON.parse(window.localStorage.getItem(COLOR_KEY) || "{}");
+      if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+        for (var k in obj) {
+          if (Object.prototype.hasOwnProperty.call(obj, k) && PALETTE.indexOf(obj[k]) !== -1) customColors[subjectKey(k).slice(0, 20)] = obj[k];
+        }
+      }
+    } catch (e) { customColors = Object.create(null); }
+  }
+  function saveColors() {
+    if (!canStore) return;
+    try {
+      window.localStorage.setItem(COLOR_KEY, JSON.stringify(customColors));
+    } catch (e) {
+      canStore = false;
+      showStoreWarn("저장하지 못했어요. 지금 목록은 이 화면을 닫기 전까지만 남아 있어요.");
+    }
+  }
+
   function showStoreWarn(text) {
     var el = $("storeWarn");
     el.textContent = text;
     el.hidden = false;
   }
 
-  // ★ 정렬: 진행 중 목록은 마감이 가까운 순(D-Day 오름차순)으로 sort() 해요.
-  //   단, 마감이 이미 지난 과제(D+)는 앞으로 할 과제를 가리지 않게 진행 중 목록 맨 아래로 보내요.
+  // ★ 진행 중 목록 정렬: 마감이 지난 과제(D+)를 놓치지 않게 맨 위로 올려요.
+  //   마감 지난 과제(D+1, D+2 … 순) → 남은 과제(D-Day, D-1, D-2 … 순)
   //   날짜가 같으면 먼저 등록한 과제가 위에 와요.
+  function sortActive(list) {
+    return list.slice().sort(function (a, b) {
+      var da = daysLeft(a.dueDate), db = daysLeft(b.dueDate);
+      var overA = da < 0 ? 0 : 1, overB = db < 0 ? 0 : 1;
+      if (overA !== overB) return overA - overB;   // 지난 과제는 앞으로
+      if (overA === 0 && da !== db) return db - da; // D+n의 n이 작은 과제가 앞으로
+      if (da !== db) return da - db;               // 남은 날이 적은 과제가 앞으로
+      return a.id - b.id;
+    });
+  }
+
+  // 완료된 목록 정렬: 마감이 가까운 순, 마감이 지난 과제는 맨 아래로 (전과 같아요)
   function sortByDue(list) {
     return list.slice().sort(function (a, b) {
       var da = daysLeft(a.dueDate), db = daysLeft(b.dueDate);
@@ -396,7 +464,7 @@
   }
 
   function render() {
-    var active = sortByDue(tasks.filter(function (t) { return !t.completed; }));
+    var active = sortActive(tasks.filter(function (t) { return !t.completed; }));
     var done = sortByDue(tasks.filter(function (t) { return t.completed; }));
     renderList($("activeList"), active, "진행 중인 수행평가가 없어요. 위에서 과제를 추가해 보세요.");
     renderList($("doneList"), done, "아직 제출 완료한 과제가 없어요.");
@@ -418,9 +486,41 @@
     $("resetMsg").textContent = "";
   }
 
+  // ---- 과목 색 고르기 ----
+  var colorSelect = $("colorSelect"), colorPreview = $("colorPreview");
+  (function fillColorSelect() {
+    var o = el("option", "", "자동 색");
+    o.value = "";
+    colorSelect.appendChild(o);
+    PALETTE.forEach(function (c, i) {
+      var opt = el("option", "", COLOR_NAMES[i]);
+      opt.value = c;
+      colorSelect.appendChild(opt);
+    });
+  })();
+  // 입력한 과목에 실제로 칠해질 색을 옆에서 미리 보여 줘요.
+  function updatePreview() {
+    var name = subjectInput.value.trim();
+    var key = subjectKey(name);
+    var c = colorSelect.value ||
+      (Object.prototype.hasOwnProperty.call(FIXED, key) ? FIXED[key] : (name ? autoColor(key) : "#475569"));
+    colorPreview.textContent = name || "과목";
+    colorPreview.style.backgroundColor = c;
+  }
+  // 과목명을 바꾸면, 그 과목에 저장해 둔 색을 목록에 보여 줘요. (색을 직접 골랐으면 그대로 둬요)
+  function syncColorSelect() {
+    if (!colorTouched) colorSelect.value = customColors[subjectKey(subjectInput.value.trim())] || "";
+    updatePreview();
+  }
+  subjectInput.addEventListener("input", syncColorSelect);
+  colorSelect.addEventListener("change", function () { colorTouched = true; updatePreview(); });
+
   // ---- 추가 / 수정 ----
   function resetForm() {
     form.reset();
+    colorSelect.value = "";
+    colorTouched = false;
+    updatePreview();
     editingId = null;
     submitBtn.textContent = "과제 추가";
     cancelEditBtn.hidden = true;
@@ -441,7 +541,7 @@
     });
     // 1) 빈 칸 검사
     if (firstEmpty) {
-      setMsg("모든 항목을 입력해 주세요!", "error");
+      setMsg("모든 항목을 입력해 주세요.", "error");
       firstEmpty.focus();
       return;
     }
@@ -460,7 +560,16 @@
       return;
     }
 
+    // 고른 색은 이 과목의 색으로 기억해요. '자동'을 고르면 기본 색으로 돌아가요.
+    function applyColor() {
+      var key = subjectKey(subject);
+      if (colorSelect.value) customColors[key] = colorSelect.value;
+      else delete customColors[key];
+      saveColors();
+    }
+
     if (original) {
+      applyColor();
       original.subject = subject;
       original.content = content;
       original.dueDate = due;
@@ -480,6 +589,7 @@
     }
     var maxId = 0;
     tasks.forEach(function (t) { if (t.id > maxId) maxId = t.id; });
+    applyColor();
     tasks.push({ id: maxId + 1, subject: subject, content: content, dueDate: due, completed: false });
     save();
     resetForm();
@@ -510,6 +620,8 @@
     subjectInput.value = t.subject;
     contentInput.value = t.content;
     dateInput.value = t.dueDate;
+    colorTouched = false;
+    syncColorSelect();
     submitBtn.textContent = "수정 완료";
     cancelEditBtn.hidden = false;
     editingNote.hidden = false;
@@ -569,6 +681,7 @@
       } catch (e) { canStore = false; }
     }
     tasks = sampleTasks();
+    customColors = Object.create(null);
     confirmDeleteId = null;
     resetForm();
     setMsg("", "");
@@ -591,6 +704,7 @@
 
   load();
   render();
+  updatePreview();
 })();
 </script>
 </body>
