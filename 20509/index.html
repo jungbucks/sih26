@@ -7,7 +7,7 @@
 <title>게임 강화 확률 &amp; 기댓값 시뮬레이터</title>
 <meta name="description" content="성공 확률을 넣으면 평균 몇 번 만에 성공하는지(기댓값)를 알려 주고, 직접 강화 버튼을 눌러 독립시행 결과를 쌓아 보는 시뮬레이터">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="3회 개선">
+  <meta name="status" content="4회 개선">
   <meta name="design" content="컬러셋 C16 먹과 노랑 · 트렌드 T01 리퀴드 글래스 · #ffd600">
 
 <!-- ===== 2. 스타일 ===== -->
@@ -214,12 +214,31 @@
   }
   .log-summary small { display: block; color: var(--muted); font-size: 0.88rem; }
 
-  /* 강화 연출: 성공 = 초록 빛 반짝임, 실패 = 빨간 흔들림 */
+  /* 강화 연출: [강화 시도] 카드의 테두리와 배경 전체에
+     성공 = 초록 빛 테두리 + 반짝이는 빛줄기가 카드를 훑고 지나감
+     실패 = 빨간 테두리·배경이 두 번 번쩍 + 카드 흔들림 */
   .rate { font-weight: 700; color: var(--text); }
+  #tryCard { position: relative; overflow: hidden; }
+  #tryCard > * { position: relative; z-index: 1; }   /* 글자·버튼은 빛줄기 위에 */
+  #tryCard::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(115deg, transparent 30%, rgba(111,220,149,.30) 44%, rgba(255,255,255,.22) 50%, rgba(111,220,149,.30) 56%, transparent 70%);
+    transform: translateX(-100%);
+  }
   @keyframes glowOk {
-    0%   { box-shadow: 0 0 0 0 rgba(111,220,149,0); border-color: var(--line); }
-    30%  { box-shadow: 0 0 0 6px rgba(111,220,149,0.30), 0 0 24px 6px rgba(111,220,149,0.35); border-color: var(--ok); background: var(--ok-bg); }
-    100% { box-shadow: 0 0 0 0 rgba(111,220,149,0); border-color: var(--line); }
+    0%   { box-shadow: 0 0 0 0 rgba(111,220,149,0); border-color: var(--line); background: var(--card); }
+    20%  { box-shadow: inset 0 0 0 2px var(--ok), 0 0 0 4px rgba(111,220,149,.35), 0 0 32px 10px rgba(111,220,149,.40); border-color: var(--ok); background: var(--ok-bg); }
+    60%  { box-shadow: inset 0 0 0 2px var(--ok), 0 0 0 2px rgba(111,220,149,.20), 0 0 20px 4px rgba(111,220,149,.25); border-color: var(--ok); background: var(--ok-bg); }
+    100% { box-shadow: 0 0 0 0 rgba(111,220,149,0); border-color: var(--line); background: var(--card); }
+  }
+  @keyframes sweepOk {
+    0%   { transform: translateX(-100%); opacity: 1; }
+    100% { transform: translateX(100%); opacity: 1; }
   }
   @keyframes shakeBad {
     0%, 100% { transform: translateX(0); }
@@ -230,55 +249,26 @@
     75% { transform: translateX(-3px); }
   }
   @keyframes flashBad {
-    0%   { border-color: var(--line); background: var(--card); }
-    25%  { border-color: var(--bad); background: var(--bad-bg); }
-    100% { border-color: var(--line); background: var(--card); }
+    0%   { box-shadow: 0 0 0 0 rgba(255,138,128,0); border-color: var(--line); background: var(--card); }
+    15%  { box-shadow: inset 0 0 0 2px var(--bad), 0 0 28px 8px rgba(255,138,128,.40); border-color: var(--bad); background: var(--bad-bg); }
+    35%  { box-shadow: inset 0 0 0 1px var(--bad), 0 0 8px 2px rgba(255,138,128,.15); border-color: var(--bad); background: var(--card); }
+    55%  { box-shadow: inset 0 0 0 2px var(--bad), 0 0 28px 8px rgba(255,138,128,.40); border-color: var(--bad); background: var(--bad-bg); }
+    100% { box-shadow: 0 0 0 0 rgba(255,138,128,0); border-color: var(--line); background: var(--card); }
   }
   @keyframes popOk {
     0% { transform: scale(1); }
     40% { transform: scale(1.18); }
     100% { transform: scale(1); }
   }
-  section.card.fx-ok { animation: glowOk 0.9s ease-out; }
-  section.card.fx-bad { animation: shakeBad 0.45s ease-in-out, flashBad 0.9s ease-out; }
+  #tryCard.fx-ok { animation: glowOk 1s ease-out; }
+  #tryCard.fx-ok::before { animation: sweepOk 0.8s ease-in-out; }
+  #tryCard.fx-bad { animation: shakeBad 0.45s ease-in-out, flashBad 0.9s ease-out; }
   .last.fx-ok { animation: popOk 0.5s ease-out; }
-  /* 움직임을 줄이도록 설정한 사람에게는 흔들림·확대 없이 색만 바뀌게 */
+  /* 움직임을 줄이도록 설정한 사람에게는 흔들림·빛줄기·확대 없이 테두리·배경 색만 바뀌게 */
   @media (prefers-reduced-motion: reduce) {
-    section.card.fx-bad { animation: flashBad 0.9s ease-out; }
+    #tryCard.fx-ok::before { animation: none; }
+    #tryCard.fx-bad { animation: flashBad 0.9s ease-out; }
     .last.fx-ok { animation: none; }
-  }
-
-  /* 터지는 조각 연출: 성공 = 긴 종이 띠 8개, 실패 = 붉은 파편 7개
-     화면 전체를 덮는 투명한 층에 잠깐 만들었다가 애니메이션이 끝나면 지운다 */
-  .burst-layer { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 10; }
-  .piece {
-    position: absolute;
-    left: 0; top: 0;
-    will-change: transform, opacity;
-  }
-  .piece.strip { width: 8px; height: 26px; border-radius: 2px; animation: stripFly 1.2s ease-out forwards; }
-  .piece.shard {
-    width: 16px; height: 16px;
-    background: var(--bad);
-    clip-path: polygon(50% 0, 100% 40%, 70% 100%, 0 75%, 15% 20%);
-    animation: shardFly 0.7s cubic-bezier(.2, .7, .3, 1) forwards;
-  }
-  .piece.shard.dark { background: #c62828; }
-  /* --dx, --dy: 날아갈 거리 / --rot: 돌아가는 각도 (조각마다 JS가 정해 줌) */
-  @keyframes stripFly {
-    0%   { transform: translate(-50%, -50%) rotate(0deg) scale(.4); opacity: 0; }
-    12%  { opacity: 1; }
-    45%  { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(calc(var(--rot) * .6)) scale(1); opacity: 1; }
-    100% { transform: translate(calc(-50% + var(--dx) * 1.15), calc(-50% + var(--dy) + 70px)) rotate(var(--rot)) scale(1); opacity: 0; }
-  }
-  @keyframes shardFly {
-    0%   { transform: translate(-50%, -50%) rotate(0deg) scale(1.2); opacity: 1; }
-    70%  { opacity: 1; }
-    100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)) scale(.5); opacity: 0; }
-  }
-  /* 움직임을 줄이도록 설정한 사람에게는 조각이 날아가지 않게 (JS에서도 만들지 않음) */
-  @media (prefers-reduced-motion: reduce) {
-    .burst-layer { display: none; }
   }
 </style>
 </head>
@@ -299,6 +289,7 @@
       </span>
       <button id="setBtn" type="button" class="primary">확률 설정</button>
       <button id="resetBtn" type="button">초기화</button>
+      <button id="fxBtn" type="button">이펙트 끄기</button>
     </div>
     <p id="probWarn" class="warn" role="alert" hidden></p>
   </section>
@@ -327,6 +318,7 @@
     <!-- 전체 로그 보기: 지금까지 쓴 확률 버튼을 눌러 그 확률 기록만 모아 보기 -->
     <div class="log-tools">
       <button id="allLogBtn" type="button" aria-expanded="false" aria-controls="probPick">전체 로그 보기</button>
+      <button id="clearLogBtn" type="button">기록 초기화</button>
       <button id="backBtn" type="button" hidden>목록으로 돌아가기</button>
     </div>
     <div id="probPick" class="prob-pick" hidden>
@@ -344,6 +336,7 @@
 // ===== 4. 예시 데이터·설정 =====
 const DEFAULT_PROB = 50;                  // 처음 접속하면 50%로 시작
 const STORAGE_KEY = "sih26:20509:state";  // 이 작품 전용 저장 이름
+const FX_KEY = "sih26:20509:fx";          // 이펙트 켜기/끄기 선택 저장 이름
 const MAX_SAVED_LOGS = 1000;              // 기록은 최근 1000개까지만 보관(브라우저가 무거워지지 않게)
 const WARN_TEXT = "1~100 사이의 숫자를 입력하세요";
 
@@ -358,11 +351,14 @@ let canSave = true; // 저장(localStorage)을 쓸 수 있는지
 // 기록 영역에 무엇을 보여 줄지: "list"(전체 목록) / "pick"(확률 고르기) / 숫자(그 확률만)
 let logView = "list";
 let migrateNote = ""; // 예전 버전 저장값을 고쳐 읽었을 때 보여 줄 안내
+let fxOn = true;      // 강화 이펙트 켜짐(기본값)
 
 // 화면 요소 가져오기
 const probInput = document.getElementById("probInput");
 const setBtn = document.getElementById("setBtn");
 const resetBtn = document.getElementById("resetBtn");
+const fxBtn = document.getElementById("fxBtn");
+const clearLogBtn = document.getElementById("clearLogBtn");
 const probWarn = document.getElementById("probWarn");
 const expectBox = document.getElementById("expectBox");
 const totalCount = document.getElementById("totalCount");
@@ -459,16 +455,6 @@ function loadState() {
   }
 }
 
-// 저장 기록 지우기
-function clearSaved() {
-  if (!canSave) return;
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch (e) {
-    canSave = false;
-  }
-}
-
 // 경고 보이기/숨기기
 function showWarn(message) {
   probWarn.textContent = "입력 오류: " + message;
@@ -545,54 +531,38 @@ function renderCounter() {
   realRate.textContent = calcRealRate(state.success, state.total);
 }
 
-// 강화 연출: 같은 결과가 연달아 나와도 매번 다시 재생되도록 클래스를 뗐다 붙인다
+// 강화 연출: [강화 시도] 카드 테두리·배경에 성공/실패 연출
+// 같은 결과가 연달아 나와도 매번 다시 재생되도록 클래스를 뗐다 붙인다
+// 이펙트를 꺼 두었으면 연출 클래스를 붙이지 않고 넘어간다(결과 글자만 바뀜)
 function playEffect(ok) {
+  clearEffect();
+  if (!fxOn) return;
   [tryCard, lastResult].forEach(function (el) {
-    el.classList.remove("fx-ok", "fx-bad");
     void el.offsetWidth; // 브라우저가 "클래스가 빠졌다"를 알아채게 한 번 다시 그리기
   });
   tryCard.classList.add(ok ? "fx-ok" : "fx-bad");
   if (ok) lastResult.classList.add("fx-ok");
-  burst(ok);
+}
+function clearEffect() {
+  [tryCard, lastResult].forEach(function (el) {
+    el.classList.remove("fx-ok", "fx-bad");
+  });
 }
 
-// ===== 터지는 조각 연출 =====
-const STRIP_COUNT = 8;   // 성공: 긴 종이 띠 8개
-const SHARD_COUNT = 7;   // 실패: 붉은 파편 7개 (6~8개)
-const STRIP_COLORS = ["#ffd600", "#6fdc95", "#f5f5f0", "#ffd600", "#ffb300", "#6fdc95", "#f5f5f0", "#ffd600"];
-const burstLayer = document.createElement("div");
-burstLayer.className = "burst-layer";
-burstLayer.setAttribute("aria-hidden", "true"); // 꾸밈용이라 화면 읽기 프로그램은 건너뜀
-document.body.append(burstLayer);
-const reduceMotion = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
-
-// ok가 참이면 종이 띠, 거짓이면 붉은 파편을 [강화 시도] 버튼 가운데에서 터뜨린다
-function burst(ok) {
-  if (reduceMotion && reduceMotion.matches) return; // 움직임 줄이기 설정이면 만들지 않음
-  burstLayer.textContent = ""; // 연달아 누르면 이전 조각은 지우고 새로 (조각이 쌓여 느려지지 않게)
-  const box = tryBtn.getBoundingClientRect();
-  const x = box.left + box.width / 2;
-  const y = box.top + box.height / 2;
-  const count = ok ? STRIP_COUNT : SHARD_COUNT;
-  for (let i = 0; i < count; i++) {
-    const piece = document.createElement("span");
-    // 조각마다 방향을 고르게 나누고 조금씩 흔들어서 사방으로 퍼지게
-    const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
-    const dist = ok ? 90 + Math.random() * 60 : 80 + Math.random() * 50;
-    // 버튼이 넓으면 옆으로 더 멀리 퍼지게 (휴대폰처럼 좁으면 덜 퍼짐)
-    const wide = Math.min(box.width / 2, 220) * 0.6;
-    piece.className = ok ? "piece strip" : "piece shard" + (i % 2 ? " dark" : "");
-    piece.style.left = x + "px";
-    piece.style.top = y + "px";
-    piece.style.setProperty("--dx", Math.round(Math.cos(angle) * (dist + wide)) + "px");
-    piece.style.setProperty("--dy", Math.round(Math.sin(angle) * dist * (ok ? 0.8 : 0.7) - (ok ? 30 : 0)) + "px");
-    piece.style.setProperty("--rot", Math.round((Math.random() - 0.5) * (ok ? 720 : 540)) + "deg");
-    if (ok) piece.style.background = STRIP_COLORS[i % STRIP_COLORS.length];
-    // 애니메이션이 끝나면 조각을 지운다 (끝 신호가 안 와도 1.6초 뒤에는 꼭 지움)
-    piece.addEventListener("animationend", function () { piece.remove(); });
-    setTimeout(function () { piece.remove(); }, 1600);
-    burstLayer.append(piece);
-  }
+// ===== 이펙트 켜기/끄기 =====
+// 확률·기록과 따로 저장해서, 확률 초기화·기록 초기화를 해도 이 선택은 그대로 남는다
+function loadFx() {
+  try {
+    if (localStorage.getItem(FX_KEY) === "off") fxOn = false;
+  } catch (e) { /* 저장을 못 쓰면 기본값(켜짐) */ }
+}
+function saveFx() {
+  try {
+    localStorage.setItem(FX_KEY, fxOn ? "on" : "off");
+  } catch (e) { /* 저장을 못 써도 이번 화면에서는 켜기/끄기가 작동 */ }
+}
+function renderFxBtn() {
+  fxBtn.textContent = fxOn ? "이펙트 끄기" : "이펙트 켜기";
 }
 
 // 기록 목록 다시 그리기 (최근 것이 위)
@@ -769,24 +739,42 @@ function handleTry() {
   saveState();
 }
 
-// [초기화] 버튼: 시도 횟수·기록을 비우고, 확률도 처음 값(50%)으로 되돌린다
+// [초기화] 버튼: 확률만 처음 값(50%)으로 되돌린다. 기록은 지우지 않는다.
+// [확률 설정]과 같은 규칙: 이미 50%였으면 통계도 그대로, 다른 확률이었으면 위 통계만 0부터 다시 센다
 function handleReset() {
+  probInput.value = DEFAULT_PROB;  // 입력창 50
+  hideStatNote();
+  applyProb();                     // 설정 확률 50%
+  renderExpected();
+}
+
+// [기록 초기화] 버튼: 총 시도·성공/실패 수와 시도 기록만 지운다(설정 확률은 그대로)
+function handleClearLog() {
   state.total = 0;
   state.success = 0;
   state.logs = [];
-  state.prob = DEFAULT_PROB;       // 설정 확률 50%
-  probInput.value = DEFAULT_PROB;  // 입력창도 50
-  hideWarn();
   hideStatNote();
   logView = "list";
-  clearSaved();                    // 저장된 확률·기록 삭제
-  renderAll();
+  saveState();                     // 저장된 기록도 비운 상태로 갱신
+  renderCounter();
+  renderLogs();
   renderLast(null);
+  clearEffect();
+}
+
+// [이펙트 끄기/켜기] 버튼
+function handleFx() {
+  fxOn = !fxOn;
+  if (!fxOn) clearEffect();        // 재생 중인 연출도 바로 멈춤
+  saveFx();
+  renderFxBtn();
 }
 
 setBtn.addEventListener("click", handleSet);
 tryBtn.addEventListener("click", handleTry);
 resetBtn.addEventListener("click", handleReset);
+fxBtn.addEventListener("click", handleFx);
+clearLogBtn.addEventListener("click", handleClearLog);
 // [전체 로그 보기] → 확률 고르기, [목록으로 돌아가기] → 전체 목록
 allLogBtn.addEventListener("click", function () {
   logView = "pick";
@@ -804,6 +792,8 @@ probInput.addEventListener("keydown", function (e) {
 
 // 처음 시작: 저장된 기록 불러오기 → 없으면 50%로 시작
 loadState();
+loadFx();
+renderFxBtn();
 if (state.prob === null) state.prob = DEFAULT_PROB;
 probInput.value = state.prob;
 renderAll();
