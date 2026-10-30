@@ -7,7 +7,7 @@
 <title>포트폴리오 리스크 시각화 및 수식 해설기</title>
 <meta name="description" content="자산 3개의 비중과 상관계수를 조절하며 위험-수익률 그래프와 분산 공식 대입 과정을 실시간으로 확인하는 경제수학 학습 도구">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="2회 개선">
+  <meta name="status" content="3회 개선">
   <meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T01 리퀴드 글래스 · #1e3a8a">
 
 <!-- ===== 2. 스타일 ===== -->
@@ -227,7 +227,7 @@
       <canvas id="chart" width="560" height="400" role="img" aria-label="가로축 위험(표준편차), 세로축 기대수익률 그래프"></canvas>
       <div class="result-line" id="result-line" aria-live="polite"></div>
       <ul class="legend" aria-label="그래프 범례">
-        <li><svg width="28" height="10" aria-hidden="true"><line x1="1" y1="5" x2="27" y2="5" stroke="#3d6fa8" stroke-width="3" stroke-linecap="round"/></svg>효율적 투자선</li>
+        <li><svg width="28" height="10" aria-hidden="true"><rect width="28" height="10" rx="3" fill="#fff"/><line x1="1" y1="5" x2="27" y2="5" stroke="#d97706" stroke-width="3" stroke-linecap="round"/></svg>효율적 투자선</li>
         <li><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="#8a979d"/></svg>각 자산</li>
         <li><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="6" fill="#1e3a8a"/></svg>현재 포트폴리오 P</li>
       </ul>
@@ -700,7 +700,7 @@ function drawChart(result) {
   // 효율적 투자선 (자산 점보다 먼저 그려 점이 위에 보이게)
   const fr = calcFrontier();
   if (fr.line.length >= 2) {
-    ctx.strokeStyle = "#3d6fa8";
+    ctx.strokeStyle = "#d97706";  // 3회 개선: 남색 P 점과 구분되는 주황
     ctx.lineWidth = 3;
     ctx.lineJoin = "round"; ctx.lineCap = "round";
     ctx.beginPath();
@@ -747,6 +747,15 @@ function renderFormula(r) {
   const panel = $("formula-panel");
   panel.textContent = "";
   const L = assets.map(a => a.label);
+  // 3회 개선: 2개 모드에서는 C(비중 0%) 항을 빼고 A·B 두 자산 식만 보여 준다
+  const show = i => !twoMode || i < 2;
+  r = {
+    ...r,
+    retTerms: r.retTerms.filter((t, i) => show(i)),
+    ownTerms: r.ownTerms.filter((t, i) => show(i)),
+    pairTerms: r.pairTerms.filter(p => show(p.i) && show(p.j))
+  };
+  const shownL = L.filter((l, i) => show(i));
 
   // 블록 하나(제목 + 수식 글)를 추가하는 도우미
   function addBlock(title, lines) {
@@ -765,13 +774,13 @@ function renderFormula(r) {
   }
 
   // (1) 기대수익률
-  const retFormula = "E(Rp) = " + L.map(l => "w" + l + "·E(R" + l + ")").join(" + ");
+  const retFormula = "E(Rp) = " + shownL.map(l => "w" + l + "·E(R" + l + ")").join(" + ");
   const retSub = "대입: " + r.retTerms.map(t => fmt(t.w) + "×" + fmt(t.r)).join(" + ");
   const retCalc = "계산: " + r.retTerms.map(t => fmt(t.value, 4)).join(" + ") + " = " + fmt(r.expRet, 4) + "%";
   addBlock("① 포트폴리오 기대수익률", [retFormula, retSub, retCalc]).id = "formula-ret";
 
   // (2) 분산: 자기 항 + 짝 항
-  const ownF = L.map(l => "w" + l + "²σ" + l + "²");
+  const ownF = shownL.map(l => "w" + l + "²σ" + l + "²");
   const pairF = r.pairTerms.map(p => "2w" + L[p.i] + "w" + L[p.j] + "σ" + L[p.i] + "σ" + L[p.j] + "ρ" + L[p.i] + L[p.j]);
   const varFormula = "σp² = " + ownF.concat(pairF).join(" + ");
   // 학생 예시 형식: 0.5²×15² + ... + 2(0.5)(0.5)(15)(5)(-0.5)
@@ -791,7 +800,8 @@ function renderFormula(r) {
 
   const note = document.createElement("p");
   note.className = "small";
-  note.textContent = "비중 w는 소수(50% → 0.5)로, 수익률과 표준편차는 % 숫자 그대로 넣었습니다. 그래서 분산의 단위는 %²이고, 제곱근을 씌운 σp는 %입니다. 상관계수 ρ가 작을수록(음수일수록) 짝 항이 줄어 위험이 낮아집니다.";
+  note.textContent = (twoMode ? "2개 모드에서는 자산 C 비중이 0%라 C가 들어간 항이 모두 0이므로, A·B 두 자산 항만 보여 줍니다. " : "") +
+    "비중 w는 소수(50% → 0.5)로, 수익률과 표준편차는 % 숫자 그대로 넣었습니다. 그래서 분산의 단위는 %²이고, 제곱근을 씌운 σp는 %입니다. 상관계수 ρ가 작을수록(음수일수록) 짝 항이 줄어 위험이 낮아집니다.";
   panel.appendChild(note);
 }
 
