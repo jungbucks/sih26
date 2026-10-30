@@ -6,7 +6,7 @@
 <title>무작위 도전 과제 뽑기</title>
 <meta name="description" content="게임·취미를 새롭게 즐기도록 무작위 도전 과제를 뽑고, 성공 기록을 스택에 쌓아 최근 성공부터 되돌릴 수 있는 프로그램">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="3회 개선">
+<meta name="status" content="4회 개선">
 <meta name="design" content="컬러셋 C3 종이와 보라 · 트렌드 T00 기본 · #5645d4">
 <style>
   /* 전시판 공용 글꼴 (못 불러와도 아래 대체 글꼴로 작동) */
@@ -139,6 +139,17 @@
   .rule li { margin: 2px 0; }
   select { font: inherit; font-size: 16px; min-height: 44px; padding: 8px 10px; border: 1px solid var(--field); border-radius: 10px; background: var(--card); color: var(--text); }
   select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  /* 점수·스코어보드 */
+  .score-line { margin: 12px 0 0; font-weight: 600; }
+  .score-line strong { font-size: 1.25rem; color: var(--accent); }
+  .board { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+  .board .stat dd { font-size: 1.15rem; }
+  .title-box { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 12px; background: var(--accent-weak); }
+  .title-box .t-label { display: block; font-size: 0.9rem; color: var(--muted); }
+  .title-box .t-name { display: block; font-size: 1.3rem; font-weight: 700; color: var(--accent); }
+  .title-box .t-why { display: block; font-size: 0.95rem; }
+  .title-box.none { border-color: var(--line); background: var(--bg); }
+  .title-box.none .t-name { color: var(--text); font-size: 1.1rem; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -146,7 +157,7 @@
 <main>
   <!-- ===== 화면 구조 ===== -->
   <h1>무작위 도전 과제 뽑기</h1>
-  <p class="lead">늘 같은 방식이 지루할 때, 새로운 도전 과제를 뽑아 보세요. 성공 기록은 스택에 쌓이고, 잘못 누른 성공은 가장 최근 것부터 취소할 수 있어요.</p>
+  <p class="lead">늘 같은 방식이 지루할 때, 새로운 도전 과제를 뽑아 보세요. 성공하면 난이도만큼 점수를 얻고, 성공 기록은 스택에 쌓여 잘못 누른 성공은 가장 최근 것부터 취소할 수 있어요.</p>
 
   <!-- (1) 뽑기 영역 -->
   <section aria-labelledby="h-draw">
@@ -161,6 +172,7 @@
       <li>처음 뽑기와 성공·실패를 기록한 뒤 뽑기는 기회를 쓰지 않아요.</li>
       <li>성공·실패를 기록하기 전에 또 뽑으면(다시 뽑기) 기회가 1회 줄어요.</li>
       <li>기회가 0회면 지금 과제의 성공·실패를 기록해야 새로 뽑을 수 있어요. 기회는 전체 초기화나 새로고침을 해야 3회로 돌아와요.</li>
+      <li>[포기/패스]는 실패 1회로 기록하고 기회를 쓰지 않은 채 바로 새 과제를 뽑아요.</li>
     </ul>
     <div id="challenge" class="challenge-box empty" aria-live="polite">아직 뽑은 도전 과제가 없어요. [도전 과제 뽑기]를 눌러 보세요.</div>
     <p id="msg-draw" class="msg" role="status"></p>
@@ -172,8 +184,10 @@
     <div class="row">
       <button type="button" id="btn-success" class="primary" disabled>성공</button>
       <button type="button" id="btn-fail" disabled>실패</button>
+      <button type="button" id="btn-pass" disabled>포기/패스</button>
     </div>
-    <p class="hint">과제 하나당 성공·실패는 한 번만 기록돼요. 기록하면 버튼이 잠기고, 새 과제를 뽑으면 다시 눌러져요.</p>
+    <p class="hint">과제 하나당 성공·실패는 한 번만 기록돼요. 기록하면 버튼이 잠기고, 새 과제를 뽑으면 다시 눌러져요. 점수는 성공하면 ★☆☆ 1점, ★★☆ 2점, ★★★ 3점이고, 실패·포기는 0점이에요(감점 없음).</p>
+    <p class="score-line" aria-live="polite">총 누적 점수: <strong><span id="score">0</span>점</strong></p>
     <!-- 성공·실패·총 시도·성공률을 한눈에 -->
     <dl class="stats" aria-label="도전 기록 요약">
       <div class="stat ok"><dt>성공</dt><dd><span id="success-count">0</span>회</dd></div>
@@ -186,9 +200,30 @@
     <p id="msg-result" class="msg" role="status"></p>
   </section>
 
-  <!-- (3) 성공 스택 -->
+  <!-- (3) 최종 스코어보드 -->
+  <section aria-labelledby="h-board">
+    <h2 id="h-board">3. 최종 스코어보드</h2>
+    <dl class="stats board" aria-label="스코어보드 요약">
+      <div class="stat"><dt>총 누적 점수</dt><dd><span id="board-score">0</span>점</dd></div>
+      <div class="stat ok"><dt>성공률</dt><dd id="board-rate">-</dd></div>
+      <div class="stat"><dt>성공 / 총 시도</dt><dd><span id="board-success">0</span> / <span id="board-tries">0</span></dd></div>
+      <div class="stat bad"><dt>그중 포기/패스</dt><dd><span id="board-pass">0</span>회</dd></div>
+    </dl>
+    <div id="title-box" class="title-box none" aria-live="polite">
+      <span class="t-label">나의 칭호</span>
+      <span class="t-name" id="title-name">아직 도전 전</span>
+      <span class="t-why" id="title-why">과제를 뽑고 성공·실패를 기록하면 칭호가 정해져요.</span>
+    </div>
+    <ul class="rule" aria-label="칭호 규칙">
+      <li>도전의 신: 성공률 80% 이상이면서 점수 10점 이상</li>
+      <li>운이 좋은 편: 성공률 50% 이상</li>
+      <li>벌칙 당첨자: 성공률 50% 미만</li>
+    </ul>
+  </section>
+
+  <!-- (4) 성공 스택 -->
   <section aria-labelledby="h-stack">
-    <h2 id="h-stack">3. 최근 성공 기록 (스택)</h2>
+    <h2 id="h-stack">4. 최근 성공 기록 (스택)</h2>
     <div class="row">
       <button type="button" id="btn-undo">최근 성공 취소</button>
     </div>
@@ -197,9 +232,9 @@
     <ol id="stack-list" class="stack" aria-label="성공 기록, 위쪽이 가장 최근"></ol>
   </section>
 
-  <!-- (4) 새 과제 추가 -->
+  <!-- (5) 새 과제 추가 -->
   <section aria-labelledby="h-add">
-    <h2 id="h-add">4. 새 도전 과제 추가</h2>
+    <h2 id="h-add">5. 새 도전 과제 추가</h2>
     <form id="form-add" novalidate>
       <label for="input-task">도전 과제 내용</label>
       <div class="row">
@@ -217,7 +252,7 @@
   <!-- 전체 초기화 (페이지 안 확인창) -->
   <section aria-labelledby="h-reset">
     <h2 id="h-reset">전체 초기화</h2>
-    <p class="hint">성공·실패 횟수, 성공 기록과 직접 추가한 도전 과제를 모두 지우고 다시 뽑기 기회를 3회로 채워 처음 상태(카테고리 ‘전체’)로 되돌려요. 기록은 이 화면(메모리)에만 있어서 새로고침해도 처음으로 돌아가요.</p>
+    <p class="hint">성공·실패 횟수와 점수, 성공 기록과 직접 추가한 도전 과제를 모두 지우고 다시 뽑기 기회를 3회로 채워 처음 상태(카테고리 ‘전체’)로 되돌려요. 기록은 이 화면(메모리)에만 있어서 새로고침해도 처음으로 돌아가요.</p>
     <div class="row" style="margin-top:8px">
       <button type="button" id="btn-reset" class="danger">전체 초기화</button>
     </div>
@@ -263,8 +298,9 @@ function stars(level) {
 // ===== 데이터·상태 (브라우저 메모리 변수에만 저장) =====
 let tasks = [];          // 등록된 도전 과제 배열: { text, cat }
 let customCount = 0;     // 사용자가 직접 추가한 개수
-let successStack = [];   // 성공 스택: { task, time } 객체를 push/pop
-let failCount = 0;       // 실패 횟수 (실패는 취소 대상이 아니라 숫자만 셈)
+let successStack = [];   // 성공 스택: { task, level, time } 객체를 push/pop
+let failCount = 0;       // 실패 횟수 (실패는 취소 대상이 아니라 숫자만 셈, 포기/패스 포함)
+let passCount = 0;       // 실패 중 포기/패스로 넘긴 횟수
 let currentTask = null;  // 지금 뽑힌 도전 과제 { text, cat }
 let resolved = true;     // 현재 과제의 성공/실패가 이미 기록됐는지 (중복 클릭 방지)
 let selectedCat = ALL;   // 지금 고른 카테고리
@@ -279,6 +315,7 @@ function resetAll() {
   customCount = 0;
   successStack = [];
   failCount = 0;
+  passCount = 0;
   currentTask = null;
   resolved = true;
   selectedCat = ALL;
@@ -303,8 +340,21 @@ function pickRandomTask() {
 }
 
 // 성공 기록을 스택 맨 위에 넣기 (push)
-function pushSuccess(task) {
-  successStack.push({ task: task, time: new Date() });
+function pushSuccess(task, level) {
+  successStack.push({ task: task, level: level, time: new Date() });
+}
+
+// 총 누적 점수 = 스택에 남은 성공 과제의 난이도 합 (성공 취소하면 점수도 빠짐)
+function totalScore() {
+  return successStack.reduce(function (sum, rec) { return sum + rec.level; }, 0);
+}
+
+// 점수·성공률로 칭호 정하기 — 시도가 없으면 null
+function pickTitle(score, rate) {
+  if (rate === null) return null;
+  if (rate >= 80 && score >= 10) return { name: "도전의 신", why: "성공률 80% 이상, 점수 10점 이상을 모두 넘었어요." };
+  if (rate >= 50) return { name: "운이 좋은 편", why: "성공률이 50% 이상이에요." + (rate >= 80 ? " 점수 10점을 넘기면 ‘도전의 신’이 돼요." : "") };
+  return { name: "벌칙 당첨자", why: "성공률이 50% 미만이에요." };
 }
 
 // 가장 최근 성공 기록 꺼내기 (pop) — 비어 있으면 null
@@ -416,6 +466,7 @@ function render() {
   }
   $("btn-success").disabled = !currentTask || resolved;
   $("btn-fail").disabled = !currentTask || resolved;
+  $("btn-pass").disabled = !currentTask || resolved;
 
   // 성공 카운트 = 스택에 쌓인 기록 수 (둘이 어긋나지 않도록 한 곳에서 계산)
   $("success-count").textContent = successStack.length;
@@ -435,6 +486,19 @@ function render() {
     $("rate-formula").textContent = "성공률 = 성공 " + successStack.length + " ÷ 총 시도 " + tries + " × 100 = " + rate + "%";
   }
 
+  // 점수와 스코어보드
+  const score = totalScore();
+  $("score").textContent = score;
+  $("board-score").textContent = score;
+  $("board-rate").textContent = rate === null ? "-" : rate + "%";
+  $("board-success").textContent = successStack.length;
+  $("board-tries").textContent = tries;
+  $("board-pass").textContent = passCount;
+  const title = pickTitle(score, rate);
+  $("title-box").classList.toggle("none", title === null);
+  $("title-name").textContent = title ? title.name : "아직 도전 전";
+  $("title-why").textContent = title ? title.why : "과제를 뽑고 성공·실패를 기록하면 칭호가 정해져요.";
+
   // 스택 목록: 맨 위(가장 최근)부터 보여 주기
   const list = $("stack-list");
   list.textContent = "";
@@ -445,7 +509,7 @@ function render() {
     name.textContent = rec.task;
     const meta = document.createElement("span");
     meta.className = "time";
-    meta.textContent = formatTime(rec.time) + " 성공";
+    meta.textContent = formatTime(rec.time) + " 성공 +" + rec.level + "점";
     if (i === successStack.length - 1) {
       const tag = document.createElement("span");
       tag.className = "tag";
@@ -538,9 +602,9 @@ $("btn-success").addEventListener("click", function () {
   // 이미 기록한 과제면 무시 (연속 클릭으로 점수가 부풀지 않게)
   if (!currentTask || resolved) return;
   resolved = true;
-  pushSuccess(currentTask.text);
+  pushSuccess(currentTask.text, currentTask.level);
   clearMsgs();
-  showMsg("msg-result", "성공으로 기록했어요. 다음 과제를 뽑아 보세요.");
+  showMsg("msg-result", "성공으로 기록했어요. 난이도 " + stars(currentTask.level) + " +" + currentTask.level + "점! 다음 과제를 뽑아 보세요.");
   render();
 });
 
@@ -549,7 +613,26 @@ $("btn-fail").addEventListener("click", function () {
   resolved = true;
   failCount++; // 실패 횟수 바로 1 늘리기
   clearMsgs();
-  showMsg("msg-result", "실패로 기록했어요. 실패 횟수와 성공률이 바뀌었어요.");
+  showMsg("msg-result", "실패로 기록했어요. 점수는 그대로이고, 실패 횟수와 성공률이 바뀌었어요.");
+  render();
+});
+
+// 포기/패스 → 실패 1회로 기록(0점)하고 다시 뽑기 기회를 쓰지 않고 바로 새 과제 뽑기
+$("btn-pass").addEventListener("click", function () {
+  if (!currentTask || resolved) return;
+  const skipped = currentTask;
+  resolved = true;
+  failCount++;
+  passCount++;
+  clearMsgs();
+  const picked = pickRandomTask();
+  if (picked === null) {
+    showMsg("msg-result", "‘" + skipped.text + "’ 과제를 포기해 실패로 기록했어요. [" + selectedCat + "] 카테고리에 뽑을 과제가 없어 새 과제는 뽑지 못했어요.", true);
+  } else {
+    currentTask = picked;
+    resolved = false;
+    showMsg("msg-result", "‘" + skipped.text + "’ 과제를 포기해 실패로 기록했어요(0점). 기회는 그대로이고 새 과제를 뽑았어요.");
+  }
   render();
 });
 
@@ -559,7 +642,7 @@ $("btn-undo").addEventListener("click", function () {
   if (removed === null) {
     showMsg("msg-undo", "취소할 성공 기록이 없습니다.", true);
   } else {
-    showMsg("msg-undo", "‘" + removed.task + "’ 성공 기록을 취소했어요. 총 시도에서도 빠져요.");
+    showMsg("msg-undo", "‘" + removed.task + "’ 성공 기록을 취소했어요. 총 시도와 점수(-" + removed.level + "점)에서도 빠져요.");
   }
   render();
 });
