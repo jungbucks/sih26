@@ -6,7 +6,7 @@
 <title>등교 준비물 체크리스트</title>
 <meta name="description" content="날짜와 과목별로 준비물을 적고, 챙긴 것을 체크해 빠뜨림을 줄이는 체크리스트">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C11 밤하늘과 보라 · 트렌드 T10 레트로 픽셀 · #8b9cff">
 <style>
   /* ===== 색과 기본 글꼴 ===== */
@@ -115,10 +115,8 @@
   button:hover:not(:disabled) { background: var(--accent-text); }
   button.ghost { background: var(--card); color: var(--accent-text); }
   button.ghost:hover:not(:disabled) { background: var(--accent-soft); }
-  button.danger {
-    background: var(--card); color: var(--danger);
-    box-shadow: 0 -2px 0 var(--danger), 0 2px 0 var(--danger), -2px 0 0 var(--danger), 2px 0 0 var(--danger);
-  }
+  /* 삭제 버튼: 다른 버튼과 같은 흰 계단 테두리 + 빨간 글자. 빨간 바탕은 마지막 확인 버튼에만 */
+  button.danger { background: var(--card); color: var(--danger); }
   button.danger:hover:not(:disabled) { background: var(--danger-soft); }
   button.danger.solid { background: var(--danger); color: var(--on-accent); }
   button.danger.solid:hover:not(:disabled) { background: #ffa8a8; }
@@ -138,12 +136,15 @@
   .notice { background: var(--warn-soft); }
   .notice ul { margin: 0; padding-left: 20px; }
 
-  /* 진행 요약 = 핵심 결과: 색 블록 + 도트 글꼴 숫자 */
+  /* 진행 요약 = 핵심 결과: 색 블록. 문장은 본문 글꼴, 숫자만 도트 글꼴 */
   .summary {
-    font-family: "Galmuri11", sans-serif; font-weight: 400;
+    font-weight: 600;
     font-size: 1.05rem; color: var(--accent-text);
     background: var(--accent-soft); padding: 10px 12px; border-radius: 0;
   }
+  /* 핵심 숫자: 도트 글꼴로 따로 강조 */
+  .num { font-family: "Galmuri11", sans-serif; font-weight: 700; color: var(--ink); }
+  .summary .num { font-size: 1.2em; padding: 0 1px; }
   /* 저장 상태 문구는 스크립트가 var(--accent)로 칠해요 → 바탕 위 강조 글자 색으로 바꿔 줘요 */
   .save-state { --accent: #a5b4fc; font-size: 15px; margin-top: 4px; }
 
@@ -152,7 +153,7 @@
   .subject { background: var(--bg); border: 2px solid var(--line); border-radius: 0; padding: 14px; margin-top: 12px; }
   .subject:first-child { margin-top: 0; }
   .subject-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
-  .subject-name { font-family: "Galmuri11", sans-serif; font-weight: 700; font-size: 1.08rem; }
+  .subject-name { font-weight: 700; font-size: 1.08rem; }
   .btns { display: flex; gap: 8px; flex-wrap: wrap; }
   ul.items { list-style: none; margin: 8px 0 0; padding: 0; }
   /* 준비물 한 줄: 아직 안 챙긴 것 = 기본 바탕 + 빈 체크박스, 챙긴 것 = 초록 바탕 + 체크 표시 (색 + 기호 + 글자로 함께 구분) */
@@ -165,8 +166,21 @@
   ul.items li.done { border-color: color-mix(in srgb, #4ade80 40%, #151b38); border-left-color: var(--ok); background: var(--ok-soft); }
   ul.items li.empty { border: 1px dashed var(--line); background: transparent; }
   ul.items li.target { outline: 3px solid var(--danger); outline-offset: 1px; }
-  .check { display: flex; align-items: center; gap: 10px; flex: 1 1 160px; min-width: 0; font-weight: 600; margin: 0; cursor: pointer; }
-  .check input { width: 24px; height: 24px; flex: none; accent-color: var(--ok); }
+  .check { display: flex; align-items: center; gap: 12px; flex: 1 1 160px; min-width: 0; min-height: 44px; font-weight: 600; margin: 0; cursor: pointer; }
+  /* 체크칸: 어두운 바탕에서도 보이는 밝은 테두리, 체크하면 초록 칸 + 도트 체크 표시 */
+  .check input {
+    -webkit-appearance: none; appearance: none;
+    width: 30px; height: 30px; flex: none; margin: 0;
+    border: 3px solid var(--line-strong); border-radius: 0;
+    background: var(--bg) center / 20px 20px no-repeat;
+    cursor: pointer;
+  }
+  .check input:hover { background-color: var(--accent-soft); }
+  .check input:checked {
+    border-color: var(--ok);
+    background-color: var(--ok);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 9' shape-rendering='crispEdges' fill='%23111111'%3E%3Crect x='7' y='1' width='1' height='2'/%3E%3Crect x='6' y='2' width='1' height='2'/%3E%3Crect x='5' y='3' width='1' height='2'/%3E%3Crect x='4' y='4' width='1' height='2'/%3E%3Crect x='3' y='5' width='1' height='2'/%3E%3Crect x='2' y='4' width='1' height='2'/%3E%3Crect x='1' y='3' width='1' height='2'/%3E%3C/svg%3E");
+  }
   .state-tag {
     font-size: 14px; font-weight: 700; padding: 1px 10px; border-radius: 0; flex: none;
     border: 1px solid var(--muted); color: var(--muted); background: var(--bg);
@@ -685,8 +699,19 @@ function renderSummary() {
   if (!currentDate) { el.textContent = "날짜를 선택해 주세요."; return; }
   if (c.total === 0) { el.textContent = "아직 준비물이 없어요."; return; }
   const left = c.total - c.done;
-  el.textContent = "전체 " + c.total + "개 중 " + c.done + "개 챙김" +
-    (left === 0 ? " — 목록에 적은 건 모두 챙겼어요." : " — 아직 " + left + "개 남았어요.");
+  // 보이는 문장은 그대로, 숫자만 따로 감싸서 도트 글꼴로 보여 줘요
+  el.textContent = "";
+  el.append("전체 ", numSpan(c.total), "개 중 ", numSpan(c.done), "개 챙김");
+  if (left === 0) el.append(" — 목록에 적은 건 모두 챙겼어요.");
+  else el.append(" — 아직 ", numSpan(left), "개 남았어요.");
+}
+
+// 숫자 하나를 강조용 칸(span)에 담기
+function numSpan(n) {
+  const s = document.createElement("span");
+  s.className = "num";
+  s.textContent = String(n);
+  return s;
 }
 
 function renderList() {
@@ -712,7 +737,7 @@ function renderList() {
     const name = document.createElement("span");
     name.className = "subject-name";
     const doneCount = s.items.filter(function (it) { return it.done; }).length;
-    name.textContent = s.name + " (" + doneCount + "/" + s.items.length + ")";
+    name.append(s.name + " (", numSpan(doneCount), "/", numSpan(s.items.length), ")");
     const btns = document.createElement("div");
     btns.className = "btns";
     btns.appendChild(makeButton("과목 수정", "ghost small", function () {
