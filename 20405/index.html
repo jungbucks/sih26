@@ -7,7 +7,7 @@
 <title>한눈에 보는 교과목 연계 지도</title>
 <meta name="description" content="과목을 카드로, 선수-후속 관계를 화살표로 이어 과목 간 연계를 그래프로 한눈에 보는 도구">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="1회 개선">
+  <meta name="status" content="2회 개선">
   <meta name="design" content="컬러셋 C1 흰 종이와 파랑 · 트렌드 T04 에디토리얼 · #2563eb">
 
 <!-- ===== 2. 스타일 ===== -->
@@ -23,6 +23,7 @@
     --ink-soft: #5b606b;   /* 보조 글자 */
     --line: #5b606b;       /* 입력칸·선택칸·보조 버튼 테두리 */
     --rule: #e2e4e9;       /* 옅은 구분선 */
+    --dim: #878c96;        /* 강조 중 흐려진 카드 테두리·화살표 (형태는 알아볼 수 있는 중간 회색) */
     --bg: #ffffff;         /* 페이지 바탕 */
     --panel: #f5f5f4;      /* 카드·입력칸 바탕 */
     --accent: #2563eb;     /* 강조색 하나 */
@@ -121,11 +122,11 @@
   .map svg text { fill: var(--ink-soft); }
   .edge { fill: none; stroke: var(--ink-soft); stroke-width: 2; }
   .edge.on { stroke: var(--accent); stroke-width: 3.5; }
-  .edge.dim { stroke: var(--rule); }
+  .edge.dim { stroke: var(--dim); }
   /* 화살촉 색도 선 색에 맞춤 (스크립트가 그린 SVG의 fill 속성을 CSS로 덮음) */
   #arrow path { fill: var(--ink-soft); }
   #arrow-on path { fill: var(--accent); }
-  #arrow-dim path { fill: var(--rule); }
+  #arrow-dim path { fill: var(--dim); }
   .node {
     position: absolute;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -143,7 +144,7 @@
   .node .tag { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; }
   .node.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
   .node.pre, .node.post { background: var(--panel); border-color: var(--accent); border-width: 2px; }
-  .node.dim { color: var(--ink-soft); border-color: var(--rule); }
+  .node.dim { color: var(--ink-soft); border-color: var(--dim); }
 
   /* 선택 결과: 상자 없이 가는 줄로만 나누고, 선택한 과목은 잡지 인용구처럼 명조로 크게 */
   .selection-info { margin: 27px 0 0; padding: 0; max-width: 40em; border-top: 1px solid var(--ink); }
@@ -553,7 +554,7 @@ function drawMap() {
     '<defs>' +
     '<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4b5563"/></marker>' +
     '<marker id="arrow-on" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e40af"/></marker>' +
-    '<marker id="arrow-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d1d5db"/></marker>' +
+    '<marker id="arrow-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#878c96"/></marker>' +
     '</defs>';
   if (aloneLabelY !== null) {
     const label = document.createElementNS(NS, "text");
