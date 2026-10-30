@@ -7,24 +7,29 @@
 <meta name="description" content="과목·내용·제출 시기만 입력해 이번 주 요일별 과제와 다음 주 이후 과제를 한눈에 챙기는 정리기">
   <meta name="class" content="M반 (2-8)">
   <meta name="status" content="2회 개선">
+  <meta name="design" content="컬러셋 C6 버터와 초록 · 트렌드 T02 벤토 그리드 · #2e7d4f">
 <style>
+  @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
   :root {
-    --bg: #f6f7f9;
-    --card: #ffffff;
-    --line: #dde1e6;
-    --text: #1f2328;
-    --muted: #5b636e;
-    --accent: #2f6db5;
-    --accent-weak: #e8f0fa;
+    --bg: #fdf9ed;
+    --card: #f3ead2;
+    --line: #e6dcc0;
+    --field-line: #67635a;
+    --text: #262114;
+    --muted: #67635a;
+    --accent: #2e7d4f;
+    --accent-text: #276b43;
+    --accent-weak: #e3f0dc;
     --danger: #c62828;
     --danger-weak: #fdecec;
+    --shadow: 0 1px 3px rgba(0, 0, 0, .06);
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-family: "Wanted Sans", system-ui, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     font-size: 16px;
     line-height: 1.6;
     word-break: keep-all;
@@ -38,14 +43,15 @@
   .sub { margin: 0; color: var(--muted); }
   .top-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   button {
-    font: inherit; cursor: pointer; border-radius: 8px; padding: 8px 14px;
-    border: 1px solid var(--line); background: var(--card); color: var(--text);
+    font: inherit; cursor: pointer; border-radius: 12px; padding: 8px 14px;
+    border: 1px solid var(--field-line); background: var(--card); color: var(--text);
     min-height: 40px;
   }
   button:hover { border-color: var(--accent); }
-  button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #8cb4e6; outline-offset: 1px; }
-  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-  button.danger { color: var(--danger); border-color: #e3b4b4; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-text); border-color: var(--accent-text); }
+  button.danger { color: var(--danger); border-color: var(--danger); }
   button.small { padding: 4px 10px; min-height: 34px; font-size: 0.95rem; }
 
   /* 입력 폼 (팝업 안에 들어감) */
@@ -56,7 +62,7 @@
   .main-msg { margin: 12px 0 0; min-height: 1.6em; }
   .field label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.95rem; }
   .field input, .field select {
-    width: 100%; font: inherit; padding: 8px 10px; border: 2px solid var(--line); border-radius: 8px; background: #fff; color: var(--text);
+    width: 100%; font: inherit; padding: 8px 10px; border: 1px solid var(--field-line); border-radius: 12px; background: var(--card); color: var(--text);
     min-height: 42px;
   }
   .field input.invalid, .field select.invalid { border-color: var(--danger); background: var(--danger-weak); }
@@ -67,21 +73,38 @@
 
   /* 확인 상자(페이지 안 확인 창) */
   .confirm-box {
-    margin-top: 12px; border: 2px solid var(--danger); background: var(--danger-weak); border-radius: 12px; padding: 12px 16px;
+    margin-top: 12px; border: 2px solid var(--danger); background: var(--danger-weak); border-radius: 18px; padding: 12px 16px;
   }
   .confirm-box p { margin: 0 0 8px; }
   .confirm-box .row { display: flex; flex-wrap: wrap; gap: 8px; }
   [hidden] { display: none !important; }
 
+  /* 벤토 격자: 마감 임박(넓은 칸) → 이번 주 → 다음 주 이후 · 방과후 */
+  .bento { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+  .cell {
+    min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px;
+    box-shadow: var(--shadow);
+  }
+  .cell-urgent, .cell-week { grid-column: 1 / -1; }
+  .cell h2, .cell .section-head { margin: 0 0 10px; }
+  .cell-week { padding: 12px; }
+  .cell-week h2 { margin: 4px 4px 10px; }
+  .cell .later-card, .cell .after-card, .cell .urgent-card {
+    background: none; border: 0; border-radius: 0; padding: 0; min-height: 0;
+  }
+
   /* 요일 카드 */
   h2 { font-size: 1.1rem; margin: 28px 0 10px; }
-  .week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
   .day-card, .later-card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-height: 120px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 12px; min-height: 120px;
   }
+  /* 칸 안쪽 요일 카드: 바깥 모서리 18px - 안쪽 여백 12px */
+  .cell-week .day-card { background: var(--bg); border-radius: 6px; }
   .day-card h3 { margin: 0 0 8px; font-size: 1rem; display: flex; justify-content: space-between; gap: 6px; }
   .day-card h3 .date { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
   .day-card.today { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .day-card.today h3 { color: var(--accent-text); }
   ul.tasks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
   li.task { border-top: 1px solid var(--line); padding-top: 8px; }
   li.task:first-child { border-top: 0; padding-top: 0; }
@@ -89,32 +112,34 @@
   .task-subject { font-weight: 700; }
   .task-due { display: block; color: var(--muted); font-size: 0.9rem; }
   .done-tag {
-    display: inline-block; margin-right: 6px; padding: 0 6px; border: 1px solid var(--text); border-radius: 4px;
+    display: inline-block; margin-right: 6px; padding: 0 6px; border: 1px solid var(--text); border-radius: 6px;
     font-size: 0.85rem; font-weight: 700; text-decoration: none;
   }
   li.task.completed .task-body { text-decoration: line-through; color: var(--muted); }
   .task-actions { display: flex; flex-wrap: wrap; gap: 6px; }
   .later-card ul.tasks { gap: 10px; }
   .count-note { color: var(--muted); font-size: 0.95rem; margin: 6px 0 0; }
+  .cell .count-note { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
 
   /* 시간표 레이어 */
   .modal-back {
-    position: fixed; inset: 0; background: rgba(20, 24, 30, 0.45);
+    position: fixed; inset: 0; background: rgba(38, 33, 20, 0.45);
     display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 10;
   }
   .modal {
-    background: var(--card); border-radius: 14px; padding: 16px; width: 100%; max-width: 640px; max-height: 90vh; overflow: auto;
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; width: 100%; max-width: 640px; max-height: 90vh; overflow: auto;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
   }
   .modal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
   .modal-head h2 { margin: 0; }
   .modal.narrow { max-width: 460px; }
   .x-btn { min-width: 40px; padding: 4px 10px; font-size: 1.2rem; line-height: 1; }
   .table-scroll { overflow-x: auto; }
-  table.timetable { border-collapse: collapse; width: 100%; min-width: 300px; }
-  table.timetable th, table.timetable td { border: 1px solid var(--line); padding: 6px 4px; text-align: center; font-size: 0.95rem; }
+  table.timetable { border-collapse: collapse; width: 100%; min-width: 300px; background: var(--bg); }
+  table.timetable th, table.timetable td { border: 1px solid var(--field-line); padding: 6px 4px; text-align: center; font-size: 0.95rem; }
   table.timetable td { padding: 3px; }
   table.timetable thead th { background: var(--accent-weak); }
-  table.timetable tbody th { background: #f1f3f5; font-weight: 600; white-space: nowrap; }
+  table.timetable tbody th { background: var(--card); font-weight: 600; white-space: nowrap; }
   /* 시간표 칸 입력창 */
   table.timetable input {
     width: 100%; min-width: 3.6em; font: inherit; font-size: 0.95rem; text-align: center;
@@ -129,25 +154,28 @@
   /* 방과후 일정 */
   .section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 28px 0 10px; }
   .section-head h2 { margin: 0; }
-  .after-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .after-card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 12px; }
   .after-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; border-top: 1px solid var(--line); padding-top: 8px; }
   .after-item:first-child { border-top: 0; padding-top: 0; }
   .after-time { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 8.5em; }
   .after-name { flex: 1 1 10em; }
+  .cell-after .after-name { flex-basis: 6em; }
   .empty-note { margin: 0; color: var(--muted); }
   .after-day {
     display: inline-block; min-width: 2.2em; text-align: center; padding: 0 6px; border-radius: 6px;
-    background: var(--accent-weak); color: var(--accent); font-weight: 700; font-size: 0.9rem;
+    background: var(--accent-weak); color: var(--accent-text); font-weight: 700; font-size: 0.9rem;
   }
-  .after-day.unset { background: #f1f3f5; color: var(--muted); font-weight: 600; }
+  .after-day.unset { background: none; box-shadow: inset 0 0 0 1px var(--line); color: var(--muted); font-weight: 600; }
   .after-item select {
-    font: inherit; font-size: 0.95rem; min-height: 34px; padding: 2px 6px; border: 2px solid var(--line); border-radius: 8px; background: #fff; color: var(--text);
+    font: inherit; font-size: 0.95rem; min-height: 34px; padding: 2px 6px; border: 1px solid var(--field-line); border-radius: 12px; background: var(--card); color: var(--text);
   }
 
   /* 마감 임박 과제 (남은 날 3일 이하) */
   .urgent-card {
-    background: var(--danger-weak); border: 2px solid var(--danger); border-radius: 12px; padding: 12px;
+    background: var(--danger-weak); border: 2px solid var(--danger); border-radius: 18px; padding: 12px;
   }
+  .cell-urgent { background: var(--danger-weak); border: 2px solid var(--danger); }
+  .cell-urgent li.task { border-top-color: #f2c4c4; }
   .urgent-card .empty-note { color: var(--text); }
   .dday {
     display: inline-block; margin-right: 6px; padding: 0 8px; border-radius: 6px;
@@ -172,6 +200,10 @@
   @media (max-width: 860px) {
     .week { grid-template-columns: repeat(2, 1fr); }
   }
+  @media (max-width: 600px) {
+    /* 휴대폰: 벤토 2열 → 1열 */
+    .bento { grid-template-columns: minmax(0, 1fr); }
+  }
   @media (max-width: 480px) {
     /* 좁은 화면: 시간표 5요일이 한 화면에 다 들어가도록 칸 너비를 고정 */
     table.timetable { table-layout: fixed; min-width: 0; }
@@ -182,6 +214,8 @@
     .modal { padding: 14px 12px; }
     .week { grid-template-columns: 1fr; }
     .day-card { min-height: 64px; }
+    .cell { padding: 14px 12px; }
+    .cell-week { padding: 12px; }
     h1 { font-size: 1.2rem; }
   }
 </style>
@@ -214,28 +248,38 @@
   <p class="form-msg main-msg ok" id="mainMsg" role="status" aria-live="polite"></p>
   <p class="storage-note" id="storageNote"></p>
 
+  <div class="bento">
   <!-- 마감 임박 과제: 오늘부터 3일 안에 마감되는 미완료 과제 -->
+  <div class="cell cell-urgent">
   <h2>마감 임박 과제 <span style="font-weight:400;color:var(--muted);font-size:0.95rem">(D-3 ~ D-Day)</span></h2>
   <div class="urgent-card" id="urgentCard">
     <ul class="tasks" id="urgentList"></ul>
   </div>
+  </div>
 
+  <div class="cell cell-week">
   <h2>이번 주 마감 과제 <span class="date" id="weekRange" style="font-weight:400;color:var(--muted);font-size:0.95rem"></span></h2>
   <div class="week" id="weekArea"></div>
+  </div>
 
+  <div class="cell cell-later">
   <h2>다음 주 이후 마감 과제</h2>
   <div class="later-card" id="laterCard">
     <ul class="tasks" id="laterList"></ul>
   </div>
   <p class="count-note" id="countNote"></p>
+  </div>
 
   <!-- 방과후 일정 영역 -->
+  <div class="cell cell-after">
   <div class="section-head">
     <h2>방과후 일정</h2>
     <button type="button" id="openAfterBtn">방과후 일정 등록</button>
   </div>
   <div class="after-card">
     <ul class="tasks" id="afterList"></ul>
+  </div>
+  </div>
   </div>
 </div>
 
