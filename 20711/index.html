@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>빵 레시피 단계 체크</title>
-<meta name="description" content="빵을 고르면 알레르기 주의 문구와 레시피 단계가 나오고, 끝낸 단계를 눌러 줄을 그어 가며 요리 흐름을 확인하는 주방용 체크리스트">
+<title>레시피 메모지</title>
+<meta name="description" content="내가 만든 빵 레시피를 직접 적어 오른쪽 요리책 인덱스 탭에 모아 두고, 끝낸 단계를 눌러 줄을 그어 가며 요리 흐름을 확인하는 주방용 레시피 메모지">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="PRD">
+  <meta name="status" content="1회 개선">
 <style>
   :root {
     --bg: #fafaf8;
@@ -15,11 +15,10 @@
     --muted: #6b7078;
     --done: #9aa0a6;
     --line: #e3e3de;
-    --accent: #2f6b4f;        /* 선택된 빵 버튼 색 */
-    --accent-soft: #e8f1ec;
-    --warn-bg: #fff4e5;       /* 알레르기 주의 영역 */
-    --warn-border: #d9822b;
-    --warn-text: #7a3e00;
+    --field: #767b82;         /* 입력칸 테두리 */
+    --accent: #2f6b4f;        /* 선택된 인덱스 탭 색 */
+    --accent-soft: #e8f1ec;   /* 선택 안 된 인덱스 탭 색 */
+    --error: #b42318;
   }
   * { box-sizing: border-box; }
   body {
@@ -33,65 +32,95 @@
     overflow-wrap: break-word;
   }
   main {
-    max-width: 40rem;
+    max-width: 44rem;
     margin: 0 auto;
     padding: 32px 16px 56px;
   }
   h1 { font-size: 1.5rem; line-height: 1.4; margin: 0 0 4px; }
   .lead { margin: 0 0 24px; color: var(--muted); }
   h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  .save-note { margin: -12px 0 20px; color: var(--muted); font-size: 0.9rem; }
+  .save-note[hidden] { display: none; }
 
-  /* 상단: 빵 선택 버튼 */
-  .bread-buttons {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-bottom: 24px;
-  }
-  .bread-btn {
-    font: inherit;
-    font-weight: 600;
-    min-height: 52px;
-    padding: 8px 6px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--surface);
-    color: var(--text);
-    cursor: pointer;
-  }
-  .bread-btn:hover { border-color: var(--accent); }
-  .bread-btn[aria-pressed="true"] {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-  }
-  .bread-btn:focus-visible, .step:focus-visible {
+  button:focus-visible, input:focus-visible, textarea:focus-visible {
     outline: 3px solid #1a5fb4;
     outline-offset: 2px;
   }
 
-  /* 중단: 알레르기 주의 문구 */
-  .allergy {
-    display: flex;
-    gap: 12px;
-    align-items: flex-start;
-    margin-bottom: 24px;
-    padding: 14px 16px;
-    background: var(--warn-bg);
-    border: 2px solid var(--warn-border);
-    border-radius: 10px;
-    color: var(--warn-text);
+  /* 요리책: 왼쪽은 레시피 페이지, 오른쪽은 인덱스(견출지) 탭 */
+  .book {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 96px;
+    align-items: start;
   }
-  .allergy[hidden] { display: none; }
-  .allergy svg { flex: none; margin-top: 3px; }
-  .allergy strong { display: block; font-size: 1.05rem; }
-  .allergy p { margin: 0; }
+  .page {
+    position: relative;
+    z-index: 1;
+    min-height: 320px;
+    padding: 20px 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px 0 10px 10px;
+  }
+  .index {
+    display: grid;
+    gap: 6px;
+    padding-top: 14px;
+  }
+  .tabs { display: grid; gap: 6px; }
+  .tab {
+    width: calc(100% - 8px);
+    min-height: 52px;
+    margin-left: -1px;
+    padding: 8px 8px 8px 10px;
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.35;
+    text-align: left;
+    background: var(--accent-soft);
+    color: var(--text);
+    border: 1px solid #b9cfc2;
+    border-left: none;
+    border-radius: 0 10px 10px 0;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+    transition: width 0.15s ease, background-color 0.15s ease;
+  }
+  .tab:hover { background: #d6e6dc; }
+  /* 선택된 탭: 페이지에 붙은 채로 바깥으로 살짝 더 튀어나오고 진한 색 */
+  .tab[aria-pressed="true"] {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.18);
+  }
+  .add-btn {
+    width: calc(100% - 8px);
+    min-height: 52px;
+    margin-top: 4px;
+    padding: 8px;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.35;
+    background: var(--surface);
+    color: var(--accent);
+    border: 2px dashed var(--accent);
+    border-left: none;
+    border-radius: 0 10px 10px 0;
+    cursor: pointer;
+  }
+  .add-btn:hover { background: var(--accent-soft); }
 
-  /* 하단: 레시피 목록 */
+  /* 레시피 목록 */
   .placeholder {
     margin: 0;
     padding: 20px 16px;
-    border: 1px dashed var(--line);
+    border: 1px dashed #c9c9c2;
     border-radius: 10px;
     color: var(--muted);
   }
@@ -124,12 +153,15 @@
     place-items: center;
     margin-top: 1px;
   }
-  .step-text { flex: 1; }
+  .step-body { flex: 1; min-width: 0; }
+  .step-text { display: block; }
+  .step-memo { display: block; margin-top: 2px; font-size: 0.9rem; color: var(--muted); }
   .step-state { flex: none; font-size: 0.85rem; color: var(--muted); margin-top: 3px; }
 
   /* 완료한 단계: 글씨가 연해지고 가운데 줄이 그어짐 */
   .step.done { background: #f3f3f0; }
-  .step.done .step-text {
+  .step.done .step-text,
+  .step.done .step-memo {
     text-decoration: line-through;
     color: var(--done);
   }
@@ -138,139 +170,241 @@
     background: var(--done);
     color: #fff;
   }
+
+  /* 화면 아래 고정 입력창 */
+  .editor {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 10;
+    max-height: 75vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border-top: 3px solid var(--accent);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.15);
+  }
+  .editor[hidden] { display: none; }
+  .editor-inner { max-width: 44rem; margin: 0 auto; padding: 16px 16px 20px; }
+  .field-label { display: block; font-weight: 700; margin-bottom: 4px; }
+  .editor input, .editor textarea {
+    width: 100%;
+    font: inherit;
+    padding: 8px 10px;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--field);
+    border-radius: 8px;
+  }
+  .editor textarea { resize: vertical; min-height: 64px; }
+  .editor fieldset { margin: 16px 0 0; padding: 0; border: none; min-width: 0; }
+  .editor legend { padding: 0; font-weight: 700; }
+  .editor .small { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
+  .step-field {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--bg);
+  }
+  .step-field label { font-size: 0.92rem; font-weight: 600; }
+  .editor-error { margin: 10px 0 0; color: var(--error); font-weight: 600; }
+  .editor-error:empty { display: none; }
+  .editor-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .btn {
+    min-height: 44px;
+    padding: 8px 16px;
+    font: inherit;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .btn-sub { background: var(--surface); color: var(--accent); border: 2px solid var(--accent); }
+  .btn-main { background: var(--accent); color: #fff; border: 2px solid var(--accent); }
+  .btn-plain { background: var(--surface); color: var(--text); border: 1px solid var(--field); }
+  .editor-actions .btn-plain { margin-left: auto; }
+
+  @media (min-width: 640px) {
+    .book { grid-template-columns: minmax(0, 1fr) 140px; }
+    .page { padding: 24px 24px; }
+    .tab, .add-btn { font-size: 0.98rem; padding-left: 14px; }
+  }
 </style>
 </head>
 <body>
 <main>
-  <h1>빵 레시피 단계 체크</h1>
-  <p class="lead">빵을 고르고, 끝낸 단계를 눌러 줄을 그어 가세요. 잘못 눌렀다면 한 번 더 누르면 돌아옵니다.</p>
+  <h1>레시피 메모지</h1>
+  <p class="lead">오른쪽 인덱스 탭에서 레시피를 고르고, 끝낸 단계를 눌러 줄을 그어 가세요. 잘못 눌렀다면 한 번 더 누르면 돌아옵니다.</p>
+  <p id="save-note" class="save-note" hidden>이 브라우저에서는 저장이 되지 않아요. 새로고침하면 적어 둔 레시피가 사라집니다.</p>
 
-  <!-- 상단: 빵 종류 선택 버튼 3개 -->
-  <section aria-labelledby="pick-title">
-    <h2 id="pick-title">빵 고르기</h2>
-    <div class="bread-buttons">
-      <button type="button" class="bread-btn" data-bread="meringue" aria-pressed="false">머랭쿠키</button>
-      <button type="button" class="bread-btn" data-bread="saltbread" aria-pressed="false">소금빵</button>
-      <button type="button" class="bread-btn" data-bread="buttercookie" aria-pressed="false">버터쿠키</button>
-    </div>
-  </section>
+  <div class="book">
+    <!-- 왼쪽: 레시피 순서 목록 -->
+    <section class="page" aria-labelledby="recipe-title">
+      <h2 id="recipe-title">레시피 순서</h2>
+      <div id="recipe-area"></div>
+    </section>
 
-  <!-- 중단: 알레르기 주의 문구 (빵을 고르면 나타남) -->
-  <div id="allergy" class="allergy" role="alert" hidden>
-    <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 2.5 1.5 21h21L12 2.5z" fill="#d9822b"/>
-      <rect x="11" y="9" width="2" height="6.5" rx="1" fill="#fff"/>
-      <circle cx="12" cy="18" r="1.2" fill="#fff"/>
-    </svg>
-    <div>
-      <strong>알레르기 유발 물질 주의</strong>
-      <p id="allergy-text"></p>
-    </div>
+    <!-- 오른쪽: 요리책 인덱스 탭 + 레시피 추가 버튼 -->
+    <nav class="index" aria-label="레시피 인덱스">
+      <div id="tabs" class="tabs"></div>
+      <button type="button" id="add-btn" class="add-btn">+ 레시피 추가</button>
+    </nav>
   </div>
-
-  <!-- 하단: 레시피 순서 목록 -->
-  <section aria-labelledby="recipe-title">
-    <h2 id="recipe-title">레시피 순서</h2>
-    <div id="recipe-area">
-      <p class="placeholder">위에서 빵 버튼을 누르면 레시피 순서가 여기에 나타납니다.</p>
-    </div>
-  </section>
 </main>
 
+<!-- 화면 아래 고정 입력창 (+ 레시피 추가를 누르면 나타남) -->
+<section id="editor" class="editor" aria-labelledby="editor-title" hidden>
+  <form id="editor-form" class="editor-inner" novalidate>
+    <h2 id="editor-title">새 레시피 적기</h2>
+    <label class="field-label" for="new-name">빵 이름</label>
+    <input id="new-name" type="text" maxlength="20" autocomplete="off" placeholder="예: 우리 집 식빵">
+    <fieldset>
+      <legend>요리 순서</legend>
+      <p class="small">한 칸에 한 단계씩 적어요. 메모는 비워도 되고, 순서를 비워 둔 칸은 저장되지 않아요.</p>
+      <div id="step-fields"></div>
+    </fieldset>
+    <p id="editor-error" class="editor-error" role="alert"></p>
+    <div class="editor-actions">
+      <button type="button" id="add-step-btn" class="btn btn-sub">+ 단계 추가</button>
+      <button type="submit" class="btn btn-main">저장</button>
+      <button type="button" id="cancel-btn" class="btn btn-plain">취소</button>
+    </div>
+  </form>
+</section>
+
 <script>
-// ===== 예시 데이터 =====
-// 레시피 데이터가 저장된 곳입니다.
-// 빵마다 이름(name), 알레르기 재료(allergens), 요리 단계(steps) 배열을 가지고 있어요.
-// steps 배열의 글 하나하나가 화면 목록의 한 줄(li)이 됩니다.
-const RECIPES = {
-  meringue: {
-    name: "머랭쿠키",
-    allergens: ["달걀(흰자)"],
-    steps: [
-      "달걀흰자 2개를 볼에 넣고 거품기로 하얗게 거품을 낸다.",
-      "설탕 60g을 세 번에 나누어 넣으며 뿔이 단단하게 설 때까지 휘핑한다.",
-      "짤주머니에 담아 유산지를 깐 팬 위에 작고 동그랗게 짠다.",
-      "100℃로 예열한 오븐에서 60분 동안 말리듯 굽고, 오븐 안에서 식힌다."
-    ]
-  },
-  saltbread: {
-    name: "소금빵",
-    allergens: ["밀(밀가루)", "우유", "버터(유제품)"],
-    steps: [
-      "강력분 250g, 설탕, 소금, 이스트, 우유를 섞어 매끈해질 때까지 반죽한다.",
-      "반죽을 덮어 두 배로 부풀 때까지 따뜻한 곳에서 1시간 발효한다.",
-      "반죽을 6개로 나눠 길쭉하게 밀고, 버터 한 조각을 넣어 돌돌 만다.",
-      "윗면에 굵은소금을 뿌리고 200℃ 오븐에서 15분 굽는다."
-    ]
-  },
-  buttercookie: {
-    name: "버터쿠키",
-    allergens: ["버터(유제품)", "달걀", "밀(밀가루)"],
-    steps: [
-      "실온에 둔 버터 100g을 부드럽게 풀고 설탕 50g을 넣어 섞는다.",
-      "달걀 1개를 조금씩 넣으며 크림처럼 섞는다.",
-      "박력분 150g을 체에 쳐서 넣고 주걱으로 가르듯 섞는다.",
-      "모양을 내어 팬에 올리고 170℃ 오븐에서 12분 굽는다."
-    ]
+// ===== 레시피 데이터 =====
+// 레시피가 저장되는 곳입니다. 처음에는 아무 레시피도 없는 빈 배열이에요.
+// 레시피마다 번호(id), 빵 이름(name), 요리 단계(steps), 단계별 완료 여부(done)를 가지고 있어요.
+// steps의 한 칸은 { text: 요리 순서, memo: 메모 } 이고, 화면 목록의 한 줄(li)이 됩니다.
+// done 배열은 steps와 같은 순서로 true(완료)/false(미완료)를 기억해서,
+// 다른 탭을 봤다가 돌아와도 체크한 단계가 그대로 남아 있어요.
+let recipes = [];
+let selectedId = null;
+
+const STORE_KEY = "sih26:20711:recipes";
+const MAX_STEPS = 30;
+let canSave = true;
+
+// ===== 저장/불러오기 (저장이 막힌 환경에서도 화면은 그대로 작동) =====
+function saveData() {
+  if (!canSave) return;
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify({ recipes: recipes, selectedId: selectedId }));
+  } catch (e) {
+    canSave = false;
+    document.getElementById("save-note").hidden = false;
   }
-};
+}
+
+function loadData() {
+  let raw = null;
+  try {
+    raw = localStorage.getItem(STORE_KEY);
+  } catch (e) {
+    canSave = false;
+    document.getElementById("save-note").hidden = false;
+    return;
+  }
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    if (!data || !Array.isArray(data.recipes)) return;
+    data.recipes.forEach(function (r) {
+      if (!r || typeof r.name !== "string" || !Array.isArray(r.steps)) return;
+      const steps = r.steps
+        .filter(function (s) { return s && typeof s.text === "string" && s.text.trim(); })
+        .map(function (s) { return { text: s.text, memo: typeof s.memo === "string" ? s.memo : "" }; });
+      if (!r.name.trim() || steps.length === 0) return;
+      const done = steps.map(function (s, i) { return Array.isArray(r.done) && r.done[i] === true; });
+      recipes.push({ id: String(r.id || Date.now() + "-" + recipes.length), name: r.name, steps: steps, done: done });
+    });
+    if (recipes.some(function (r) { return r.id === data.selectedId; })) selectedId = data.selectedId;
+  } catch (e) {
+    // 저장된 내용이 깨져 있으면 읽지 않고 빈 상태로 시작합니다.
+  }
+}
+
+function findRecipe(id) {
+  return recipes.find(function (r) { return r.id === id; }) || null;
+}
 
 // ===== 화면 요소 =====
-const breadButtons = document.querySelectorAll(".bread-btn");
-const allergyBox = document.getElementById("allergy");
-const allergyText = document.getElementById("allergy-text");
+const tabsBox = document.getElementById("tabs");
 const recipeArea = document.getElementById("recipe-area");
+const addBtn = document.getElementById("add-btn");
+const editor = document.getElementById("editor");
+const editorForm = document.getElementById("editor-form");
+const nameInput = document.getElementById("new-name");
+const stepFields = document.getElementById("step-fields");
+const editorError = document.getElementById("editor-error");
 
 // ===== 화면 갱신 함수 =====
 
-// 선택한 빵 버튼만 눌린 상태로 표시
-function markSelectedButton(breadKey) {
-  breadButtons.forEach(function (btn) {
-    btn.setAttribute("aria-pressed", btn.dataset.bread === breadKey ? "true" : "false");
+// 오른쪽 인덱스 탭 그리기: 선택된 탭만 눌린 상태(튀어나옴 + 진한 색)
+function renderTabs() {
+  tabsBox.textContent = "";
+  recipes.forEach(function (r) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tab";
+    btn.dataset.id = r.id;
+    btn.title = r.name;
+    btn.textContent = r.name;
+    btn.setAttribute("aria-pressed", r.id === selectedId ? "true" : "false");
+    tabsBox.appendChild(btn);
   });
 }
 
-// 알레르기 주의 문구 표시
-function showAllergy(recipe) {
-  allergyText.textContent = "이 레시피에는 " + recipe.allergens.join(", ") +
-    "이(가) 들어갑니다. 알레르기가 있다면 재료를 바꾸거나 만들지 마세요.";
-  allergyBox.hidden = false;
-}
-
-// 단계 하나(li)를 만들어 돌려줌
-function createStepItem(text, index) {
+// 단계 하나(li)를 만들어 돌려줌. 완료 여부(isDone)도 함께 그려 줌
+function createStepItem(step, index, isDone) {
   const li = document.createElement("li");
   const btn = document.createElement("button");
   btn.type = "button";
-  btn.className = "step";
-  btn.setAttribute("aria-pressed", "false");
+  btn.className = "step" + (isDone ? " done" : "");
+  btn.dataset.index = String(index);
+  btn.setAttribute("aria-pressed", isDone ? "true" : "false");
 
   const num = document.createElement("span");
   num.className = "step-num";
   num.textContent = String(index + 1);
 
   const body = document.createElement("span");
-  body.className = "step-text";
-  body.textContent = text;   // textContent로 넣어 안전하게 표시
+  body.className = "step-body";
+  const text = document.createElement("span");
+  text.className = "step-text";
+  text.textContent = step.text;   // textContent로 넣어 안전하게 표시
+  body.appendChild(text);
+  if (step.memo) {
+    const memo = document.createElement("span");
+    memo.className = "step-memo";
+    memo.textContent = "메모: " + step.memo;
+    body.appendChild(memo);
+  }
 
   const state = document.createElement("span");
   state.className = "step-state";
-  state.textContent = "";    // 완료하면 "완료" 글자가 나타남 (색만으로 구분하지 않기 위해)
+  state.textContent = isDone ? "완료" : "";   // 색만으로 구분하지 않기 위해 "완료" 글자도 표시
 
   btn.append(num, body, state);
   li.appendChild(btn);
   return li;
 }
 
-// 레시피 목록 그리기: 이전 목록과 완료 상태는 모두 지우고 새로 덮어씀
-function showRecipe(breadKey) {
-  const recipe = RECIPES[breadKey];
-  if (!recipe) return;
+// 레시피 목록 그리기: 저장해 둔 완료 상태(done)를 그대로 다시 그림
+function showRecipe() {
+  recipeArea.textContent = "";
+  const recipe = findRecipe(selectedId);
 
-  markSelectedButton(breadKey);
-  showAllergy(recipe);
-
-  recipeArea.textContent = "";   // 이전 레시피 완전히 지우기
+  if (!recipe) {
+    const p = document.createElement("p");
+    p.className = "placeholder";
+    p.textContent = recipes.length === 0
+      ? "아직 레시피가 없어요. 오른쪽 '+ 레시피 추가'를 눌러 첫 레시피를 적어 보세요."
+      : "오른쪽 인덱스 탭에서 레시피를 고르면 순서가 여기에 나타납니다.";
+    recipeArea.appendChild(p);
+    return;
+  }
 
   const hint = document.createElement("p");
   hint.className = "hint";
@@ -279,38 +413,181 @@ function showRecipe(breadKey) {
 
   const list = document.createElement("ol");
   list.className = "steps";
-  recipe.steps.forEach(function (text, i) {
-    list.appendChild(createStepItem(text, i));
+  recipe.steps.forEach(function (step, i) {
+    list.appendChild(createStepItem(step, i, recipe.done[i]));
   });
   recipeArea.appendChild(list);
 }
 
-// 단계 하나의 완료 상태를 뒤집기 (완료 ↔ 미완료)
+function selectRecipe(id) {
+  selectedId = id;
+  renderTabs();
+  showRecipe();
+  saveData();
+}
+
+// 단계 하나의 완료 상태를 뒤집기 (완료 ↔ 미완료) + 레시피 데이터에 기억
 function toggleStep(stepBtn) {
+  const recipe = findRecipe(selectedId);
+  if (!recipe) return;
+  const i = Number(stepBtn.dataset.index);
   const isDone = stepBtn.classList.toggle("done");
+  recipe.done[i] = isDone;
   stepBtn.setAttribute("aria-pressed", isDone ? "true" : "false");
   stepBtn.querySelector(".step-state").textContent = isDone ? "완료" : "";
+  saveData();
   // 마지막 단계까지 끝나도 팝업이나 화면 전환 없이 목록을 그대로 둡니다.
+}
+
+// ===== 아래 고정 입력창 =====
+
+// 입력창이 화면 아래를 가리지 않도록 그 높이만큼 페이지 아래 여백을 줌
+function fitBodyPadding() {
+  document.body.style.paddingBottom = editor.hidden ? "" : editor.offsetHeight + "px";
+}
+
+// "요리 순서 + 메모" 칸 한 묶음을 밑에 추가
+function addStepField() {
+  const count = stepFields.children.length;
+  if (count >= MAX_STEPS) {
+    editorError.textContent = "단계는 " + MAX_STEPS + "개까지 적을 수 있어요.";
+    return;
+  }
+  const n = count + 1;
+  const box = document.createElement("div");
+  box.className = "step-field";
+
+  const tLabel = document.createElement("label");
+  tLabel.htmlFor = "step-text-" + n;
+  tLabel.textContent = n + "단계 요리 순서";
+  const t = document.createElement("textarea");
+  t.id = "step-text-" + n;
+  t.className = "f-text";
+  t.rows = 2;
+  t.maxLength = 200;
+
+  const mLabel = document.createElement("label");
+  mLabel.htmlFor = "step-memo-" + n;
+  mLabel.textContent = n + "단계 메모 (선택)";
+  const m = document.createElement("input");
+  m.type = "text";
+  m.id = "step-memo-" + n;
+  m.className = "f-memo";
+  m.maxLength = 100;
+  m.autocomplete = "off";
+
+  box.append(tLabel, t, mLabel, m);
+  stepFields.appendChild(box);
+  fitBodyPadding();
+  return t;
+}
+
+function openEditor() {
+  if (editor.hidden) {
+    editorForm.reset();
+    stepFields.textContent = "";
+    editorError.textContent = "";
+    addStepField();
+    editor.hidden = false;
+    fitBodyPadding();
+  }
+  nameInput.focus();
+}
+
+function closeEditor() {
+  editor.hidden = true;
+  editorError.textContent = "";
+  fitBodyPadding();
+  addBtn.focus();
+}
+
+// 저장: 입력을 검사하고, 맞으면 새 레시피를 만들어 인덱스 탭에 추가
+function saveRecipe() {
+  const name = nameInput.value.trim();
+  if (!name) {
+    editorError.textContent = "빵 이름을 적어 주세요.";
+    nameInput.focus();
+    return;
+  }
+  const same = recipes.some(function (r) { return r.name.trim().toLowerCase() === name.toLowerCase(); });
+  if (same) {
+    editorError.textContent = "'" + name + "' 레시피가 이미 있어요. 다른 이름을 적어 주세요.";
+    nameInput.focus();
+    return;
+  }
+
+  const steps = [];
+  const boxes = stepFields.querySelectorAll(".step-field");
+  for (let i = 0; i < boxes.length; i++) {
+    const t = boxes[i].querySelector(".f-text");
+    const text = t.value.trim();
+    const memo = boxes[i].querySelector(".f-memo").value.trim();
+    if (!text && memo) {
+      editorError.textContent = (i + 1) + "단계에 메모만 있어요. 요리 순서도 적어 주세요.";
+      t.focus();
+      return;
+    }
+    if (text) steps.push({ text: text, memo: memo });
+  }
+  if (steps.length === 0) {
+    editorError.textContent = "요리 순서를 한 단계 이상 적어 주세요.";
+    boxes[0].querySelector(".f-text").focus();
+    return;
+  }
+
+  const recipe = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    name: name,
+    steps: steps,
+    done: steps.map(function () { return false; })
+  };
+  recipes.push(recipe);
+  editor.hidden = true;
+  editorError.textContent = "";
+  fitBodyPadding();
+  selectRecipe(recipe.id);
+  const newTab = tabsBox.querySelector('[data-id="' + recipe.id + '"]');
+  if (newTab) newTab.focus();
 }
 
 // ===== 이벤트 연결 =====
 
-// 빵 버튼을 누르면 그 빵의 레시피를 보여줌
-breadButtons.forEach(function (btn) {
-  btn.addEventListener("click", function () {
-    showRecipe(btn.dataset.bread);
-  });
+// 인덱스 탭을 누르면 그 레시피를 보여줌 (체크한 단계는 지워지지 않음)
+tabsBox.addEventListener("click", function (event) {
+  const tab = event.target.closest(".tab");
+  if (!tab) return;
+  selectRecipe(tab.dataset.id);
 });
 
 // 단계를 클릭했을 때 줄이 그어지고, 다시 클릭하면 취소되는 부분입니다.
-// 목록은 빵을 바꿀 때마다 새로 만들어지므로, 바깥 상자(recipeArea)에 한 번만 리스너를 달고
+// 목록은 탭을 바꿀 때마다 새로 그려지므로, 바깥 상자(recipeArea)에 한 번만 리스너를 달고
 // 실제로 눌린 단계 버튼(.step)을 찾아 "done" 클래스를 붙였다 뗐다(toggle) 합니다.
 // "done" 클래스가 붙으면 CSS가 글씨를 연하게 하고 가운데 줄(line-through)을 긋습니다.
+// 바뀐 완료 상태는 그 레시피의 done 배열에도 적어 두어서, 다른 탭에 다녀와도 그대로예요.
 recipeArea.addEventListener("click", function (event) {
   const stepBtn = event.target.closest(".step");
   if (!stepBtn) return;
   toggleStep(stepBtn);
 });
+
+addBtn.addEventListener("click", openEditor);
+document.getElementById("add-step-btn").addEventListener("click", function () {
+  editorError.textContent = "";
+  const t = addStepField();
+  if (t) t.focus();
+});
+document.getElementById("cancel-btn").addEventListener("click", closeEditor);
+editorForm.addEventListener("submit", function (event) {
+  event.preventDefault();
+  saveRecipe();
+});
+window.addEventListener("resize", fitBodyPadding);
+
+// ===== 시작 =====
+loadData();
+if (!selectedId && recipes.length > 0) selectedId = recipes[0].id;
+renderTabs();
+showRecipe();
 </script>
 </body>
 </html>
