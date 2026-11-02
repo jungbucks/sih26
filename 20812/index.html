@@ -6,7 +6,7 @@
 <title>피곤함까지 고려하는 할 일 순서 정하기</title>
 <meta name="description" content="오늘 컨디션(보통/피곤함)과 마감일, 소요 시간을 보고 수행평가·숙제의 순서를 정해 주는 할 일 우선순위 큐">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C16 먹과 노랑 · 트렌드 T12 클레이모피즘 · #ffd600">
 <style>
   /* ===== 스타일 =====
@@ -14,9 +14,10 @@
      까만 바탕에 경고등 노랑. 버튼·체크박스·결과 카드만 찰흙처럼 통통하게, 목록·입력칸은 평평하게.
      의미 색(경고 빨강·안내 초록·중요 노랑)은 같은 계열로 남기되 어두운 바탕에 맞게 밝기를 바꿨어요.
      (중요 태그 노랑은 강조색과 헷갈리지 않게 더 어두운 금색으로)
-     어두운 덩어리(보조 버튼·컨디션 버튼·체크박스·입력 카드·결과 카드·목록 카드)도
+     어두운 덩어리(보조 버튼·컨디션 버튼·체크박스·입력 카드·결과 카드·완료 목록 카드)도
      노란 버튼과 같은 말투로: 위쪽 밝은 테두리 빛 + 왼쪽 위 옅은 빛 + 오른쪽 아래 짙은 그늘 + 바깥 그림자,
-     바탕은 왼쪽 위가 살짝 밝은 그라데이션으로 둥근 부피를 만든다. */
+     바탕은 왼쪽 위가 살짝 밝은 그라데이션으로 둥근 부피를 만든다.
+     진행 중 목록 카드만은 버튼으로 오해하지 않게 납작하게 두고, 안쪽 버튼만 통통하게. */
   @font-face { font-family: "Gowun Dodum"; src: url("../assets/fonts/GowunDodum-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
   :root {
     color-scheme: dark;
@@ -166,6 +167,12 @@
     margin-bottom: 10px;
     background: var(--surface-dark);
     box-shadow: var(--clay-item);
+  }
+  /* 진행 중 목록 카드: 눌리는 건 안의 '완료'·'삭제'뿐이라 카드는 납작하게(그림자·안쪽 빛 없이 얇은 테두리만).
+     통통한 입체감은 안쪽 버튼에만 남긴다. */
+  #todo-list .item {
+    background: var(--card);
+    box-shadow: none;
   }
   .item .info { flex: 1 1 200px; min-width: 0; }
   .rank { color: var(--text); font-weight: 700; margin-right: 6px; }
