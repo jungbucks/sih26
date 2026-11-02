@@ -6,7 +6,7 @@
 <title>스택 기반 게임 플레이 최근 기록기</title>
 <meta name="description" content="게임 플레이 기록을 스택(후입선출)으로 쌓고, 가장 최근 기록부터 되돌리는 기록기">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="3회 개선">
+<meta name="status" content="4회 개선">
 <meta name="design" content="컬러셋 C5 안개와 청록(어두운 바탕) · 트렌드 T03 다크 테크 · #14b8a6">
 <style>
   /* 디자인: 컬러셋 '안개와 청록(어두운 바탕)' + 트렌드 '다크 테크'
@@ -26,7 +26,6 @@
     --accent: #14b8a6;      /* 가장 중요한 버튼·핵심 결과 */
     --accent-ink: #111111;  /* 강조색 버튼 글자 */
     --accent-text: #5eead4; /* 어두운 바탕 위 강조 글자 */
-    --result-block: #12302d;/* 결과 카드 색 블록 */
     --top-edge: inset 0 1px 0 rgba(255,255,255,.08);
     --ok: #a6eebd;
     --ok-weak: #15301f;
@@ -39,6 +38,11 @@
     --edge-fail: #a3524a;   /* 실패 = 은은한 빨강 */
     --edge-going: #a3843c;  /* 진행 중 = 은은한 노랑 */
     --edge-pin: #f3f4f6;    /* 고정 = 밝은 흰색 */
+    /* 기록 카드 테두리 빛: 상태 색을 옅게 번지게 */
+    --glow-ok: 0 0 10px color-mix(in srgb, var(--ok) 35%, transparent);
+    --glow-fail: 0 0 10px color-mix(in srgb, var(--fail) 35%, transparent);
+    --glow-going: 0 0 10px color-mix(in srgb, var(--going) 35%, transparent);
+    --glow-pin: 0 0 12px color-mix(in srgb, #ffffff 45%, transparent);
   }
   * { box-sizing: border-box; }
   body {
@@ -160,12 +164,11 @@
     border-radius: 8px;
     padding: 10px 12px;
   }
-  /* 맨 위(가장 최근) 기록 = 핵심 결과: 청록 색 블록 (테두리는 상태 색을 따라요) */
-  .card.top { background: var(--result-block); }
-  /* 상태별 테두리 */
-  .card.ok { border-color: var(--edge-ok); }
-  .card.fail { border-color: var(--edge-fail); }
-  .card.going { border-color: var(--edge-going); }
+  /* 맨 위(가장 최근) 기록도 바탕색은 다른 기록과 같아요 ('맨 위' 글자로만 구분) */
+  /* 상태별 테두리 + 같은 색으로 은은하게 빛나기 */
+  .card.ok { border-color: var(--edge-ok); box-shadow: var(--glow-ok); }
+  .card.fail { border-color: var(--edge-fail); box-shadow: var(--glow-fail); }
+  .card.going { border-color: var(--edge-going); box-shadow: var(--glow-going); }
   .card .title { font-weight: 600; }
   .card .detail { grid-column: 1 / -1; font-size: 0.92rem; color: var(--going); }
   .card .time { grid-column: 1 / -1; font-size: 0.88rem; color: var(--muted); }
@@ -198,11 +201,10 @@
   #detailWrap { margin-top: 14px; }
   #detailWrap[hidden] { display: none; }
   /* 카드 안 버튼(고정·수정·삭제) */
-  /* 고정 + 상태가 겹치면: 바깥 테두리는 흰색(고정), 바로 안쪽에 1px 띄운 상태 색 선을 한 줄 더 */
-  .card.pinned { border-color: var(--edge-pin); --edge-in: var(--edge-going); box-shadow: inset 0 0 0 1px var(--surface), inset 0 0 0 2px var(--edge-in); }
+  /* 고정 + 상태가 겹치면: 바깥 테두리는 흰색(고정)으로 빛나고, 바로 안쪽에 1px 띄운 상태 색 선을 한 줄 더 */
+  .card.pinned { border-color: var(--edge-pin); --edge-in: var(--edge-going); box-shadow: inset 0 0 0 1px var(--surface), inset 0 0 0 2px var(--edge-in), var(--glow-pin); }
   .card.pinned.ok { --edge-in: var(--edge-ok); }
   .card.pinned.fail { --edge-in: var(--edge-fail); }
-  .card.top.pinned { box-shadow: inset 0 0 0 1px var(--result-block), inset 0 0 0 2px var(--edge-in); }
   /* 카드 안 삭제 재확인 줄 */
   .del-confirm { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 4px; padding: 8px 10px; border: 1px solid #6b2c24; border-radius: 8px; background: var(--fail-weak); }
   .del-confirm p { margin: 0; flex: 1 1 100%; font-size: 0.92rem; font-weight: 600; color: var(--text); }
