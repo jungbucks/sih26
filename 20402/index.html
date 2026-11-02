@@ -6,7 +6,7 @@
 <title>10초 등교 준비물 체크리스트</title>
 <meta name="description" content="요일과 날씨를 고르면 오늘 챙길 준비물을 보여 주고, 챙긴 것을 눌러 하나씩 지우는 등교 준비물 체크리스트">
 <meta name="class" content="M반 (2-8)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C8 분홍과 민트 · 트렌드 T06 스크롤 3D · #ffb3d1">
 <style>
   :root {
@@ -222,6 +222,23 @@
   @media (prefers-reduced-motion: reduce) {
     .items li.enter { animation: none !important; }
   }
+
+  /* 시간표: 요일 버튼은 위 조건 버튼과 같은 모양, 교시마다 [n교시][과목 입력칸] 한 줄 */
+  .tt-days { margin: 0 0 12px; }
+  .tt-rows { display: grid; gap: 8px; margin: 0; }
+  .tt-row { display: grid; grid-template-columns: 4.2em 1fr; gap: 8px; align-items: center; }
+  .tt-row label { font-weight: 600; color: var(--muted); }
+  .tt-row input {
+    min-width: 0; font: inherit; padding: 8px 12px; min-height: 48px;
+    border: 1px solid var(--muted); border-radius: 12px; background: var(--card); color: var(--text);
+  }
+  .tt-week { margin: 14px 0 0; }
+  .tt-week summary { cursor: pointer; font-weight: 600; color: var(--accent-ink); min-height: 32px; }
+  .tt-week table { width: 100%; table-layout: fixed; border-collapse: collapse; margin-top: 8px; font-size: 0.85rem; line-height: 1.4; }
+  .tt-week th, .tt-week td { border: 1px solid var(--line); padding: 4px 2px; text-align: center; }
+  .tt-week th { background: var(--bg); color: var(--muted); font-weight: 600; }
+  .tt-week th:first-child { width: 2.6em; }
+  .tt-week td.today { background: var(--accent-weak); }
 </style>
 </head>
 <body>
@@ -271,6 +288,25 @@
     <p class="save-note" id="saveNote"></p>
   </section>
 
+  <!-- [중단 3] 내가 고쳐 쓰는 시간표 -->
+  <section class="card" aria-labelledby="ttTitle">
+    <h2 id="ttTitle">우리 반 시간표</h2>
+    <p class="how">요일을 고르고 교시마다 과목을 적으면 자동으로 저장돼요. 교과서·과제 챙길 때 함께 보세요.</p>
+    <div class="choices days tt-days" role="group" aria-label="시간표 요일" id="ttDayButtons">
+      <button type="button" data-day="월">월</button>
+      <button type="button" data-day="화">화</button>
+      <button type="button" data-day="수">수</button>
+      <button type="button" data-day="목">목</button>
+      <button type="button" data-day="금">금</button>
+    </div>
+    <div class="tt-rows" id="ttRows"></div>
+    <details class="tt-week">
+      <summary>일주일 시간표 한눈에 보기</summary>
+      <table id="ttWeek" aria-label="일주일 시간표"></table>
+    </details>
+    <p class="save-note" id="ttSaveNote" aria-live="polite"></p>
+  </section>
+
   <!-- [하단] 직접 추가 + 초기화 -->
   <section class="card" aria-labelledby="addTitle">
     <h2 id="addTitle">오늘만의 특수 준비물 추가</h2>
@@ -289,7 +325,7 @@
   <section class="card" aria-label="초기화">
     <div class="reset-area">
       <button type="button" class="btn-reset" id="resetButton">초기화</button>
-      <p class="footer-note">요일·날씨 선택, 체크한 내역, 직접 추가한 준비물을 모두 처음 상태로 되돌려요. (저장된 내역도 지워요)</p>
+      <p class="footer-note">요일·날씨 선택, 체크한 내역, 직접 추가한 준비물을 모두 처음 상태로 되돌려요. (저장된 내역도 지워요. 시간표는 그대로 남아요)</p>
     </div>
     <p class="msg" id="resetMsg" aria-live="polite"></p>
   </section>
@@ -299,7 +335,7 @@
 // ===== 기본 준비물 가상 데이터 =====
 // 조건(공통, 요일, 날씨)마다 챙길 준비물을 배열로 적어 둔다.
 const BASE_DATA = {
-  common: ["학생증", "텀블러"],          // 매일 챙기는 것
+  common: ["학생증", "텀블러", "필통", "휴대폰/보조배터리", "지갑/교통카드"], // 매일 챙기는 것
   day: { 월: ["실내화"], 수: ["체육복"] },  // 요일별 (없는 요일은 빈 배열로 취급)
   weather: { "비/눈": ["우산"] }           // 날씨별
 };
@@ -308,7 +344,10 @@ const MAX_CUSTOM = 10;                       // 직접 추가는 최대 10개
 const MAX_UNDO = 20;                         // 되돌리기는 최근 20번까지 기억
 // 이 프로그램만 쓰는 저장 키 (다른 데이터와 겹치지 않도록 접두사 사용)
 const STORAGE_KEY = "sih26:20402:customItems"; // 직접 추가한 준비물 (예전 버전과 같은 키·같은 모양)
-const TODAY_KEY = "sih26:20402:today";         // 오늘의 요일·날씨·체크 내역 (이번에 새로 추가)
+const TODAY_KEY = "sih26:20402:today";         // 오늘의 요일·날씨·체크 내역
+const TT_KEY = "sih26:20402:timetable";        // 내가 적은 시간표 (날짜가 바뀌어도 계속 남는다)
+const PERIODS = 7;                             // 1~7교시
+const MAX_SUBJECT = 10;                        // 과목 이름은 10글자까지
 
 // 전시판 미리보기처럼 "주소(출처)가 없는" 상자 안에서 열리면 origin이 "null"이 된다.
 // 이런 곳에서는 저장이 막히거나, 새로고침하면 사라진다.
@@ -732,6 +771,137 @@ resetButton.addEventListener("click", function () {
     : "처음 상태로 되돌렸어요.";
 });
 
+// ===== 시간표 =====
+// 요일마다 7칸짜리 배열: { 월: ["국어", "", ...], 화: [...], ... } (빈 칸 = 아직 안 적은 교시)
+const ttDayButtons = document.querySelectorAll("#ttDayButtons button");
+const ttRows = document.getElementById("ttRows");
+const ttWeek = document.getElementById("ttWeek");
+const ttSaveNote = document.getElementById("ttSaveNote");
+let timetable = {};
+let ttDay = "월";        // 시간표에서 지금 보고 있는 요일 (위 요일을 바꾸면 따라간다)
+
+function emptyTimetable() {
+  const t = {};
+  DAYS.forEach(function (d) { t[d] = new Array(PERIODS).fill(""); });
+  return t;
+}
+
+// 저장된 값이 조금 망가져 있어도 읽을 수 있는 칸만 살린다
+function cleanTimetable(data) {
+  const t = emptyTimetable();
+  if (!data || typeof data !== "object") return t;
+  DAYS.forEach(function (d) {
+    if (!Array.isArray(data[d])) return;
+    for (let i = 0; i < PERIODS; i++) {
+      const v = data[d][i];
+      if (typeof v === "string") t[d][i] = v.trim().slice(0, MAX_SUBJECT);
+    }
+  });
+  return t;
+}
+
+function loadTimetable() {
+  timetable = emptyTimetable();
+  if (IN_PREVIEW_BOX) return;
+  try {
+    const text = localStorage.getItem(TT_KEY);
+    if (text !== null) timetable = cleanTimetable(JSON.parse(text));
+  } catch (e) { /* 못 읽으면 빈 시간표로 (저장된 값은 지우지 않는다) */ }
+}
+
+function saveTimetable() {
+  let ok = false;
+  if (!IN_PREVIEW_BOX) {
+    try {
+      const text = JSON.stringify(timetable);
+      localStorage.setItem(TT_KEY, text);
+      ok = localStorage.getItem(TT_KEY) === text;
+    } catch (e) { ok = false; }
+  }
+  ttSaveNote.textContent = ok
+    ? "💾 시간표 저장됨 — 새로고침해도 남아 있어요."
+    : "저장 안 됨: 이 화면에서는 시간표가 새로고침하면 사라져요.";
+}
+
+// 고른 요일의 1~7교시 입력칸 그리기
+function renderTimetableDay() {
+  ttDayButtons.forEach(function (b) {
+    b.setAttribute("aria-pressed", String(b.dataset.day === ttDay));
+  });
+  ttRows.innerHTML = "";
+  for (let i = 0; i < PERIODS; i++) {
+    const row = document.createElement("div");
+    row.className = "tt-row";
+    const label = document.createElement("label");
+    label.htmlFor = "tt" + i;
+    label.textContent = (i + 1) + "교시";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.id = "tt" + i;
+    input.maxLength = MAX_SUBJECT;
+    input.autocomplete = "off";
+    input.placeholder = "과목";
+    input.setAttribute("aria-label", ttDay + "요일 " + (i + 1) + "교시 과목");
+    input.value = timetable[ttDay][i];
+    input.addEventListener("input", function () {
+      timetable[ttDay][i] = input.value.trim().slice(0, MAX_SUBJECT); // 공백만 적으면 빈 칸
+      saveTimetable();
+      renderTimetableWeek();
+    });
+    row.append(label, input);
+    ttRows.appendChild(row);
+  }
+}
+
+// 일주일 한눈에 보기 표 (빈 칸은 "-")
+function renderTimetableWeek() {
+  ttWeek.innerHTML = "";
+  const head = document.createElement("tr");
+  const corner = document.createElement("th");
+  corner.textContent = "교시";
+  head.appendChild(corner);
+  DAYS.forEach(function (d) {
+    const th = document.createElement("th");
+    th.textContent = d;
+    head.appendChild(th);
+  });
+  ttWeek.appendChild(head);
+  for (let i = 0; i < PERIODS; i++) {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
+    th.textContent = String(i + 1);
+    tr.appendChild(th);
+    DAYS.forEach(function (d) {
+      const td = document.createElement("td");
+      td.textContent = timetable[d][i] || "-";
+      if (d === selectedDay) td.className = "today";
+      tr.appendChild(td);
+    });
+    ttWeek.appendChild(tr);
+  }
+}
+
+ttDayButtons.forEach(function (b) {
+  b.addEventListener("click", function () {
+    ttDay = b.dataset.day;
+    renderTimetableDay();
+  });
+});
+
+// 위에서 요일을 바꾸면 시간표도 그 요일로 따라간다
+dayButtons.forEach(function (b) {
+  b.addEventListener("click", function () {
+    ttDay = selectedDay;
+    renderTimetableDay();
+    renderTimetableWeek();
+  });
+});
+resetButton.addEventListener("click", function () {
+  ttDay = selectedDay;
+  renderTimetableDay();
+  renderTimetableWeek();
+});
+
 // ===== 시작 =====
 setDefaults();
 const loadResult = loadAll();
@@ -740,6 +910,10 @@ if (loadResult === "preview" || loadResult === "unavailable") {
 }
 buildChecklist();
 render();
+loadTimetable();
+ttDay = selectedDay;
+renderTimetableDay();
+renderTimetableWeek();
 </script>
 </body>
 </html>
