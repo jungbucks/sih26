@@ -6,7 +6,7 @@
 <title>10초 등교 준비물 체크리스트</title>
 <meta name="description" content="요일과 날씨를 고르면 오늘 챙길 준비물을 보여 주고, 챙긴 것을 눌러 하나씩 지우는 등교 준비물 체크리스트">
 <meta name="class" content="M반 (2-8)">
-<meta name="status" content="3회 개선">
+<meta name="status" content="4회 개선">
 <meta name="design" content="컬러셋 C8 분홍과 민트 · 트렌드 T06 스크롤 3D · #ffb3d1">
 <style>
   :root {
@@ -239,6 +239,17 @@
   .tt-week th { background: var(--bg); color: var(--muted); font-weight: 600; }
   .tt-week th:first-child { width: 2.6em; }
   .tt-week td.today { background: var(--accent-weak); }
+
+  /* 매일 준비물 고치기: 평소에는 접어 두고, 펼치면 [이름 입력칸][✕ 삭제]가 한 줄씩 */
+  .common-edit { margin: 14px 0 0; }
+  .common-edit summary { cursor: pointer; font-weight: 600; color: var(--accent-ink); min-height: 32px; }
+  .common-rows { display: grid; gap: 8px; margin: 8px 0 0; }
+  .common-row { display: flex; gap: 8px; }
+  .common-row input {
+    flex: 1; min-width: 0; font: inherit; padding: 8px 12px; min-height: 48px;
+    border: 1px solid var(--muted); border-radius: 12px; background: var(--card); color: var(--text);
+  }
+  .common-restore { margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -286,12 +297,20 @@
     <ul class="items" id="itemList"></ul>
     <p class="done-msg" id="doneMsg" role="status" hidden>모든 준비물을 챙겼습니다! 완벽한 하루 되세요!</p>
     <p class="save-note" id="saveNote"></p>
+    <details class="common-edit">
+      <summary id="commonSummary"></summary>
+      <p class="how">이름을 고치거나 ✕ 삭제로 뺄 수 있어요. 고친 내용은 내일도, 초기화를 눌러도 그대로예요.</p>
+      <div class="common-rows" id="commonRows"></div>
+      <button type="button" class="common-restore" id="commonRestore">처음 5개로 되돌리기</button>
+      <p class="msg" id="commonMsg" aria-live="polite"></p>
+      <p class="save-note" id="commonSaveNote"></p>
+    </details>
   </section>
 
   <!-- [중단 3] 내가 고쳐 쓰는 시간표 -->
   <section class="card" aria-labelledby="ttTitle">
     <h2 id="ttTitle">우리 반 시간표</h2>
-    <p class="how">요일을 고르고 교시마다 과목을 적으면 자동으로 저장돼요. 교과서·과제 챙길 때 함께 보세요.</p>
+    <p class="how">요일을 고르고 교시마다 과목을 적으면 자동으로 저장돼요. ‘체육’을 적은 요일에는 준비물에 체육복이 저절로 들어가요.</p>
     <div class="choices days tt-days" role="group" aria-label="시간표 요일" id="ttDayButtons">
       <button type="button" data-day="월">월</button>
       <button type="button" data-day="화">화</button>
@@ -325,7 +344,7 @@
   <section class="card" aria-label="초기화">
     <div class="reset-area">
       <button type="button" class="btn-reset" id="resetButton">초기화</button>
-      <p class="footer-note">요일·날씨 선택, 체크한 내역, 직접 추가한 준비물을 모두 처음 상태로 되돌려요. (저장된 내역도 지워요. 시간표는 그대로 남아요)</p>
+      <p class="footer-note">요일·날씨 선택, 체크한 내역, 직접 추가한 준비물을 모두 처음 상태로 되돌려요. (저장된 내역도 지워요. 시간표와 고쳐 둔 매일 준비물은 그대로 남아요)</p>
     </div>
     <p class="msg" id="resetMsg" aria-live="polite"></p>
   </section>
@@ -335,10 +354,14 @@
 // ===== 기본 준비물 가상 데이터 =====
 // 조건(공통, 요일, 날씨)마다 챙길 준비물을 배열로 적어 둔다.
 const BASE_DATA = {
-  common: ["학생증", "텀블러", "필통", "휴대폰/보조배터리", "지갑/교통카드"], // 매일 챙기는 것
+  common: ["학생증", "텀블러", "필통", "휴대폰/보조배터리", "지갑/교통카드"], // 매일 챙기는 것의 처음 값
   day: { 월: ["실내화"], 수: ["체육복"] },  // 요일별 (없는 요일은 빈 배열로 취급)
   weather: { "비/눈": ["우산"] }           // 날씨별
 };
+// 시간표 규칙: 고른 요일의 시간표에 이 글자가 들어간 과목이 있으면 준비물을 더한다
+const SUBJECT_RULES = [
+  { subject: "체육", item: "체육복" }
+];
 const DAYS = ["월", "화", "수", "목", "금"];
 const MAX_CUSTOM = 10;                       // 직접 추가는 최대 10개
 const MAX_UNDO = 20;                         // 되돌리기는 최근 20번까지 기억
@@ -346,6 +369,7 @@ const MAX_UNDO = 20;                         // 되돌리기는 최근 20번까�
 const STORAGE_KEY = "sih26:20402:customItems"; // 직접 추가한 준비물 (예전 버전과 같은 키·같은 모양)
 const TODAY_KEY = "sih26:20402:today";         // 오늘의 요일·날씨·체크 내역
 const TT_KEY = "sih26:20402:timetable";        // 내가 적은 시간표 (날짜가 바뀌어도 계속 남는다)
+const COMMON_KEY = "sih26:20402:commonItems";  // 내가 고친 매일 준비물 (없으면 처음 5개를 쓴다)
 const PERIODS = 7;                             // 1~7교시
 const MAX_SUBJECT = 10;                        // 과목 이름은 10글자까지
 
@@ -357,11 +381,13 @@ const IN_PREVIEW_BOX = (window.origin === "null" && location.protocol !== "file:
 // ===== 상태 =====
 let selectedDay = "월";
 let selectedWeather = "맑음";
+let commonItems = BASE_DATA.common.slice(); // 매일 준비물 이름 배열 (내가 고치거나 뺄 수 있다)
 let customItems = [];   // 직접 추가한 준비물 이름 배열 (✕로 지우기 전까지 계속 남는다)
 let checkedNames = [];  // 오늘 이미 챙겨서 지운 준비물 이름 (요일·날씨를 바꿔도 유지)
 let undoStack = [];     // 챙긴 순서대로 쌓아 두는 이름 (맨 끝 = 가장 최근)
 let shownNames = null;  // 바로 전 화면에 있던 준비물 이름 (새로 나타난 줄에만 등장 효과를 주려고)
-let checklist = [];     // 지금 화면에 남아 있는 준비물: { name, type: "day" | "weather" | "common" | "custom" }
+let checklist = [];     // 지금 화면에 남아 있는 준비물: { name, type: "subject" | "day" | "weather" | "common" | "custom" }
+let totalCount = 0;     // 챙긴 것까지 합친 오늘 준비물 개수 (0개면 "다 챙겼다"고 말하지 않으려고)
 
 // 화면 요소
 const dayButtons = document.querySelectorAll("#dayButtons button");
@@ -381,6 +407,11 @@ const customCount = document.getElementById("customCount");
 const storageMsg = document.getElementById("storageMsg");
 const resetButton = document.getElementById("resetButton");
 const resetMsg = document.getElementById("resetMsg");
+const commonSummary = document.getElementById("commonSummary");
+const commonRows = document.getElementById("commonRows");
+const commonRestore = document.getElementById("commonRestore");
+const commonMsg = document.getElementById("commonMsg");
+const commonSaveNote = document.getElementById("commonSaveNote");
 
 const SAVED_TEXT = "💾 저장됨 — 새로고침하거나 다시 열어도 오늘 체크한 내역이 남아 있어요.";
 
@@ -488,29 +519,47 @@ function showStorageProblem(reason) {
   }
 }
 
+// 오늘 조건(시간표·요일·날씨) 때문에 더 챙길 준비물. 같은 이름은 먼저 나온 이유로 한 번만 넣는다.
+function conditionItems() {
+  const list = [];
+  function add(name, type) {
+    const same = list.some(function (item) { return item.name === name; });
+    if (!same) list.push({ name: name, type: type });
+  }
+  SUBJECT_RULES.forEach(function (rule) {
+    const hasSubject = timetable[selectedDay].some(function (s) { return s.includes(rule.subject); });
+    if (hasSubject) add(rule.item, "subject");
+  });
+  (BASE_DATA.day[selectedDay] || []).forEach(function (n) { add(n, "day"); });
+  (BASE_DATA.weather[selectedWeather] || []).forEach(function (n) { add(n, "weather"); });
+  return list;
+}
+
+// 조건 준비물의 이름만 뽑은 배열
+function conditionNames() {
+  return conditionItems().map(function (item) { return item.name; });
+}
+
 // 지금 고른 조건의 기본 준비물 이름 배열
 function currentBaseNames() {
-  return BASE_DATA.common
-    .concat(BASE_DATA.day[selectedDay] || [])
-    .concat(BASE_DATA.weather[selectedWeather] || []);
+  return commonItems.concat(conditionNames());
 }
 
 // ===== 목록 만들기 =====
 // 선택한 조건에 맞는 기본 준비물 + 직접 추가한 준비물을 하나의 배열로 합친 뒤,
 // 이미 챙긴(checkedNames) 것은 filter로 빼서 "남은 목록"만 만든다.
 function buildChecklist() {
-  const list = [];
-  // 요일 준비물 → 날씨 준비물 → 매일 준비물 순서로 push(배열 끝에 넣기)
+  // 조건 준비물 → 매일 준비물 → 직접 추가 순서로 push(배열 끝에 넣기)
   // (조건 때문에 생긴 준비물을 맨 위에 두어야 휴대폰에서 바로 눈에 띈다)
-  (BASE_DATA.day[selectedDay] || []).forEach(function (n) { list.push({ name: n, type: "day" }); });
-  (BASE_DATA.weather[selectedWeather] || []).forEach(function (n) { list.push({ name: n, type: "weather" }); });
-  BASE_DATA.common.forEach(function (n) { list.push({ name: n, type: "common" }); });
-
-  // 직접 추가한 것은 맨 아래에. 기본 목록과 이름이 같은 것은 빼서 두 번 나오지 않게 한다.
-  customItems.forEach(function (n) {
-    const same = list.some(function (item) { return item.name === n; });
-    if (!same) list.push({ name: n, type: "custom" });
-  });
+  const list = conditionItems();
+  function addIfNew(name, type) {
+    // 앞에서 나온 이름과 같은 것은 빼서 두 번 나오지 않게 한다
+    const same = list.some(function (item) { return item.name === name; });
+    if (!same) list.push({ name: name, type: type });
+  }
+  commonItems.forEach(function (n) { addIfNew(n, "common"); });
+  customItems.forEach(function (n) { addIfNew(n, "custom"); });
+  totalCount = list.length;
 
   // filter: 이미 챙긴 이름은 남은 목록에서 뺀다
   checklist = list.filter(function (item) { return !checkedNames.includes(item.name); });
@@ -518,6 +567,7 @@ function buildChecklist() {
 
 // 항목 옆 배지 글자: 왜 이 준비물이 나왔는지 보여 준다
 function tagText(type) {
+  if (type === "subject") return "시간표";
   if (type === "day") return selectedDay + "요일";
   if (type === "weather") return "비·눈";
   if (type === "custom") return "직접 추가";
@@ -536,7 +586,7 @@ function render() {
 
   // 조건 요약: 버튼 바로 아래에 "이 조건이라 생긴 준비물"을 보여 준다
   // (휴대폰에서는 목록이 화면 아래에 있어서, 요일·날씨를 바꿔도 결과가 안 보일 수 있기 때문)
-  const condNames = (BASE_DATA.day[selectedDay] || []).concat(BASE_DATA.weather[selectedWeather] || []);
+  const condNames = conditionNames();
   const weatherWord = selectedWeather === "비/눈" ? "비·눈" : "맑음";
   condSummary.innerHTML = "";
   const head = document.createElement("strong");
@@ -547,7 +597,7 @@ function render() {
   });
   condSummary.append(head,
     (condNames.length > 0 ? "추가로 챙길 것: " + condText.join(", ") : "추가로 챙길 것 없음") +
-    " / 매일: " + BASE_DATA.common.join(", "));
+    " / 매일: " + (commonItems.length > 0 ? commonItems.join(", ") : "없음"));
 
   // 목록을 비우고 배열 내용대로 다시 만든다
   itemList.innerHTML = "";
@@ -572,7 +622,7 @@ function render() {
     name.className = "item-name";
     name.textContent = item.name;     // textContent: 입력한 글자를 그대로 글자로만 보여 준다
     const tag = document.createElement("span");
-    const isCond = item.type === "day" || item.type === "weather";
+    const isCond = item.type === "subject" || item.type === "day" || item.type === "weather";
     tag.className = "tag " + (item.type === "custom" ? "custom" : (isCond ? "cond" : "base"));
     tag.textContent = tagText(item.type);
 
@@ -597,7 +647,7 @@ function render() {
 
   // 남은 개수와 완료 메시지
   remainText.textContent = "남은 준비물 " + checklist.length + "개";
-  doneMsg.hidden = checklist.length !== 0;
+  doneMsg.hidden = checklist.length !== 0 || totalCount === 0; // 처음부터 0개면 완료 메시지를 보여 주지 않는다
   customCount.textContent = "직접 추가한 준비물 " + customItems.length + " / " + MAX_CUSTOM + "개 (✕ 삭제를 누르기 전까지 계속 남아요)";
 
   // 되돌리기 버튼: 되돌릴 것이 있을 때만 누를 수 있다
@@ -764,6 +814,7 @@ resetButton.addEventListener("click", function () {
   addInput.value = "";
   addInput.removeAttribute("aria-invalid");
   saveNote.textContent = "";
+  setCommonMessage("", "");
   render();
   resetMsg.className = "msg msg-ok";
   resetMsg.textContent = removed
@@ -847,6 +898,11 @@ function renderTimetableDay() {
       timetable[ttDay][i] = input.value.trim().slice(0, MAX_SUBJECT); // 공백만 적으면 빈 칸
       saveTimetable();
       renderTimetableWeek();
+      // 지금 고른 요일의 시간표를 고치면 준비물 목록도 바로 바뀐다 (체육 → 체육복)
+      if (ttDay === selectedDay) {
+        buildChecklist();
+        render();
+      }
     });
     row.append(label, input);
     ttRows.appendChild(row);
@@ -902,15 +958,139 @@ resetButton.addEventListener("click", function () {
   renderTimetableWeek();
 });
 
+// ===== 매일 준비물 고치기 =====
+function setCommonMessage(text, kind) {
+  commonMsg.textContent = text;
+  commonMsg.className = "msg " + (kind ? "msg-" + kind : "");
+}
+
+// 저장된 내용이 없으면 처음 5개를 그대로 쓴다. 전부 뺀 빈 배열([])도 내가 고른 값이다.
+function loadCommon() {
+  if (IN_PREVIEW_BOX) return;
+  try {
+    const text = localStorage.getItem(COMMON_KEY);
+    if (text === null) return;
+    const data = JSON.parse(text);
+    if (Array.isArray(data)) {
+      commonItems = cleanNames(data).filter(function (n, i, all) { return all.indexOf(n) === i; });
+    }
+  } catch (e) { /* 못 읽으면 처음 5개로 (저장된 값은 지우지 않는다) */ }
+}
+
+function saveCommon() {
+  let ok = false;
+  if (!IN_PREVIEW_BOX) {
+    try {
+      const text = JSON.stringify(commonItems);
+      localStorage.setItem(COMMON_KEY, text);
+      ok = localStorage.getItem(COMMON_KEY) === text;
+    } catch (e) { ok = false; }
+  }
+  commonSaveNote.textContent = ok
+    ? "💾 매일 준비물 저장됨 — 새로고침해도 남아 있어요."
+    : "저장 안 됨: 이 화면에서는 고친 내용이 새로고침하면 사라져요.";
+}
+
+// 접힌 제목과 되돌리기 버튼만 새로 쓴다 (이름을 고치는 중인 입력칸은 건드리지 않게)
+function updateCommonHead() {
+  commonSummary.textContent = "✎ 매일 준비물 고치기 (" + commonItems.length + "개)";
+  commonRestore.hidden = commonItems.join("\n") === BASE_DATA.common.join("\n");
+}
+
+function renderCommonEditor() {
+  commonRows.innerHTML = "";
+  commonItems.forEach(function (name, index) {
+    const row = document.createElement("div");
+    row.className = "common-row";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.maxLength = 30;
+    input.autocomplete = "off";
+    input.value = name;
+    input.setAttribute("aria-label", "매일 준비물 " + (index + 1) + "번 이름");
+    input.addEventListener("change", function () { renameCommon(index, input); });
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "del-btn";
+    del.setAttribute("aria-label", "‘" + name + "’ 매일 준비물에서 삭제");
+    del.innerHTML = '<span aria-hidden="true">✕</span><small aria-hidden="true">삭제</small>';
+    del.addEventListener("click", function () { deleteCommon(index); });
+    row.append(input, del);
+    commonRows.appendChild(row);
+  });
+  updateCommonHead();
+}
+
+// 이름 고치기: 챙긴 기록도 새 이름으로 옮겨서, 고쳐도 챙김 상태가 그대로 이어진다
+function renameCommon(index, input) {
+  const oldName = commonItems[index];
+  const name = input.value.trim();
+  if (name === oldName) {
+    input.value = oldName;
+    return;
+  }
+  if (name === "") {
+    input.value = oldName;
+    setCommonMessage("이름을 비워 둘 수 없어요. 필요 없으면 ✕ 삭제를 눌러 주세요.", "error");
+    return;
+  }
+  if (commonItems.includes(name) || customItems.includes(name)) {
+    input.value = oldName;
+    setCommonMessage("‘" + name + "’은(는) 이미 있는 준비물이에요.", "error");
+    return;
+  }
+  function moveName(n) { return n === oldName ? name : n; }
+  commonItems[index] = name;
+  checkedNames = checkedNames.map(moveName);
+  undoStack = undoStack.map(moveName);
+  input.value = name;
+  input.parentNode.querySelector(".del-btn").setAttribute("aria-label", "‘" + name + "’ 매일 준비물에서 삭제");
+  afterCommonChange("‘" + oldName + "’을(를) ‘" + name + "’(으)로 고쳤어요.");
+}
+
+// ✕ 삭제: 챙김(오늘만 사라짐)과 달리 매일 준비물에서 빠진다
+function deleteCommon(index) {
+  const name = commonItems[index];
+  commonItems.splice(index, 1);
+  checkedNames = checkedNames.filter(function (n) { return n !== name; });
+  undoStack = undoStack.filter(function (n) { return n !== name; });
+  renderCommonEditor();
+  afterCommonChange("‘" + name + "’을(를) 매일 준비물에서 뺐어요.");
+  const inputs = commonRows.querySelectorAll("input");
+  if (inputs.length > 0) {
+    inputs[Math.min(index, inputs.length - 1)].focus();
+  } else {
+    commonRestore.focus();
+  }
+}
+
+function afterCommonChange(message) {
+  updateCommonHead();
+  saveCommon();
+  buildChecklist();
+  saveAndReport();
+  render();
+  setCommonMessage(message, "ok");
+}
+
+commonRestore.addEventListener("click", function () {
+  commonItems = BASE_DATA.common.slice();
+  renderCommonEditor();
+  afterCommonChange("매일 준비물을 처음 5개로 되돌렸어요.");
+  commonSummary.focus();
+});
+
 // ===== 시작 =====
 setDefaults();
 const loadResult = loadAll();
 if (loadResult === "preview" || loadResult === "unavailable") {
   showStorageProblem(loadResult);
 }
+loadTimetable();   // 목록이 시간표를 보고 만들어지므로 먼저 읽는다
+loadCommon();
 buildChecklist();
 render();
-loadTimetable();
+renderCommonEditor();
 ttDay = selectedDay;
 renderTimetableDay();
 renderTimetableWeek();
