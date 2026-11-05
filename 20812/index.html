@@ -6,7 +6,7 @@
 <title>피곤함까지 고려하는 할 일 순서 정하기</title>
 <meta name="description" content="오늘 컨디션(보통/피곤함)과 마감일, 소요 시간을 보고 수행평가·숙제의 순서를 정해 주는 할 일 우선순위 큐">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="3회 개선">
+<meta name="status" content="4회 개선">
 <meta name="design" content="컬러셋 C16 먹과 노랑 · 트렌드 T12 클레이모피즘 · #ffd600">
 <style>
   /* ===== 스타일 =====
@@ -14,10 +14,10 @@
      까만 바탕에 경고등 노랑. 버튼·체크박스·결과 카드만 찰흙처럼 통통하게, 목록·입력칸은 평평하게.
      의미 색(경고 빨강·안내 초록·중요 노랑)은 같은 계열로 남기되 어두운 바탕에 맞게 밝기를 바꿨어요.
      (중요 태그 노랑은 강조색과 헷갈리지 않게 더 어두운 금색으로)
-     어두운 덩어리(보조 버튼·컨디션 버튼·체크박스·입력 카드·결과 카드·완료 목록 카드)도
+     어두운 덩어리(보조 버튼·컨디션 버튼·체크박스·입력 카드·결과 카드)도
      노란 버튼과 같은 말투로: 위쪽 밝은 테두리 빛 + 왼쪽 위 옅은 빛 + 오른쪽 아래 짙은 그늘 + 바깥 그림자,
      바탕은 왼쪽 위가 살짝 밝은 그라데이션으로 둥근 부피를 만든다.
-     진행 중 목록 카드만은 버튼으로 오해하지 않게 납작하게 두고, 안쪽 버튼만 통통하게. */
+     목록 카드는 버튼으로 오해하지 않게 납작하게 두고, 안쪽 버튼만 통통하게. 끝난 일은 더 어둡게 눌러 둔다. */
   @font-face { font-family: "Gowun Dodum"; src: url("../assets/fonts/GowunDodum-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
   :root {
     color-scheme: dark;
@@ -41,8 +41,6 @@
     --clay-dark-pressed: 2px 3px 8px color-mix(in srgb, #ffd600 22%, transparent), inset 4px 4px 9px rgba(0,0,0,.65), inset -3px -3px 7px rgba(255,255,255,.08);
     /* 큰 카드: 노랑 빛은 줄이고(넓은 면이 번지지 않게) 그림자·그늘을 넓게 */
     --clay-card: 8px 12px 26px color-mix(in srgb, #ffd600 14%, transparent), 0 14px 28px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.16), inset 8px 8px 16px rgba(255,255,255,.06), inset -8px -10px 18px rgba(0,0,0,.5);
-    /* 목록 카드: 여러 개가 쌓이므로 노랑 빛 없이 작게 */
-    --clay-item: 0 6px 14px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.13), inset 5px 5px 10px rgba(255,255,255,.05), inset -5px -6px 12px rgba(0,0,0,.45);
     --clay-pressed:2px 3px 8px color-mix(in srgb, #ffd600 25%, transparent), inset 4px 4px 8px rgba(0,0,0,.35), inset -4px -4px 8px rgba(255,255,255,.35);
   }
   * { box-sizing: border-box; }
@@ -165,14 +163,17 @@
     border-radius: 10px;
     padding: 12px 14px;
     margin-bottom: 10px;
-    background: var(--surface-dark);
-    box-shadow: var(--clay-item);
   }
   /* 진행 중 목록 카드: 눌리는 건 안의 '완료'·'삭제'뿐이라 카드는 납작하게(그림자·안쪽 빛 없이 얇은 테두리만).
-     통통한 입체감은 안쪽 버튼에만 남긴다. */
+     밝기를 낮춘 휴대폰에서도 까만 바탕과 갈라지도록 테두리를 밝게, 카드 사이를 넓게 둔다. */
   #todo-list .item {
-    background: var(--card);
-    box-shadow: none;
+    border-color: #6b695f;
+    margin-bottom: 14px;
+  }
+  /* 완료 카드: 끝난 일은 물러나 보이게 바탕과 테두리를 더 어둡게 (그림자·안쪽 빛 없음) */
+  .done-list .item {
+    background: #151513;
+    border-color: #262522;
   }
   .item .info { flex: 1 1 200px; min-width: 0; }
   .rank { color: var(--text); font-weight: 700; margin-right: 6px; }
@@ -302,6 +303,7 @@
   <section aria-labelledby="list-title">
     <h2 id="list-title">전체 할 일 목록 <span class="meta" id="count-text"></span></h2>
     <ol id="todo-list"></ol>
+    <p class="meta" id="todo-empty"></p>
   </section>
 
   <!-- 하단 구역 -->
@@ -573,7 +575,11 @@ function renderTop() {
   const actions = document.createElement("div");
   actions.className = "actions";
   actions.style.marginTop = "10px";
-  actions.append(makeButton("완료", "", task.name + " 완료", function () { completeTask(task.id); render(); }));
+  // 목록에서 1순위가 빠지므로 삭제 버튼도 이 카드에 둔다
+  actions.append(
+    makeButton("완료", "", task.name + " 완료", function () { completeTask(task.id); render(); }),
+    makeButton("삭제", "ghost", task.name + " 삭제", function () { deleteTask(task.id); render(); })
+  );
   box.append(name, makeMeta(task), actions);
   area.append(box);
 }
@@ -582,6 +588,7 @@ function renderList() {
   const list = $("todo-list");
   list.textContent = "";
   state.queue.forEach(function (task, i) {
+    if (i === 0) return; // 1순위는 위의 '지금 당장 해야 할 일' 카드에 보이므로 목록에서는 뺀다
     const li = document.createElement("li");
     li.className = "item";
     const info = document.createElement("div");
@@ -605,6 +612,11 @@ function renderList() {
     list.append(li);
   });
   $("count-text").textContent = "(" + state.queue.length + " / " + MAX_TASKS + "개)";
+  // 목록에 보여 줄 카드가 없을 때(할 일 0개 또는 1개)의 안내
+  $("todo-empty").hidden = state.queue.length > 1;
+  $("todo-empty").textContent = state.queue.length === 1
+    ? "다음 순위 할 일은 없어요. 위 카드의 일이 마지막이에요."
+    : "등록된 할 일이 없어요.";
 }
 
 function renderDone() {
