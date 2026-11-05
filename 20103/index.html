@@ -6,7 +6,7 @@
 <title>D-Day 수행평가 알림이</title>
 <meta name="description" content="과목·과제·마감일을 적으면 마감이 가까운 순으로 D-Day를 보여 주고, 제출 완료한 과제는 아래로 모아 주는 수행평가 알림이">
 <meta name="class" content="M반 (2-8)">
-<meta name="status" content="1회 개선">
+<meta name="status" content="2회 개선">
 <style>
   @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 900; font-display: swap; }
   :root {
@@ -75,6 +75,7 @@
   .msg:empty { display: none; }
   .msg.error { background: var(--today-soft); color: #9b1c1c; border-left: 4px solid var(--today); }
   .msg.ok { background: var(--accent-soft); color: #1a3480; border-left: 4px solid var(--accent); }
+  .msg.warn { background: #fff4e5; color: #c2410c; border-left: 4px solid #c2410c; }
   .editing-note { font-size: 0.9rem; color: var(--accent); font-weight: 700; margin: 0 0 8px; }
   .editing-note[hidden] { display: none; }
 
@@ -94,6 +95,8 @@
   .is-today .dday { background: var(--today); color: #fff; }
   .is-over .dday { background: #fff; color: #9b1c1c; border: 2px solid var(--today); }
   .is-done .dday { background: #e2e4ea; color: var(--muted); }
+  .dday-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .late-badge { font-weight: 700; font-size: 0.85rem; padding: 2px 10px; border-radius: 8px; background: var(--today); color: #fff; white-space: nowrap; }
   .content { margin: 8px 0 2px; font-size: 1.02rem; font-weight: 600; }
   .due { margin: 0 0 10px; font-size: 0.88rem; color: var(--muted); }
   .over-note { color: #9b1c1c; font-weight: 700; }
@@ -129,7 +132,7 @@
         <select id="colorSelect" aria-describedby="colorHint"></select>
         <span class="subject" id="colorPreview" aria-hidden="true">과목</span>
       </div>
-      <p class="hint" id="colorHint">국어·수학·영어·정보·과학·사회·한국사는 정해진 색이 있어요. 다른 색을 고르면 그 과목 카드 전체에 적용돼요.</p>
+      <p class="hint" id="colorHint">과목명에 국어·수학·영어·정보·과학·사회·한국사가 들어 있으면 정해진 색이 칠해져요. (예: 영어Ⅰ) 색을 직접 고르면 고른 색이 가장 먼저 적용되고, 그 과목 카드 전체에 칠해져요.</p>
     </div>
     <div class="field">
       <label for="contentInput">과제 내용</label>
@@ -138,12 +141,13 @@
     <div class="field">
       <label for="dateInput">마감 날짜</label>
       <input id="dateInput" type="date">
-      <p class="hint">오늘보다 이전 날짜는 등록할 수 없어요.</p>
+      <p class="hint">마감이 지난 날짜도 등록할 수 있어요. 지난 날짜를 고르면 아래에 주황색 안내가 나와요.</p>
     </div>
     <div class="row">
       <button type="submit" class="primary" id="submitBtn">과제 추가</button>
       <button type="button" id="cancelEditBtn" hidden>수정 취소</button>
     </div>
+    <p class="msg warn" id="pastWarn" role="status" aria-live="polite"></p>
     <p class="msg" id="formMsg" role="status" aria-live="polite"></p>
   </form>
 
@@ -184,14 +188,18 @@
 
   // 과목 배지에 쓸 색 목록. 모두 흰 글자와의 대비가 4.5:1 이상인 진한 색이에요.
   // (빨강 계열은 '오늘 마감' 강조와 헷갈리지 않게 뺐어요.)
+  var PINK = "#db2777";    // 분홍은 직접 고를 때만 써요. 자동 색에는 넣지 않아요.
   var PALETTE = ["#1d4ed8", "#0f766e", "#7c3aed", "#b45309", "#15803d", "#4338ca",
-                 "#0e7490", "#9333ea", "#475569", "#c2410c", "#a21caf", "#3f6212"];
+                 "#0e7490", "#9333ea", "#475569", "#c2410c", "#a21caf", "#3f6212", PINK];
   // 색 고르기 목록에 보여 줄 이름 (PALETTE와 같은 순서)
   var COLOR_NAMES = ["파랑", "청록", "보라", "갈색", "초록", "남색",
-                     "하늘", "연보라", "회색", "주황", "자주", "올리브"];
+                     "하늘", "연보라", "회색", "주황", "자주", "올리브", "분홍"];
   // 주요 과목은 서로 겹치지 않는 색을 미리 정해 둬요.
   var FIXED = { "국어": "#c2410c", "수학": "#1d4ed8", "영어": "#7c3aed", "정보": "#0f766e",
                 "과학": "#15803d", "사회": "#475569", "한국사": "#a21caf" };
+  // 과목명에서 찾을 낱말. 앞에 있는 낱말부터 찾아서, '정보과학'은 정보 색이 돼요.
+  var KEYWORDS = ["한국사", "국어", "수학", "영어", "정보", "과학", "사회"];
+  var LATE_DAYS = 5;       // 마감이 이만큼 지나면 '지연 심각' 배지를 붙여요.
   var COLOR_KEY = PREFIX + "colors";
 
   var tasks = [];          // 메모리에 있는 과제 목록 (저장이 안 돼도 이걸로 동작해요)
@@ -246,16 +254,26 @@
 
   function subjectKey(name) { return name.replace(/\s+/g, "").toLowerCase(); }
 
-  // ★ 과목 색 정하기: 내가 고른 색 → 주요 과목의 정해진 색 → 자동 색 순서로 써요.
+  // ★ 과목 색 정하기: 내가 고른 색 → 주요 과목 낱말의 정해진 색 → 자동 색 순서로 써요.
   function subjectColor(name) {
     var key = subjectKey(name);
-    if (customColors[key]) return customColors[key];
-    return Object.prototype.hasOwnProperty.call(FIXED, key) ? FIXED[key] : autoColor(key);
+    return customColors[key] || defaultColor(key);
+  }
+  function defaultColor(key) { return keywordColor(key) || autoColor(key); }
+
+  // 과목명에 주요 과목 낱말이 들어 있으면 그 색을 돌려줘요. 없으면 null이에요.
+  function keywordColor(key) {
+    var text = key.replace(/중국어|외국어/g, "");  // '국어'가 들어 있어도 국어 과목이 아니에요.
+    for (var i = 0; i < KEYWORDS.length; i++) {
+      if (text.indexOf(KEYWORDS[i]) !== -1) return FIXED[KEYWORDS[i]];
+    }
+    return null;
   }
 
   // 그 밖의 과목은 글자들로 숫자를 만들어 '주요 과목이 쓰지 않는 색' 중에서 골라요.
   // 과목명이 같으면 항상 같은 색이 나와요.
   var AUTO_PALETTE = PALETTE.filter(function (c) {
+    if (c === PINK) return false;
     for (var k in FIXED) if (FIXED[k] === c) return false;
     return true;
   });
@@ -423,7 +441,10 @@
     var badge = el("span", "subject", t.subject);
     badge.style.backgroundColor = subjectColor(t.subject);
     top.appendChild(badge);
-    top.appendChild(el("span", "dday", ddayLabel(n)));
+    var ddayGroup = el("span", "dday-group");
+    ddayGroup.appendChild(el("span", "dday", ddayLabel(n)));
+    if (!t.completed && n <= -LATE_DAYS) ddayGroup.appendChild(el("span", "late-badge", "⚠️ 지연 심각"));
+    top.appendChild(ddayGroup);
     li.appendChild(top);
 
     li.appendChild(el("p", "content", t.content));
@@ -472,8 +493,16 @@
     $("doneCount").textContent = done.length + "개";
     $("limitText").textContent = "(" + tasks.length + " / " + MAX + "개)";
     $("todayText").textContent = prettyDate(todayStr(), true);
-    dateInput.min = todayStr();
+    updatePastWarn();
   }
+
+  // 고른 마감 날짜가 오늘보다 이전이면 폼 아래에 주황색 안내를 보여 줘요. (등록은 막지 않아요)
+  function updatePastWarn() {
+    var due = dateInput.value;
+    $("pastWarn").textContent = isValidDate(due) && daysLeft(due) < 0 ? "마감일이 지난 과거 날짜입니다" : "";
+  }
+  dateInput.addEventListener("input", updatePastWarn);
+  dateInput.addEventListener("change", updatePastWarn);
 
   function focusCardButton(id, index) {
     var li = document.querySelector('.task[data-id="' + id + '"]');
@@ -501,9 +530,7 @@
   // 입력한 과목에 실제로 칠해질 색을 옆에서 미리 보여 줘요.
   function updatePreview() {
     var name = subjectInput.value.trim();
-    var key = subjectKey(name);
-    var c = colorSelect.value ||
-      (Object.prototype.hasOwnProperty.call(FIXED, key) ? FIXED[key] : (name ? autoColor(key) : "#475569"));
+    var c = colorSelect.value || (name ? defaultColor(subjectKey(name)) : "#475569");
     colorPreview.textContent = name || "과목";
     colorPreview.style.backgroundColor = c;
   }
@@ -551,14 +578,7 @@
       dateInput.focus();
       return;
     }
-    // 2) 과거 날짜 검사 (수정할 때 원래 날짜를 그대로 두는 경우는 허용)
     var original = editingId != null ? findTask(editingId) : null;
-    if (daysLeft(due) < 0 && !(original && original.dueDate === due)) {
-      dateInput.setAttribute("aria-invalid", "true");
-      setMsg("오늘보다 이전 날짜는 등록할 수 없어요. 마감 날짜를 다시 확인해 주세요.", "error");
-      dateInput.focus();
-      return;
-    }
 
     // 고른 색은 이 과목의 색으로 기억해요. '자동'을 고르면 기본 색으로 돌아가요.
     function applyColor() {
@@ -582,7 +602,7 @@
       return;
     }
 
-    // 3) 개수 제한
+    // 2) 개수 제한
     if (tasks.length >= MAX) {
       setMsg("과제는 최대 " + MAX + "개까지 등록할 수 있어요. 끝난 과제를 삭제한 뒤 추가해 주세요.", "error");
       return;
