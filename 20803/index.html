@@ -7,7 +7,7 @@
 <title>포트폴리오 리스크 시각화 및 수식 해설기</title>
 <meta name="description" content="자산 3개의 비중과 상관계수를 조절하며 위험-수익률 그래프와 분산 공식 대입 과정을 실시간으로 확인하는 경제수학 학습 도구">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="3회 개선">
+  <meta name="status" content="4회 개선">
   <meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T01 리퀴드 글래스 · #1e3a8a">
 
 <!-- ===== 2. 스타일 ===== -->
@@ -228,11 +228,12 @@
       <div class="result-line" id="result-line" aria-live="polite"></div>
       <ul class="legend" aria-label="그래프 범례">
         <li><svg width="28" height="10" aria-hidden="true"><rect width="28" height="10" rx="3" fill="#fff"/><line x1="1" y1="5" x2="27" y2="5" stroke="#d97706" stroke-width="3" stroke-linecap="round"/></svg>효율적 투자선</li>
+        <li><svg width="28" height="10" aria-hidden="true"><rect width="28" height="10" rx="3" fill="#fff"/><line x1="1" y1="5" x2="27" y2="5" stroke="#d97706" stroke-width="3" stroke-dasharray="4 3"/></svg>비효율적 구간 (최소분산점 아래)</li>
         <li><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="#8a979d"/></svg>각 자산</li>
         <li><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="6" fill="#1e3a8a"/></svg>현재 포트폴리오 P</li>
       </ul>
       <p class="small">회색 점 = 각 자산, 진한 점 = 현재 포트폴리오. 비중을 바꾸면 진한 점이 움직입니다.</p>
-      <p class="small" id="frontier-help">효율적 투자선 = 지금 세 자산으로(공매도 없이, 비중 합 100%) 만들 수 있는 조합 중, 같은 위험에서 기대수익률이 가장 높은 조합들을 이은 선입니다. 자산 값이나 상관계수를 바꾸면 선이 다시 그려집니다.</p>
+      <p class="small" id="frontier-help">효율적 투자선 = 지금 세 자산으로(공매도 없이, 비중 합 100%) 만들 수 있는 조합 중, 같은 위험에서 기대수익률이 가장 높은 조합들을 이은 선입니다. 자산 값이나 상관계수를 바꾸면 선이 다시 그려집니다. 주황 점선은 최소분산점 아래쪽 구간으로, 실선 위에 위험은 같거나 작으면서 기대수익률은 더 높은 조합이 있어 비효율적입니다. 수익률이 가장 낮은 자산이 곧 최소분산점이면 점선은 나타나지 않습니다.</p>
       <p class="message" id="frontier-note" hidden></p>
     </section>
   </div>
@@ -283,11 +284,13 @@ const DEFAULT_CORR = [
 let assets = [];   // { label, name, ret, sd, weight } 배열 (입력칸의 원래 글자는 raw에 보관)
 let corr = [];     // 상관계수 행렬
 let twoMode = false; // 2회 개선: true면 자산 2개 모드 (C 비중 0% 고정, wB = 100 − wA)
+let savedWeights = []; // 4회 개선: 2개 모드로 가기 직전의 비중 [A, B, C] (%). 3개 모드로 돌아올 때 되살린다
 
 // 깊은 복사로 기본값을 상태에 넣는다 (기본값이 바뀌지 않도록)
 function loadDefaults() {
   assets = DEFAULT_ASSETS.map(a => ({ ...a, raw: { ret: String(a.ret), sd: String(a.sd), weight: String(a.weight) } }));
   corr = DEFAULT_CORR.map(r => r.slice());
+  savedWeights = DEFAULT_ASSETS.map(a => a.weight);
 }
 
 // ===== 6. 처리 함수 =====
@@ -388,6 +391,7 @@ function calcPortfolio() {
   - 1% 간격으로 가능한 모든 비중 조합(약 5,151개)의 (위험, 기대수익률)을 계산한다.
   - 기대수익률을 잘게 나눈 구간마다 "위험이 가장 작은 점"만 남긴다.
   - 그중 위험이 가장 작은 점(최소분산 포트폴리오)보다 위쪽(수익률이 높은 쪽)만 이으면 효율적 투자선이 된다.
+  - 4회 개선: 최소분산 포트폴리오보다 아래쪽(수익률이 낮은 쪽)은 lower에 따로 담아 비효율적 구간(점선)으로 그린다.
   - 상관계수 3개를 아무렇게나 고르면 현실에 없는 조합이 되어 분산이 음수가 나올 수 있다 → 그런 점은 건너뛴다.
 */
 let frontierCache = { key: "", data: null };  // 비중만 바뀔 때는 다시 계산하지 않도록 기억
@@ -416,6 +420,7 @@ function calcFrontier() {
   }
 
   let line = [];
+  let lower = [];               // 4회 개선: 최소분산 점 → 수익률이 가장 낮은 끝까지의 점들
   if (pts.length > 0) {
     // 기대수익률 구간(120칸)마다 위험이 가장 작은 점
     const rMin = Math.min(...pts.map(p => p.ret));
@@ -423,19 +428,26 @@ function calcFrontier() {
     const bins = 120;
     const best = new Array(bins + 1).fill(null);
     pts.forEach(p => {
-      const k = rMax > rMin ? Math.round((p.ret - rMin) / (rMax - rMin) * bins) : 0;
+      const k = rMax > rMin + 1e-9 ? Math.round((p.ret - rMin) / (rMax - rMin) * bins) : 0;   // 수익률이 모두 같으면(소수 오차 제외) 칸 하나
       if (!best[k] || p.sd < best[k].sd) best[k] = p;
     });
     const env = best.filter(p => p);
-    // 최소분산 점 찾기
+    // 최소분산 점 찾기 (위험이 같은 점이 여럿이면 수익률이 높은 점이 기준: 낮은 쪽은 비효율적 구간이다)
     let mvp = env[0];
-    env.forEach(p => { if (p.sd < mvp.sd) mvp = p; });
+    env.forEach(p => { if (p.sd < mvp.sd - 1e-9 || (p.sd <= mvp.sd + 1e-9 && p.ret > mvp.ret)) mvp = p; });
     // 최소분산 점부터 수익률이 높아지는 쪽만, 위험이 줄어들지 않는 점만 이어 매끄러운 선으로
     env.filter(p => p.ret >= mvp.ret).sort((p, q) => p.ret - q.ret).forEach(p => {
       if (line.length === 0 || p.sd >= line[line.length - 1].sd - 1e-9) line.push(p);
     });
+    // 4회 개선: 비효율적 구간 = 최소분산 점에서 위험이 커질수록 수익률이 내려가는 경계.
+    // 모든 조합을 위험이 작은 순서로 훑으며, 지금까지 나온 수익률보다 더 낮은 점만 잇는다.
+    // (수익률 구간 칸을 쓰면 이 구간이 거의 수평일 때 곡선이 뭉개지므로 칸을 쓰지 않는다)
+    lower.push(mvp);
+    [...pts].sort((p, q) => p.sd - q.sd || p.ret - q.ret).forEach(p => {
+      if (p.ret < lower[lower.length - 1].ret - 1e-9) lower.push(p);
+    });
   }
-  const data = { line, negCount };
+  const data = { line, lower, negCount };
   frontierCache = { key, data };
   return data;
 }
@@ -707,6 +719,17 @@ function drawChart(result) {
     fr.line.forEach((p, k) => (k === 0 ? ctx.moveTo(X(p.sd), Y(p.ret)) : ctx.lineTo(X(p.sd), Y(p.ret))));
     ctx.stroke();
   }
+  // 4회 개선: 최소분산점 아래쪽 비효율적 구간은 같은 주황 점선으로 이어 그린다
+  if (fr.lower.length >= 2) {
+    ctx.strokeStyle = "#d97706";
+    ctx.lineWidth = 3;
+    ctx.lineJoin = "round"; ctx.lineCap = "butt";   // 둥근 끝은 점선 틈을 메우므로 쓰지 않는다
+    ctx.setLineDash([4, 3]);   // 기본값에서 이 구간이 20px 남짓으로 짧아도 끊어져 보이도록 촘촘하게
+    ctx.beginPath();
+    fr.lower.forEach((p, k) => (k === 0 ? ctx.moveTo(X(p.sd), Y(p.ret)) : ctx.lineTo(X(p.sd), Y(p.ret))));
+    ctx.stroke();
+    ctx.setLineDash([]);   // 뒤에 그리는 P 점 테두리까지 점선이 되지 않도록 되돌린다
+  }
   ctx.lineWidth = 1;
   const note = $("frontier-note");
   if (fr.negCount > 0) {
@@ -829,14 +852,33 @@ function linkPair(i) {
   $("w-range-" + o).value = ov;
 }
 
+// 자산 i의 비중을 0~100 숫자로 읽는다 (칸이 비었거나 글자면 슬라이더 위치를 쓴다)
+function readWeight(i) {
+  const txt = assets[i].raw.weight.trim();
+  const v = txt === "" || isNaN(Number(txt)) ? Number($("w-range-" + i).value) : Number(txt);
+  return Math.min(100, Math.max(0, v));
+}
+
 // 2개 모드 규칙을 상태에 적용: C = 0, B = 100 − A
 function enforceTwoMode() {
   setAssetValue(2, "weight", "0");
-  let a = Number(assets[0].raw.weight);
-  if (assets[0].raw.weight.trim() === "" || isNaN(a)) a = Number($("w-range-0").value);
-  a = Math.min(100, Math.max(0, a));
+  const a = readWeight(0);
   setAssetValue(0, "weight", String(a));
   setAssetValue(1, "weight", String(Math.round((100 - a) * 1e6) / 1e6));
+}
+
+// 4회 개선: 3개 모드로 돌아올 때 기억해 둔 비중을 되살린다.
+// C는 기억한 값 그대로, A·B는 남은 비중(100 − C)을 전환 전 A:B 비율대로 나눈다.
+// 그래서 전환 전 합계가 100%가 아니었더라도 되살린 뒤에는 합계가 100%가 된다.
+function restoreWeights() {
+  const round6 = v => Math.round(v * 1e6) / 1e6;   // 소수 오차 정리
+  const [a, b, c] = savedWeights;
+  const newC = round6(c);
+  const rest = 100 - newC;
+  const newA = round6(a + b > 0 ? rest * a / (a + b) : rest / 2);
+  setAssetValue(0, "weight", String(newA));
+  setAssetValue(1, "weight", String(round6(rest - newA)));
+  setAssetValue(2, "weight", String(newC));
 }
 
 // C의 비중 조절 칸, C가 들어간 상관계수 칸을 2개 모드에서 잠근다
@@ -847,16 +889,21 @@ function applyModeLock() {
   $("mode-2").setAttribute("aria-pressed", String(lock));
   $("mode-3").setAttribute("aria-pressed", String(!lock));
   $("mode-help").textContent = lock
-    ? "2개 모드: 자산 C는 비중 0%로 고정되고, 자산 A 비중을 바꾸면 자산 B 비중이 100 − A로 자동으로 바뀝니다. (B를 바꾸면 A가 맞춰집니다) C와 관련된 상관계수는 결과에 영향이 없어 잠급니다."
+    ? "2개 모드: 자산 C는 비중 0%로 고정되고, 자산 A 비중을 바꾸면 자산 B 비중이 100 − A로 자동으로 바뀝니다. (B를 바꾸면 A가 맞춰집니다) C와 관련된 상관계수는 결과에 영향이 없어 잠급니다. 3개 모드로 돌아가면 2개 모드로 오기 직전의 비중으로 되돌아갑니다."
     : "3개 모드: 자산 A·B·C의 비중을 각각 따로 조절합니다. (합계 100%)";
-  $("frontier-help").textContent = lock
+  const lowerHelp = " 주황 점선은 최소분산점 아래쪽 구간으로, 실선 위에 위험은 같거나 작으면서 기대수익률은 더 높은 조합이 있어 비효율적입니다. 수익률이 가장 낮은 자산이 곧 최소분산점이면 점선은 나타나지 않습니다.";
+  $("frontier-help").textContent = (lock
     ? "효율적 투자선 = 지금 두 자산 A·B로(공매도 없이, 비중 합 100%) 만들 수 있는 조합 중, 같은 위험에서 기대수익률이 가장 높은 조합들을 이은 선입니다. 자산 값이나 상관계수를 바꾸면 선이 다시 그려집니다."
-    : "효율적 투자선 = 지금 세 자산으로(공매도 없이, 비중 합 100%) 만들 수 있는 조합 중, 같은 위험에서 기대수익률이 가장 높은 조합들을 이은 선입니다. 자산 값이나 상관계수를 바꾸면 선이 다시 그려집니다.";
+    : "효율적 투자선 = 지금 세 자산으로(공매도 없이, 비중 합 100%) 만들 수 있는 조합 중, 같은 위험에서 기대수익률이 가장 높은 조합들을 이은 선입니다. 자산 값이나 상관계수를 바꾸면 선이 다시 그려집니다.") + lowerHelp;
 }
 
 function setMode(n) {
-  twoMode = n === 2;
-  if (twoMode) enforceTwoMode();   // 3개 모드로 돌아갈 때는 지금 값 그대로 두고 개별 조절만 다시 허용
+  const toTwo = n === 2;
+  // 4회 개선: 모드가 실제로 바뀔 때만 기억·복원한다 (같은 버튼을 또 눌러도 기억한 값이 덮이지 않도록)
+  if (toTwo && !twoMode) savedWeights = assets.map((a, i) => readWeight(i));
+  if (!toTwo && twoMode) restoreWeights();
+  twoMode = toTwo;
+  if (twoMode) enforceTwoMode();
   fillInputs();
   applyModeLock();
   update();
