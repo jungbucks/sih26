@@ -6,7 +6,7 @@
 <title>레시피 메모지</title>
 <meta name="description" content="내가 만든 빵 레시피를 직접 적어 오른쪽 요리책 인덱스 탭에 모아 두고, 끝낸 단계를 눌러 줄을 그어 가며 요리 흐름을 확인하는 주방용 레시피 메모지">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="2회 개선">
+  <meta name="status" content="3회 개선">
 <style>
   :root {
     --bg: #fafaf8;
@@ -115,6 +115,12 @@
     cursor: pointer;
   }
   .add-btn:hover { background: var(--accent-soft); }
+  /* 휴지통 탭: 레시피 탭과 구분되게 무채색 (선택되면 다른 탭처럼 진한 색) */
+  .tab-trash {
+    margin-top: 4px;
+    background: var(--surface);
+    border-color: var(--field);
+  }
 
   /* 레시피 목록 */
   .placeholder {
@@ -160,6 +166,13 @@
     place-items: center;
   }
   .num-btn:hover .step-num { background: var(--accent-soft); }
+  /* 새 단계를 적는 줄의 번호 자리 (아직 완료 체크 대상이 아니라 버튼이 아님) */
+  .num-slot {
+    flex: none;
+    width: 44px; height: 44px;
+    display: grid;
+    place-items: center;
+  }
   .step-body { flex: 1; min-width: 0; padding-top: 6px; }
   .step-text { display: block; }
   .step-memo { display: block; margin-top: 2px; font-size: 0.9rem; color: var(--muted); }
@@ -216,6 +229,30 @@
     color: #fff;
   }
 
+  /* 저장된 레시피 맨 아래의 단계 추가 버튼 */
+  .add-step-more { width: 100%; margin-top: 10px; }
+  .limit-note { margin: 10px 0 0; color: var(--muted); font-size: 0.92rem; }
+
+  /* 휴지통 목록 */
+  .trash-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .trash-item {
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .trash-name { display: block; font-weight: 700; }
+  .trash-meta { display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--muted); }
+  .trash-note { margin: 0 0 10px; color: var(--accent); font-weight: 600; font-size: 0.95rem; }
+  .trash-note:empty { display: none; }
+
   /* 화면 아래 고정 입력창 */
   .editor {
     position: fixed;
@@ -269,6 +306,7 @@
   .btn-plain { background: var(--surface); color: var(--text); border: 1px solid var(--field); }
   .editor-actions .btn-plain { margin-left: auto; }
   .btn-danger { background: var(--error); color: #fff; border: 2px solid var(--error); }
+  .btn-forever { background: var(--surface); color: var(--error); border: 2px solid var(--error); }
 
   /* 삭제 확인 창 (페이지 안에서 띄움) */
   .confirm-back {
@@ -316,6 +354,7 @@
     <nav class="index" aria-label="레시피 인덱스">
       <div id="tabs" class="tabs"></div>
       <button type="button" id="add-btn" class="add-btn">+ 레시피 추가</button>
+      <button type="button" id="trash-tab" class="tab tab-trash" aria-pressed="false">🗑️ 휴지통</button>
     </nav>
   </div>
 </main>
@@ -324,7 +363,7 @@
 <section id="editor" class="editor" aria-labelledby="editor-title" hidden>
   <form id="editor-form" class="editor-inner" novalidate>
     <h2 id="editor-title">새 레시피 적기</h2>
-    <label class="field-label" for="new-name">빵 이름 (비워도 돼요)</label>
+    <label class="field-label" for="new-name">빵 이름</label>
     <input id="new-name" type="text" maxlength="20" autocomplete="off">
     <fieldset>
       <legend>요리 순서</legend>
@@ -359,27 +398,44 @@
 // steps의 한 칸은 { text: 요리 순서, memo: 메모 } 이고, 화면 목록의 한 줄(li)이 됩니다.
 // done 배열은 steps와 같은 순서로 true(완료)/false(미완료)를 기억해서,
 // 다른 탭을 봤다가 돌아와도 체크한 단계가 그대로 남아 있어요.
+// trash는 지운 레시피를 모아 두는 휴지통이에요. 레시피 모양은 똑같고, 최근에 지운 것이 앞에 와요.
 let recipes = [];
+let trash = [];
 let selectedId = null;
+let showingTrash = false;   // 지금 휴지통 탭을 보고 있는지
+let trashNote = "";         // 휴지통 화면 위에 잠깐 보여 줄 안내
 
 const STORE_KEY = "sih26:20711:recipes";
 const MAX_STEPS = 30;
+const MAX_NAME = 20;
 const UNNAMED = "이름 없는 레시피";
 const LONG_PRESS_MS = 600;   // 이만큼 꾹 누르면 삭제 확인 창
 let canSave = true;
 
-// 지금 그 자리에서 고치는 곳: null, { type: "name" }, { type: "step", index: 단계 번호 }
+// 지금 그 자리에서 고치는 곳: null, { type: "name" }, { type: "step", index: 단계 번호 },
+// { type: "add" } (맨 아래에 새 단계 적는 중)
 let editing = null;
 
 // ===== 저장/불러오기 (저장이 막힌 환경에서도 화면은 그대로 작동) =====
 function saveData() {
   if (!canSave) return;
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify({ recipes: recipes, selectedId: selectedId }));
+    localStorage.setItem(STORE_KEY, JSON.stringify({ recipes: recipes, selectedId: selectedId, trash: trash }));
   } catch (e) {
     canSave = false;
     document.getElementById("save-note").hidden = false;
   }
+}
+
+// 저장된 레시피 한 개를 검사해 다듬어 돌려줌 (모양이 맞지 않으면 null)
+function cleanRecipe(r, fallbackId) {
+  if (!r || typeof r.name !== "string" || !Array.isArray(r.steps)) return null;
+  const steps = r.steps
+    .filter(function (s) { return s && typeof s.text === "string" && s.text.trim(); })
+    .map(function (s) { return { text: s.text, memo: typeof s.memo === "string" ? s.memo : "" }; });
+  if (!r.name.trim() || steps.length === 0) return null;
+  const done = steps.map(function (s, i) { return Array.isArray(r.done) && r.done[i] === true; });
+  return { id: String(r.id || fallbackId), name: r.name, steps: steps, done: done };
 }
 
 function loadData() {
@@ -396,15 +452,17 @@ function loadData() {
     const data = JSON.parse(raw);
     if (!data || !Array.isArray(data.recipes)) return;
     data.recipes.forEach(function (r) {
-      if (!r || typeof r.name !== "string" || !Array.isArray(r.steps)) return;
-      const steps = r.steps
-        .filter(function (s) { return s && typeof s.text === "string" && s.text.trim(); })
-        .map(function (s) { return { text: s.text, memo: typeof s.memo === "string" ? s.memo : "" }; });
-      if (!r.name.trim() || steps.length === 0) return;
-      const done = steps.map(function (s, i) { return Array.isArray(r.done) && r.done[i] === true; });
-      recipes.push({ id: String(r.id || Date.now() + "-" + recipes.length), name: r.name, steps: steps, done: done });
+      const recipe = cleanRecipe(r, Date.now() + "-" + recipes.length);
+      if (recipe) recipes.push(recipe);
     });
     if (recipes.some(function (r) { return r.id === data.selectedId; })) selectedId = data.selectedId;
+    // 휴지통이 생기기 전에 저장한 데이터에는 trash가 없어요. 그때는 빈 휴지통으로 시작합니다.
+    if (Array.isArray(data.trash)) {
+      data.trash.forEach(function (r) {
+        const recipe = cleanRecipe(r, Date.now() + "-t" + trash.length);
+        if (recipe) trash.push(recipe);
+      });
+    }
   } catch (e) {
     // 저장된 내용이 깨져 있으면 읽지 않고 빈 상태로 시작합니다.
   }
@@ -431,6 +489,18 @@ function autoName(exceptId) {
   return name;
 }
 
+// 복구할 때 같은 이름이 이미 있으면 뒤에 번호를 붙임: 식빵 → 식빵 2 → 식빵 3 … (이름 길이 제한 안에서)
+function freeName(name) {
+  let result = name;
+  let n = 2;
+  while (nameTaken(result, null)) {
+    const tail = " " + n;
+    result = name.slice(0, MAX_NAME - tail.length).trim() + tail;
+    n++;
+  }
+  return result;
+}
+
 // 모든 단계를 끝낸 레시피는 다시 열 때 체크를 모두 비움 (하나라도 남았으면 그대로)
 function resetIfFinished(recipe) {
   if (!recipe || recipe.done.length === 0) return false;
@@ -443,6 +513,8 @@ function resetIfFinished(recipe) {
 const tabsBox = document.getElementById("tabs");
 const recipeArea = document.getElementById("recipe-area");
 const addBtn = document.getElementById("add-btn");
+const trashTab = document.getElementById("trash-tab");
+const recipeTitle = document.getElementById("recipe-title");
 const editor = document.getElementById("editor");
 const editorForm = document.getElementById("editor-form");
 const nameInput = document.getElementById("new-name");
@@ -461,9 +533,10 @@ function renderTabs() {
     btn.dataset.id = r.id;
     btn.title = r.name;
     btn.textContent = r.name;
-    btn.setAttribute("aria-pressed", r.id === selectedId ? "true" : "false");
+    btn.setAttribute("aria-pressed", !showingTrash && r.id === selectedId ? "true" : "false");
     tabsBox.appendChild(btn);
   });
+  trashTab.setAttribute("aria-pressed", showingTrash ? "true" : "false");
 }
 
 // 고치는 칸 아래의 [저장] [취소] 버튼과 안내 줄
@@ -576,9 +649,89 @@ function createStepItem(step, index, isDone) {
   return li;
 }
 
+// 목록 맨 아래에 새 단계를 적는 줄: 다음 번호 + 단계 고치는 칸과 같은 입력칸
+function createNewStepItem(index) {
+  const li = document.createElement("li");
+  const row = document.createElement("div");
+  row.className = "step";
+  const slot = document.createElement("span");
+  slot.className = "num-slot";
+  const num = document.createElement("span");
+  num.className = "step-num";
+  num.textContent = String(index + 1);
+  slot.appendChild(num);
+  const body = document.createElement("div");
+  body.className = "step-body";
+  body.appendChild(createStepEditor({ text: "", memo: "" }, index));
+  row.append(slot, body);
+  li.appendChild(row);
+  return li;
+}
+
+// 휴지통 화면 그리기: 지운 레시피마다 [복구하기] [영구 삭제]
+function showTrash() {
+  recipeTitle.textContent = "휴지통";
+  const note = document.createElement("p");
+  note.className = "trash-note";
+  note.setAttribute("role", "status");
+  note.textContent = trashNote;
+  recipeArea.appendChild(note);
+
+  if (trash.length === 0) {
+    const p = document.createElement("p");
+    p.className = "placeholder";
+    p.textContent = "휴지통이 비어 있어요. 지운 레시피는 여기로 옮겨져요.";
+    recipeArea.appendChild(p);
+    return;
+  }
+
+  const hint = document.createElement("p");
+  hint.className = "hint";
+  hint.textContent = "복구하기: 인덱스 탭으로 되돌리기 · 영구 삭제: 완전히 지우기";
+  recipeArea.appendChild(hint);
+
+  const list = document.createElement("ul");
+  list.className = "trash-list";
+  trash.forEach(function (r) {
+    const li = document.createElement("li");
+    li.className = "trash-item";
+    const name = document.createElement("span");
+    name.className = "trash-name";
+    name.textContent = r.name;
+    const meta = document.createElement("span");
+    meta.className = "trash-meta";
+    meta.textContent = "단계 " + r.steps.length + "개";
+    const actions = document.createElement("div");
+    actions.className = "inline-actions";
+    const restore = document.createElement("button");
+    restore.type = "button";
+    restore.className = "btn btn-sub";
+    restore.dataset.action = "restore";
+    restore.dataset.id = r.id;
+    restore.textContent = "복구하기";
+    restore.setAttribute("aria-label", r.name + " 복구하기");
+    const forever = document.createElement("button");
+    forever.type = "button";
+    forever.className = "btn btn-forever";
+    forever.dataset.action = "forever";
+    forever.dataset.id = r.id;
+    forever.textContent = "영구 삭제";
+    forever.setAttribute("aria-label", r.name + " 영구 삭제");
+    actions.append(restore, forever);
+    li.append(name, meta, actions);
+    list.appendChild(li);
+  });
+  recipeArea.appendChild(list);
+}
+
 // 레시피 목록 그리기: 저장해 둔 완료 상태(done)를 그대로 다시 그림
 function showRecipe() {
   recipeArea.textContent = "";
+  if (showingTrash) {
+    showTrash();
+    return;
+  }
+  recipeTitle.textContent = "레시피 순서";
   const recipe = findRecipe(selectedId);
 
   if (!recipe) {
@@ -615,17 +768,81 @@ function showRecipe() {
   recipe.steps.forEach(function (step, i) {
     list.appendChild(createStepItem(step, i, recipe.done[i]));
   });
+
+  // 맨 아래: 새 단계 적는 줄, 또는 [+ 단계 추가] 버튼
+  const adding = editing && editing.type === "add";
+  if (adding) list.appendChild(createNewStepItem(recipe.steps.length));
   recipeArea.appendChild(list);
+  if (adding) return;
+  if (recipe.steps.length >= MAX_STEPS) {
+    const full = document.createElement("p");
+    full.className = "limit-note";
+    full.textContent = "단계는 " + MAX_STEPS + "개까지 적을 수 있어요.";
+    recipeArea.appendChild(full);
+    return;
+  }
+  const more = document.createElement("button");
+  more.type = "button";
+  more.className = "btn btn-sub add-step-more";
+  more.dataset.action = "add-step";
+  more.textContent = "+ 단계 추가";
+  recipeArea.appendChild(more);
 }
 
-// 레시피 열기: 다른 레시피로 넘어갈 때, 모든 단계를 끝낸 레시피면 체크를 비우고 보여 줌
+// 레시피 열기: 다른 레시피나 휴지통에서 넘어올 때, 모든 단계를 끝낸 레시피면 체크를 비우고 보여 줌
 function selectRecipe(id) {
-  if (id !== selectedId) resetIfFinished(findRecipe(id));
+  if (id !== selectedId || showingTrash) resetIfFinished(findRecipe(id));
   selectedId = id;
+  showingTrash = false;
   editing = null;
   renderTabs();
   showRecipe();
   saveData();
+}
+
+// 휴지통 탭 열기 (보던 레시피는 selectedId에 그대로 기억)
+function openTrash() {
+  showingTrash = true;
+  editing = null;
+  trashNote = "";
+  renderTabs();
+  showRecipe();
+}
+
+// 휴지통에서 하나를 뺀 뒤, 같은 자리의 다음 레시피 버튼으로 초점을 옮김
+function focusTrashAt(at) {
+  const buttons = recipeArea.querySelectorAll('[data-action="restore"]');
+  (buttons[at] || buttons[at - 1] || trashTab).focus();
+}
+
+// 복구: 휴지통에서 빼서 인덱스 탭 맨 아래로 되돌림. 같은 이름이 생겼으면 번호를 붙임
+function restoreRecipe(id) {
+  const at = trash.findIndex(function (r) { return r.id === id; });
+  if (at < 0) return;
+  const recipe = trash[at];
+  const oldName = recipe.name;
+  trash.splice(at, 1);
+  recipe.name = freeName(oldName);
+  recipes.push(recipe);
+  trashNote = recipe.name === oldName
+    ? "'" + recipe.name + "' 레시피를 복구했어요."
+    : "같은 이름의 레시피가 있어서 '" + recipe.name + "'(으)로 복구했어요.";
+  renderTabs();
+  showRecipe();
+  saveData();
+  focusTrashAt(at);
+}
+
+// 영구 삭제: 휴지통에서도 지움 (되돌릴 수 없음)
+function deleteForever(id) {
+  const at = trash.findIndex(function (r) { return r.id === id; });
+  if (at < 0) return;
+  const name = trash[at].name;
+  trash.splice(at, 1);
+  trashNote = "'" + name + "' 레시피를 완전히 지웠어요.";
+  showRecipe();
+  saveData();
+  focusTrashAt(at);
 }
 
 // 단계 하나의 완료 상태를 뒤집기 (완료 ↔ 미완료) + 레시피 데이터에 기억
@@ -653,9 +870,10 @@ function targetOf(el) {
 
 // 고치기 끝난 뒤 그 글씨 버튼으로 초점을 돌려줌
 function focusTarget(target) {
-  const el = target.type === "name"
-    ? recipeArea.querySelector('.edit-text[data-target="name"]')
-    : recipeArea.querySelector('.step[data-index="' + target.index + '"] .edit-text');
+  const nameEl = recipeArea.querySelector('.edit-text[data-target="name"]');
+  let el = nameEl;
+  if (target.type === "step") el = recipeArea.querySelector('.step[data-index="' + target.index + '"] .edit-text');
+  if (target.type === "add") el = recipeArea.querySelector('[data-action="add-step"]') || nameEl;
   if (el) el.focus();
 }
 
@@ -698,10 +916,17 @@ function commitEdit() {
     const text = t.value.trim();
     const memo = recipeArea.querySelector(".ie-memo").value.trim();
     if (!text) {
-      showEditError("요리 순서는 비울 수 없어요. 이 단계를 지우려면 글씨를 꾹 누르세요.", t);
+      showEditError(editing.type === "add"
+        ? "요리 순서를 적어 주세요. 그만두려면 [취소]를 누르세요."
+        : "요리 순서는 비울 수 없어요. 이 단계를 지우려면 글씨를 꾹 누르세요.", t);
       return;
     }
-    recipe.steps[editing.index] = { text: text, memo: memo };
+    if (editing.type === "add") {
+      recipe.steps.push({ text: text, memo: memo });
+      recipe.done.push(false);
+    } else {
+      recipe.steps[editing.index] = { text: text, memo: memo };
+    }
   }
   const target = editing;
   editing = null;
@@ -713,6 +938,7 @@ function commitEdit() {
 
 // ===== 꾹 눌러 지우기 + 확인 창 =====
 const confirmBack = document.getElementById("confirm");
+const confirmTitle = document.getElementById("confirm-title");
 const confirmMsg = document.getElementById("confirm-msg");
 const confirmYes = document.getElementById("confirm-yes");
 const confirmNo = document.getElementById("confirm-no");
@@ -723,20 +949,38 @@ function shorten(text, max) {
   return text.length > max ? text.slice(0, max) + "…" : text;
 }
 
-function askDelete(target) {
-  const recipe = findRecipe(selectedId);
-  if (!recipe) return;
-  // 하나 남은 단계를 지우면 빈 레시피가 되므로 레시피를 통째로 지움
-  if (target.type === "step" && recipe.steps.length === 1) target = { type: "name" };
-  if (target.type === "name") {
-    confirmMsg.textContent = "'" + recipe.name + "' 레시피와 단계 " + recipe.steps.length + "개가 모두 지워져요. 되돌릴 수 없어요.";
-  } else {
-    confirmMsg.textContent = (target.index + 1) + "단계 '" + shorten(recipe.steps[target.index].text, 20) + "'을(를) 지워요. 뒤 단계 번호는 하나씩 앞당겨져요.";
-  }
+function openConfirm(title, message, yesLabel, target) {
+  confirmTitle.textContent = title;
+  confirmMsg.textContent = message;
+  confirmYes.textContent = yesLabel;
   pendingDelete = target;
   focusBeforeConfirm = document.activeElement;
   confirmBack.hidden = false;
   confirmNo.focus();   // 실수로 지우지 않게 [취소]에 먼저 초점
+}
+
+function askDelete(target) {
+  const recipe = findRecipe(selectedId);
+  if (!recipe) return;
+  // 하나 남은 단계를 지우면 빈 레시피가 되므로 레시피를 통째로 휴지통으로 옮김
+  if (target.type === "step" && recipe.steps.length === 1) target = { type: "name" };
+  if (target.type === "name") {
+    openConfirm("휴지통으로 옮길까요?",
+      "'" + recipe.name + "' 레시피와 단계 " + recipe.steps.length + "개를 휴지통으로 옮겨요. 휴지통에서 복구할 수 있어요.",
+      "휴지통으로", target);
+  } else {
+    openConfirm("정말 삭제할까요?",
+      (target.index + 1) + "단계 '" + shorten(recipe.steps[target.index].text, 20) + "'을(를) 지워요. 뒤 단계 번호는 하나씩 앞당겨져요.",
+      "삭제", target);
+  }
+}
+
+function askForever(id) {
+  const recipe = trash.find(function (r) { return r.id === id; });
+  if (!recipe) return;
+  openConfirm("영구 삭제할까요?",
+    "'" + recipe.name + "' 레시피를 완전히 지워요. 되돌릴 수 없어요.",
+    "영구 삭제", { type: "forever", id: id });
 }
 
 function closeConfirm() {
@@ -750,11 +994,16 @@ function doDelete() {
   const target = pendingDelete;
   confirmBack.hidden = true;
   pendingDelete = null;
+  if (target && target.type === "forever") {
+    deleteForever(target.id);
+    return;
+  }
   if (!recipe || !target) return;
   editing = null;
   if (target.type === "name") {
     const at = recipes.indexOf(recipe);
     recipes.splice(at, 1);
+    trash.unshift(recipe);   // 바로 지우지 않고 휴지통 맨 앞으로
     const next = recipes[at] || recipes[at - 1] || null;
     selectedId = null;
     if (next) {
@@ -956,6 +1205,7 @@ tabsBox.addEventListener("click", function (event) {
   if (!tab) return;
   selectRecipe(tab.dataset.id);
 });
+trashTab.addEventListener("click", openTrash);
 
 // 동그란 번호를 클릭했을 때 줄이 그어지고, 다시 클릭하면 취소되는 부분입니다.
 // 목록은 탭을 바꿀 때마다 새로 그려지므로, 바깥 상자(recipeArea)에 한 번만 리스너를 달고
@@ -977,6 +1227,9 @@ recipeArea.addEventListener("click", function (event) {
   if (!action) return;
   if (action.dataset.action === "save-edit") commitEdit();
   if (action.dataset.action === "cancel-edit") cancelEdit();
+  if (action.dataset.action === "add-step") startEdit({ type: "add" });
+  if (action.dataset.action === "restore") restoreRecipe(action.dataset.id);
+  if (action.dataset.action === "forever") askForever(action.dataset.id);
 });
 
 // 키보드: 고치는 칸에서 Enter = 저장(여러 줄 칸 제외), Esc = 취소 / 글씨에서 Delete = 지우기
