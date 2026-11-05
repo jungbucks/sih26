@@ -6,7 +6,7 @@
 <title>나만의 공부 계획표</title>
 <meta name="description" content="과목, 할 일, 목표 시간을 적어 두면 과목별로 묶어 보여 주고 이 브라우저에 저장해 주는 공부 계획표">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="2회 개선">
+  <meta name="status" content="3회 개선">
   <meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T09 맥시멀리즘 · #1e3a8a">
 <style>
   @font-face { font-family: "Gowun Dodum"; src: url("../assets/fonts/GowunDodum-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
@@ -107,7 +107,7 @@
   .done-area h3 .count { font-weight: 400; color: var(--muted); font-size: 0.9rem; margin-left: 6px; }
   .plan.done .plan-task { text-decoration: line-through; text-decoration-color: var(--muted); }
   .plan.done .plan-text { color: var(--muted); }
-  .plan-subject { font-weight: 600; color: var(--text); }
+  .plan-check { font-weight: 600; color: var(--text); }
   .btn-done { border-color: var(--ok); color: var(--ok); }
 
   /* 안내 메시지: 색 + 글자 머리말로 함께 구분 */
@@ -123,13 +123,19 @@
   .empty { color: var(--muted); padding: 16px 0; margin: 0; }
   .group { margin-top: 16px; }
   .group:first-child { margin-top: 0; }
-  .group h3 {
-    font-size: 1.05rem;
-    margin: 0 0 8px;
-    padding-bottom: 4px;
+  /* 과목 제목 줄: 왼쪽에 과목·개수·총 시간, 맨 오른쪽에 전체 버튼 */
+  .group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
     border-bottom: 2px solid var(--accent);
   }
-  .group h3 .count { font-weight: 400; color: var(--muted); font-size: 0.9rem; margin-left: 6px; }
+  .group-title { flex: 1 1 auto; min-width: 0; font-size: 1.05rem; margin: 0; }
+  .group-title .count { font-weight: 400; color: var(--muted); font-size: 0.9rem; margin-left: 6px; white-space: nowrap; }
+  .group-head button { flex: none; }
   .plans { list-style: none; margin: 0; padding: 0; }
   .plan { padding: 10px 0; border-bottom: 1px solid var(--line); }
   .plan:last-child { border-bottom: none; }
@@ -274,7 +280,7 @@
 
     <div class="done-area" id="doneArea" hidden>
       <h3>완료한 공부<span class="count" id="doneCount"></span></h3>
-      <ul class="plans" id="doneList"></ul>
+      <div id="doneList"></div>
     </div>
 
     <div class="reset-area">
@@ -556,13 +562,13 @@ function renderPlanItem(plan) {
   main.className = "plan-main";
   const text = document.createElement("div");
   text.className = "plan-text";
-  // 완료한 공부 목록은 과목별로 묶지 않으므로 과목 이름을 앞에 함께 보여 준다
+  // 완료한 공부는 과목 제목 아래에 모이므로 줄마다 과목 이름을 다시 적지 않고 완료 표시만 붙인다
   if (plan.done) {
     li.classList.add("done");
-    const subjectSpan = document.createElement("span");
-    subjectSpan.className = "plan-subject";
-    subjectSpan.textContent = "✓ " + plan.subject + " · ";
-    text.appendChild(subjectSpan);
+    const checkSpan = document.createElement("span");
+    checkSpan.className = "plan-check";
+    checkSpan.textContent = "✓ ";
+    text.appendChild(checkSpan);
   }
   const taskSpan = document.createElement("span");
   taskSpan.className = "plan-task";
@@ -616,6 +622,37 @@ function renderPlanItem(plan) {
   return li;
 }
 
+// 과목 묶음 하나 그리기: 제목 줄(과목·개수·총 시간·전체 버튼) + 그 과목의 계획 목록
+// 남은 계획과 완료한 공부가 같은 모양을 쓰도록 한곳에 모았다
+function renderGroup(group, headingTag, buttonText, buttonClass, onButton) {
+  const section = document.createElement("section");
+  section.className = "group";
+  const head = document.createElement("div");
+  head.className = "group-head";
+  const title = document.createElement(headingTag);
+  title.className = "group-title";
+  title.textContent = group.subject;
+  const count = document.createElement("span");
+  count.className = "count";
+  count.textContent = group.items.length + "개";
+  const totalMinutes = group.items.reduce(function (sum, plan) { return sum + plan.minutes; }, 0);
+  const minutes = document.createElement("span");
+  minutes.className = "count";
+  minutes.textContent = "총 " + totalMinutes + "분";
+  title.appendChild(count);
+  title.appendChild(minutes);
+  const button = makeButton(buttonText, buttonClass, onButton);
+  button.setAttribute("aria-label", group.subject + " " + buttonText);   // 과목마다 버튼 이름이 구분되게
+  head.appendChild(title);
+  head.appendChild(button);
+  const ul = document.createElement("ul");
+  ul.className = "plans";
+  group.items.forEach(function (plan) { ul.appendChild(renderPlanItem(plan)); });
+  section.appendChild(head);
+  section.appendChild(ul);
+  return section;
+}
+
 // 과목별 목록 전체 다시 그리기
 function renderPlans() {
   planList.textContent = "";
@@ -624,10 +661,14 @@ function renderPlans() {
   const todoPlans = plans.filter(function (p) { return !p.done; });
   const donePlans = plans.filter(function (p) { return p.done; });
 
-  // 완료한 공부 목록
+  // 완료한 공부 목록: 남은 계획처럼 과목별로 모은다
   doneArea.hidden = (donePlans.length === 0);
   doneCount.textContent = donePlans.length + "개";
-  donePlans.forEach(function (plan) { doneList.appendChild(renderPlanItem(plan)); });
+  groupBySubject(donePlans).forEach(function (group) {
+    doneList.appendChild(renderGroup(group, "h4", "전체 되돌리기", "btn-small", function () {
+      setSubjectDone(group.subject, false);
+    }));
+  });
 
   if (plans.length === 0) {
     const empty = document.createElement("p");
@@ -650,20 +691,9 @@ function renderPlans() {
   }
 
   groupBySubject(todoPlans).forEach(function (group) {
-    const section = document.createElement("section");
-    section.className = "group";
-    const h3 = document.createElement("h3");
-    h3.textContent = group.subject;
-    const count = document.createElement("span");
-    count.className = "count";
-    count.textContent = group.items.length + "개";
-    h3.appendChild(count);
-    const ul = document.createElement("ul");
-    ul.className = "plans";
-    group.items.forEach(function (plan) { ul.appendChild(renderPlanItem(plan)); });
-    section.appendChild(h3);
-    section.appendChild(ul);
-    planList.appendChild(section);
+    planList.appendChild(renderGroup(group, "h3", "전체 완료", "btn-small btn-done", function () {
+      setSubjectDone(group.subject, true);
+    }));
   });
 }
 
@@ -747,6 +777,18 @@ function setDone(id, done) {
   deletingId = null;
   renderPlans();
   saveAndReport(done ? "‘" + plan.task + "’을(를) 완료한 공부로 옮겼어요." : "‘" + plan.task + "’을(를) 남은 계획으로 되돌렸어요.");
+}
+
+// 한 과목의 계획을 한꺼번에 완료(true) 또는 되돌리기(false)
+function setSubjectDone(subject, done) {
+  const targets = plans.filter(function (p) { return p.subject === subject && p.done !== done; });
+  if (targets.length === 0) return;
+  targets.forEach(function (p) { p.done = done; });
+  editingId = null;
+  deletingId = null;
+  renderPlans();
+  const what = "‘" + subject + "’ 계획 " + targets.length + "개를 ";
+  saveAndReport(what + (done ? "완료한 공부로 옮겼어요." : "남은 계획으로 되돌렸어요."));
 }
 
 function deletePlan(id) {
