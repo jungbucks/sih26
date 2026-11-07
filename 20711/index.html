@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>레시피 메모지</title>
-<meta name="description" content="내가 만든 빵 레시피를 직접 적어 오른쪽 요리책 인덱스 탭에 모아 두고, 끝낸 단계를 눌러 줄을 그어 가며 요리 흐름을 확인하는 주방용 레시피 메모지">
+<meta name="description" content="내가 만든 빵 레시피를 직접 적어 카테고리별로 오른쪽 요리책 인덱스 탭에 모아 두고, 끝낸 단계를 눌러 줄을 그어 가며 요리 흐름을 확인하는 주방용 레시피 메모지">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="3회 개선">
+  <meta name="status" content="4회 개선">
 <style>
   :root {
     --bg: #fafaf8;
@@ -42,9 +42,74 @@
   .save-note { margin: -12px 0 20px; color: var(--muted); font-size: 0.9rem; }
   .save-note[hidden] { display: none; }
 
-  button:focus-visible, input:focus-visible, textarea:focus-visible {
+  button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
     outline: 3px solid #1a5fb4;
     outline-offset: 2px;
+  }
+
+  /* 메모지 위쪽 카테고리 탭 (전체 + 내가 만든 카테고리) */
+  .cat-bar {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 6px;
+    margin-bottom: -1px;
+    padding: 0 8px;
+  }
+  .cat-tabs { display: contents; }
+  .cat-tab, .cat-add {
+    min-height: 44px;
+    max-width: 100%;
+    padding: 6px 14px;
+    font: inherit;
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.35;
+    border-radius: 10px 10px 0 0;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+  }
+  .cat-tab {
+    background: var(--accent-soft);
+    color: var(--text);
+    border: 1px solid #b9cfc2;
+    border-bottom: none;
+  }
+  .cat-tab:hover { background: #d6e6dc; }
+  .cat-tab[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .cat-add {
+    background: var(--surface);
+    color: var(--accent);
+    border: 2px dashed var(--accent);
+    border-bottom: none;
+    font-weight: 700;
+  }
+  .cat-add:hover { background: var(--accent-soft); }
+  .cat-form {
+    display: grid;
+    gap: 6px;
+    margin: 0 0 16px;
+    padding: 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .cat-form[hidden] { display: none; }
+  .cat-form label { font-weight: 700; }
+  .cat-form input {
+    width: 100%;
+    font: inherit;
+    padding: 8px 10px;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--field);
+    border-radius: 8px;
   }
 
   /* 요리책: 왼쪽은 레시피 페이지, 오른쪽은 인덱스(견출지) 탭 */
@@ -178,6 +243,33 @@
   .step-memo { display: block; margin-top: 2px; font-size: 0.9rem; color: var(--muted); }
   .step-state { flex: none; font-size: 0.85rem; color: var(--muted); margin-top: 10px; }
 
+  /* 단계 순서 바꾸기 손잡이 (끌어서 옮기기, 키보드는 위·아래 화살표) */
+  .drag-handle {
+    flex: none;
+    width: 44px; height: 44px;
+    margin-right: -8px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    color: var(--muted);
+    cursor: grab;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .drag-handle:hover { background: var(--bg); color: var(--text); }
+  .drag-handle:disabled { opacity: 0.35; cursor: default; }
+  .drag-handle svg { width: 18px; height: 18px; fill: currentColor; }
+  .steps > li.dragging { position: relative; z-index: 5; }
+  .steps > li.dragging .step {
+    border-color: var(--accent);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  }
+  .steps > li.dragging .drag-handle { cursor: grabbing; }
+
   /* 글씨 부분: 누르면 고치기, 꾹 누르면 지우기 */
   .edit-text {
     display: block;
@@ -267,7 +359,7 @@
   .editor[hidden] { display: none; }
   .editor-inner { max-width: 44rem; margin: 0 auto; padding: 16px 16px 20px; }
   .field-label { display: block; font-weight: 700; margin-bottom: 4px; }
-  .editor input, .editor textarea {
+  .editor input, .editor textarea, .editor select {
     width: 100%;
     font: inherit;
     padding: 8px 10px;
@@ -277,6 +369,8 @@
     border-radius: 8px;
   }
   .editor textarea { resize: vertical; min-height: 64px; }
+  .editor select { min-height: 44px; }
+  .editor .cat-field { margin-top: 12px; }
   .editor fieldset { margin: 16px 0 0; padding: 0; border: none; min-width: 0; }
   .editor legend { padding: 0; font-weight: 700; }
   .editor .small { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
@@ -340,8 +434,25 @@
 <body>
 <main>
   <h1>레시피 메모지</h1>
-  <p class="lead">오른쪽 인덱스 탭에서 레시피를 고르고, 끝낸 단계의 동그란 번호를 눌러 줄을 그어 가세요. 잘못 눌렀다면 한 번 더 누르면 돌아옵니다. 모든 단계를 끝낸 레시피는 다음에 열 때 체크가 비워져 있어요.</p>
+  <p class="lead">위쪽 카테고리 탭으로 종류를 고르고, 오른쪽 인덱스 탭에서 레시피를 고르세요. 끝낸 단계의 동그란 번호를 눌러 줄을 그어 가고, 잘못 눌렀다면 한 번 더 누르면 돌아옵니다. 모든 단계를 끝낸 레시피는 다음에 열 때 체크가 비워져 있어요.</p>
   <p id="save-note" class="save-note" hidden>이 브라우저에서는 저장이 되지 않아요. 새로고침하면 적어 둔 레시피가 사라집니다.</p>
+
+  <!-- 새 카테고리 이름 적는 칸 (+ 카테고리 추가를 누르면 나타남) -->
+  <form id="cat-form" class="cat-form" novalidate hidden>
+    <label for="cat-name">새 카테고리 이름</label>
+    <input id="cat-name" type="text" maxlength="10" autocomplete="off">
+    <p id="cat-error" class="inline-error" role="alert"></p>
+    <div class="inline-actions">
+      <button type="submit" class="btn btn-main">추가</button>
+      <button type="button" id="cat-cancel" class="btn btn-plain">취소</button>
+    </div>
+  </form>
+
+  <!-- 메모지 위쪽: 카테고리 탭 -->
+  <div class="cat-bar" role="group" aria-label="레시피 카테고리">
+    <div id="cat-tabs" class="cat-tabs"></div>
+    <button type="button" id="cat-add-btn" class="cat-add">+ 카테고리 추가</button>
+  </div>
 
   <div class="book">
     <!-- 왼쪽: 레시피 순서 목록 -->
@@ -365,6 +476,10 @@
     <h2 id="editor-title">새 레시피 적기</h2>
     <label class="field-label" for="new-name">빵 이름</label>
     <input id="new-name" type="text" maxlength="20" autocomplete="off">
+    <div class="cat-field">
+      <label class="field-label" for="new-cat">카테고리</label>
+      <select id="new-cat"></select>
+    </div>
     <fieldset>
       <legend>요리 순서</legend>
       <p class="small">한 칸에 한 단계씩 적어요. 메모는 비워도 되고, 순서를 비워 둔 칸은 저장되지 않아요.</p>
@@ -399,8 +514,12 @@
 // done 배열은 steps와 같은 순서로 true(완료)/false(미완료)를 기억해서,
 // 다른 탭을 봤다가 돌아와도 체크한 단계가 그대로 남아 있어요.
 // trash는 지운 레시피를 모아 두는 휴지통이에요. 레시피 모양은 똑같고, 최근에 지운 것이 앞에 와요.
+// categories는 위쪽 카테고리 탭 목록({ id, name })이고, 레시피의 cat에 속한 카테고리 id가 들어가요.
+// cat이 ""이면 '분류 없음' 레시피로, '전체' 탭에서만 보여요.
 let recipes = [];
 let trash = [];
+let categories = [];
+let selectedCat = "all";    // 지금 고른 카테고리 탭 ("all" = 전체)
 let selectedId = null;
 let showingTrash = false;   // 지금 휴지통 탭을 보고 있는지
 let trashNote = "";         // 휴지통 화면 위에 잠깐 보여 줄 안내
@@ -410,6 +529,9 @@ const MAX_STEPS = 30;
 const MAX_NAME = 20;
 const UNNAMED = "이름 없는 레시피";
 const LONG_PRESS_MS = 600;   // 이만큼 꾹 누르면 삭제 확인 창
+const ALL = "all";
+const MAX_CATS = 12;
+const MAX_CAT_NAME = 10;
 let canSave = true;
 
 // 지금 그 자리에서 고치는 곳: null, { type: "name" }, { type: "step", index: 단계 번호 },
@@ -420,7 +542,10 @@ let editing = null;
 function saveData() {
   if (!canSave) return;
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify({ recipes: recipes, selectedId: selectedId, trash: trash }));
+    localStorage.setItem(STORE_KEY, JSON.stringify({
+      recipes: recipes, selectedId: selectedId, trash: trash,
+      categories: categories, selectedCat: selectedCat
+    }));
   } catch (e) {
     canSave = false;
     document.getElementById("save-note").hidden = false;
@@ -435,7 +560,22 @@ function cleanRecipe(r, fallbackId) {
     .map(function (s) { return { text: s.text, memo: typeof s.memo === "string" ? s.memo : "" }; });
   if (!r.name.trim() || steps.length === 0) return null;
   const done = steps.map(function (s, i) { return Array.isArray(r.done) && r.done[i] === true; });
-  return { id: String(r.id || fallbackId), name: r.name, steps: steps, done: done };
+  return { id: String(r.id || fallbackId), name: r.name, steps: steps, done: done, cat: catOrNone(r.cat) };
+}
+
+// 있는 카테고리 id면 그대로, 없으면 "" (분류 없음). 카테고리가 생기기 전 데이터에는 cat이 없어요.
+function catOrNone(id) {
+  return categories.some(function (c) { return c.id === id; }) ? id : "";
+}
+
+function findCat(id) {
+  return categories.find(function (c) { return c.id === id; }) || null;
+}
+
+// 지금 고른 카테고리 탭에서 오른쪽 인덱스에 보일 레시피들
+function visibleRecipes() {
+  if (selectedCat === ALL) return recipes;
+  return recipes.filter(function (r) { return r.cat === selectedCat; });
 }
 
 function loadData() {
@@ -451,11 +591,20 @@ function loadData() {
   try {
     const data = JSON.parse(raw);
     if (!data || !Array.isArray(data.recipes)) return;
+    // 카테고리를 먼저 읽어야 레시피의 cat이 맞는지 볼 수 있어요.
+    if (Array.isArray(data.categories)) {
+      data.categories.forEach(function (c) {
+        if (!c || typeof c.name !== "string" || !c.name.trim() || !c.id) return;
+        if (categories.length >= MAX_CATS || findCat(String(c.id))) return;
+        categories.push({ id: String(c.id), name: c.name.trim().slice(0, MAX_CAT_NAME) });
+      });
+    }
+    if (findCat(data.selectedCat)) selectedCat = data.selectedCat;
     data.recipes.forEach(function (r) {
       const recipe = cleanRecipe(r, Date.now() + "-" + recipes.length);
       if (recipe) recipes.push(recipe);
     });
-    if (recipes.some(function (r) { return r.id === data.selectedId; })) selectedId = data.selectedId;
+    if (visibleRecipes().some(function (r) { return r.id === data.selectedId; })) selectedId = data.selectedId;
     // 휴지통이 생기기 전에 저장한 데이터에는 trash가 없어요. 그때는 빈 휴지통으로 시작합니다.
     if (Array.isArray(data.trash)) {
       data.trash.forEach(function (r) {
@@ -520,13 +669,33 @@ const editorForm = document.getElementById("editor-form");
 const nameInput = document.getElementById("new-name");
 const stepFields = document.getElementById("step-fields");
 const editorError = document.getElementById("editor-error");
+const catTabsBox = document.getElementById("cat-tabs");
+const catAddBtn = document.getElementById("cat-add-btn");
+const catForm = document.getElementById("cat-form");
+const catInput = document.getElementById("cat-name");
+const catError = document.getElementById("cat-error");
+const newCatSelect = document.getElementById("new-cat");
 
 // ===== 화면 갱신 함수 =====
 
-// 오른쪽 인덱스 탭 그리기: 선택된 탭만 눌린 상태(튀어나옴 + 진한 색)
+// 위쪽 카테고리 탭 그리기: 전체 + 만든 순서대로
+function renderCats() {
+  catTabsBox.textContent = "";
+  [{ id: ALL, name: "전체" }].concat(categories).forEach(function (c) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cat-tab";
+    btn.dataset.cat = c.id;
+    btn.textContent = c.name;
+    btn.setAttribute("aria-pressed", c.id === selectedCat ? "true" : "false");
+    catTabsBox.appendChild(btn);
+  });
+}
+
+// 오른쪽 인덱스 탭 그리기: 고른 카테고리의 레시피만, 선택된 탭만 눌린 상태(튀어나옴 + 진한 색)
 function renderTabs() {
   tabsBox.textContent = "";
-  recipes.forEach(function (r) {
+  visibleRecipes().forEach(function (r) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "tab";
@@ -644,7 +813,16 @@ function createStepItem(step, index, isDone) {
   state.className = "step-state";
   state.textContent = isDone ? "완료" : "";   // 색만으로 구분하지 않기 위해 "완료" 글자도 표시
 
-  row.append(numBtn, body, state);
+  // 순서 바꾸기 손잡이: 고치는 중에는 잠가 둠 (고치던 단계 번호가 바뀌지 않게)
+  const handle = document.createElement("button");
+  handle.type = "button";
+  handle.className = "drag-handle";
+  handle.disabled = editing !== null;
+  handle.setAttribute("aria-label", (index + 1) + "단계 순서 옮기기 (위·아래 화살표 키)");
+  handle.title = "끌어서 순서 바꾸기";
+  handle.innerHTML = '<svg viewBox="0 0 18 18" aria-hidden="true"><circle cx="6" cy="3.5" r="1.6"/><circle cx="12" cy="3.5" r="1.6"/><circle cx="6" cy="9" r="1.6"/><circle cx="12" cy="9" r="1.6"/><circle cx="6" cy="14.5" r="1.6"/><circle cx="12" cy="14.5" r="1.6"/></svg>';
+
+  row.append(numBtn, body, state, handle);
   li.appendChild(row);
   return li;
 }
@@ -737,9 +915,14 @@ function showRecipe() {
   if (!recipe) {
     const p = document.createElement("p");
     p.className = "placeholder";
-    p.textContent = recipes.length === 0
-      ? "아직 레시피가 없어요. 오른쪽 '+ 레시피 추가'를 눌러 첫 레시피를 적어 보세요."
-      : "오른쪽 인덱스 탭에서 레시피를 고르면 순서가 여기에 나타납니다.";
+    const cat = findCat(selectedCat);
+    if (recipes.length === 0) {
+      p.textContent = "아직 레시피가 없어요. 오른쪽 '+ 레시피 추가'를 눌러 첫 레시피를 적어 보세요.";
+    } else if (cat && visibleRecipes().length === 0) {
+      p.textContent = "'" + cat.name + "' 카테고리에 아직 레시피가 없어요. 오른쪽 '+ 레시피 추가'를 눌러 적어 보세요.";
+    } else {
+      p.textContent = "오른쪽 인덱스 탭에서 레시피를 고르면 순서가 여기에 나타납니다.";
+    }
     recipeArea.appendChild(p);
     return;
   }
@@ -760,7 +943,7 @@ function showRecipe() {
   const hint = document.createElement("p");
   hint.className = "hint";
   hint.id = "edit-help";
-  hint.textContent = "번호 누르기: 완료 · 글씨 누르기: 고치기 · 글씨 꾹 누르기: 지우기";
+  hint.textContent = "번호 누르기: 완료 · 글씨 누르기: 고치기 · 글씨 꾹 누르기: 지우기 · 오른쪽 점 손잡이 끌기: 순서 바꾸기";
   recipeArea.appendChild(hint);
 
   const list = document.createElement("ol");
@@ -800,6 +983,69 @@ function selectRecipe(id) {
   saveData();
 }
 
+// 카테고리 탭 고르기: 그 카테고리의 레시피만 오른쪽 인덱스에 보임
+// 보던 레시피가 그 카테고리에 없으면 첫 레시피를 열고, 하나도 없으면 빈 안내를 보여 줌
+function selectCategory(id) {
+  if (id !== ALL && !findCat(id)) return;
+  selectedCat = id;
+  const visible = visibleRecipes();
+  const stay = !showingTrash && visible.some(function (r) { return r.id === selectedId; });
+  renderCats();
+  if (stay) {
+    editing = null;
+    renderTabs();
+    showRecipe();
+    saveData();
+  } else if (visible.length > 0) {
+    selectedId = null;
+    selectRecipe(visible[0].id);
+  } else {
+    selectedId = null;
+    showingTrash = false;
+    editing = null;
+    renderTabs();
+    showRecipe();
+    saveData();
+  }
+}
+
+// 새 카테고리 이름 적는 칸 열기/닫기
+function openCatForm() {
+  catForm.hidden = false;
+  catInput.value = "";
+  catError.textContent = "";
+  catInput.focus();
+}
+
+function closeCatForm() {
+  catForm.hidden = true;
+  catError.textContent = "";
+  catAddBtn.focus();
+}
+
+// 카테고리 추가: 이름 검사 후 탭을 만들고 바로 그 탭을 고름 (빈 카테고리도 그대로 남음)
+function addCategory() {
+  const name = catInput.value.trim();
+  const key = name.toLowerCase();
+  let message = "";
+  if (!name) message = "카테고리 이름을 적어 주세요.";
+  else if (key === "전체" || categories.some(function (c) { return c.name.toLowerCase() === key; })) {
+    message = "'" + name + "' 카테고리가 이미 있어요. 다른 이름을 적어 주세요.";
+  } else if (categories.length >= MAX_CATS) message = "카테고리는 " + MAX_CATS + "개까지 만들 수 있어요.";
+  if (message) {
+    catError.textContent = message;
+    catInput.focus();
+    return;
+  }
+  const cat = { id: "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: name };
+  categories.push(cat);
+  catForm.hidden = true;
+  catError.textContent = "";
+  selectCategory(cat.id);
+  const tab = catTabsBox.querySelector('[data-cat="' + cat.id + '"]');
+  if (tab) tab.focus();
+}
+
 // 휴지통 탭 열기 (보던 레시피는 selectedId에 그대로 기억)
 function openTrash() {
   showingTrash = true;
@@ -823,10 +1069,13 @@ function restoreRecipe(id) {
   const oldName = recipe.name;
   trash.splice(at, 1);
   recipe.name = freeName(oldName);
+  recipe.cat = catOrNone(recipe.cat);
   recipes.push(recipe);
+  const cat = findCat(recipe.cat);
+  const where = cat ? "'" + cat.name + "' 카테고리" : "'분류 없음'";
   trashNote = recipe.name === oldName
-    ? "'" + recipe.name + "' 레시피를 복구했어요."
-    : "같은 이름의 레시피가 있어서 '" + recipe.name + "'(으)로 복구했어요.";
+    ? "'" + recipe.name + "' 레시피를 " + where + (cat ? "로" : "으로") + " 복구했어요."
+    : "같은 이름의 레시피가 있어서 '" + recipe.name + "'(이)라는 이름으로 " + where + "에 복구했어요.";
   renderTabs();
   showRecipe();
   saveData();
@@ -1001,10 +1250,12 @@ function doDelete() {
   if (!recipe || !target) return;
   editing = null;
   if (target.type === "name") {
-    const at = recipes.indexOf(recipe);
-    recipes.splice(at, 1);
+    // 다음에 열 레시피는 지금 카테고리 안에서 고름
+    const visible = visibleRecipes().slice();
+    const vi = visible.indexOf(recipe);
+    recipes.splice(recipes.indexOf(recipe), 1);
     trash.unshift(recipe);   // 바로 지우지 않고 휴지통 맨 앞으로
-    const next = recipes[at] || recipes[at - 1] || null;
+    const next = visible[vi + 1] || visible[vi - 1] || null;
     selectedId = null;
     if (next) {
       selectRecipe(next.id);
@@ -1090,6 +1341,118 @@ recipeArea.addEventListener("contextmenu", function (event) {
   if (event.target.closest(".edit-text")) event.preventDefault();
 });
 
+// ===== 단계 순서 바꾸기 (손잡이 끌어 놓기 / 키보드 위·아래 화살표) =====
+// 단계를 옮길 때 완료 여부(done)도 같은 자리로 함께 옮겨서, 체크한 단계는 옮긴 뒤에도 그대로 줄이 그어져 있어요.
+
+// order: 새 순서대로 늘어놓은 '원래 단계 번호' 배열 (예: [1, 2, 0] = 1단계를 맨 아래로)
+function applyStepOrder(order) {
+  const recipe = findRecipe(selectedId);
+  if (!recipe) return;
+  const steps = recipe.steps;
+  const done = recipe.done;
+  recipe.steps = order.map(function (i) { return steps[i]; });
+  recipe.done = order.map(function (i) { return done[i] === true; });
+}
+
+function focusHandle(index) {
+  const h = recipeArea.querySelectorAll(".drag-handle")[index];
+  if (h) h.focus();
+}
+
+// 키보드: 손잡이에서 ↑ ↓ 로 한 칸씩 옮기기
+function moveStepBy(from, delta) {
+  const recipe = findRecipe(selectedId);
+  if (!recipe) return;
+  const to = from + delta;
+  if (to < 0 || to >= recipe.steps.length) return;
+  const order = recipe.steps.map(function (s, i) { return i; });
+  order.splice(to, 0, order.splice(from, 1)[0]);
+  applyStepOrder(order);
+  showRecipe();
+  saveData();
+  focusHandle(to);
+}
+
+let drag = null;   // 끄는 중인 단계 { li, list, from, grabY, pointerId }
+
+// 끄는 동안 번호를 지금 자리 기준으로 바로 고쳐 보여 줌
+function renumberDuringDrag() {
+  Array.prototype.forEach.call(drag.list.children, function (li, i) {
+    li.querySelector(".step-num").textContent = String(i + 1);
+  });
+}
+
+recipeArea.addEventListener("pointerdown", function (event) {
+  const handle = event.target.closest(".drag-handle");
+  if (!handle || handle.disabled || drag) return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+  event.preventDefault();
+  const li = handle.closest("li");
+  const rect = li.getBoundingClientRect();
+  drag = {
+    li: li,
+    list: li.parentNode,
+    from: Number(li.querySelector(".step").dataset.index),
+    grabY: event.clientY - rect.top,
+    pointerId: event.pointerId
+  };
+  try { handle.setPointerCapture(event.pointerId); } catch (e) { /* 잡기 실패해도 문서 이벤트로 이어감 */ }
+  li.classList.add("dragging");
+});
+
+function onDragMove(event) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  event.preventDefault();
+  const li = drag.li;
+  li.style.transform = "";
+  const height = li.getBoundingClientRect().height;
+  const center = event.clientY - drag.grabY + height / 2;   // 끄는 단계의 가운데 높이
+  // 가운데가 어느 단계의 절반을 넘었는지 보고 그 앞에 끼워 넣음
+  const others = Array.prototype.filter.call(drag.list.children, function (x) { return x !== li; });
+  let before = null;
+  for (let i = 0; i < others.length; i++) {
+    const r = others[i].getBoundingClientRect();
+    if (center < r.top + r.height / 2) { before = others[i]; break; }
+  }
+  if (before) {
+    if (li.nextElementSibling !== before) drag.list.insertBefore(li, before);
+  } else if (drag.list.lastElementChild !== li) {
+    drag.list.appendChild(li);
+  }
+  renumberDuringDrag();
+  // 손가락(마우스)을 따라 움직이게: 지금 자리와 손 위치의 차이만큼 띄워 보여 줌
+  const naturalTop = li.getBoundingClientRect().top;
+  li.style.transform = "translateY(" + (event.clientY - drag.grabY - naturalTop) + "px)";
+  // 화면 위·아래 끝에 가까우면 조금씩 스크롤
+  if (event.clientY < 48) window.scrollBy(0, -12);
+  else if (event.clientY > window.innerHeight - 48) window.scrollBy(0, 12);
+}
+
+function endDrag(event) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const d = drag;
+  drag = null;
+  d.li.classList.remove("dragging");
+  d.li.style.transform = "";
+  if (event.type === "pointercancel") {   // 브라우저가 끌기를 끊으면 원래 순서로
+    showRecipe();
+    return;
+  }
+  const order = Array.prototype.map.call(d.list.children, function (x) {
+    return Number(x.querySelector(".step").dataset.index);
+  });
+  const to = order.indexOf(d.from);
+  const changed = order.some(function (v, i) { return v !== i; });
+  if (changed) applyStepOrder(order);
+  showRecipe();
+  if (changed) saveData();
+  focusHandle(to);
+}
+
+document.addEventListener("pointermove", onDragMove, { passive: false });
+document.addEventListener("pointerup", endDrag);
+document.addEventListener("pointercancel", endDrag);
+
 // ===== 아래 고정 입력창 =====
 
 // 입력창이 화면 아래를 가리지 않도록 그 높이만큼 페이지 아래 여백을 줌
@@ -1134,11 +1497,24 @@ function addStepField() {
   return t;
 }
 
+// 레시피를 넣을 카테고리 고르는 칸: 분류 없음 + 만든 카테고리. 지금 보는 카테고리를 미리 골라 둠
+function fillCatSelect() {
+  newCatSelect.textContent = "";
+  [{ id: "", name: "분류 없음 (전체에서만 보여요)" }].concat(categories).forEach(function (c) {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = c.name;
+    newCatSelect.appendChild(opt);
+  });
+  newCatSelect.value = selectedCat === ALL ? "" : selectedCat;
+}
+
 function openEditor() {
   if (editor.hidden) {
     editorForm.reset();
     stepFields.textContent = "";
     editorError.textContent = "";
+    fillCatSelect();
     addStepField();
     editor.hidden = false;
     fitBodyPadding();
@@ -1186,12 +1562,18 @@ function saveRecipe() {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     name: typed || autoName(null),
     steps: steps,
-    done: steps.map(function () { return false; })
+    done: steps.map(function () { return false; }),
+    cat: catOrNone(newCatSelect.value)
   };
   recipes.push(recipe);
   editor.hidden = true;
   editorError.textContent = "";
   fitBodyPadding();
+  // 다른 카테고리를 보던 중이면 새 레시피가 보이도록 그 카테고리 탭으로 옮김 (분류 없음이면 전체)
+  if (selectedCat !== ALL && selectedCat !== recipe.cat) {
+    selectedCat = recipe.cat || ALL;
+    renderCats();
+  }
   selectRecipe(recipe.id);
   const newTab = tabsBox.querySelector('[data-id="' + recipe.id + '"]');
   if (newTab) newTab.focus();
@@ -1247,6 +1629,26 @@ recipeArea.addEventListener("keydown", function (event) {
     event.preventDefault();
     askDelete(targetOf(event.target.closest(".edit-text")));
   }
+  const handle = event.target.closest(".drag-handle");
+  if (handle && !drag && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+    event.preventDefault();
+    moveStepBy(Number(handle.closest(".step").dataset.index), event.key === "ArrowUp" ? -1 : 1);
+  }
+});
+
+// 카테고리 탭·추가
+catTabsBox.addEventListener("click", function (event) {
+  const tab = event.target.closest(".cat-tab");
+  if (tab) selectCategory(tab.dataset.cat);
+});
+catAddBtn.addEventListener("click", openCatForm);
+document.getElementById("cat-cancel").addEventListener("click", closeCatForm);
+catForm.addEventListener("submit", function (event) {
+  event.preventDefault();
+  addCategory();
+});
+catForm.addEventListener("keydown", function (event) {
+  if (event.key === "Escape") closeCatForm();
 });
 
 addBtn.addEventListener("click", openEditor);
@@ -1264,9 +1666,10 @@ window.addEventListener("resize", fitBodyPadding);
 
 // ===== 시작 =====
 loadData();
-if (!selectedId && recipes.length > 0) selectedId = recipes[0].id;
+if (!selectedId && visibleRecipes().length > 0) selectedId = visibleRecipes()[0].id;
 // 새로 연 것도 '다시 여는 것'이라, 모든 단계를 끝낸 레시피면 체크를 비움
 if (resetIfFinished(findRecipe(selectedId))) saveData();
+renderCats();
 renderTabs();
 showRecipe();
 </script>
