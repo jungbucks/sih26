@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>D-Day 수행평가 알림이</title>
-<meta name="description" content="과목·과제·마감일을 적으면 마감이 가까운 순으로 D-Day를 보여 주고, 제출 완료한 과제는 아래로 모아 주는 수행평가 알림이">
+<meta name="description" content="과목·과제·마감일을 적으면 마감이 가까운 순으로 D-Day를 보여 주고, 제출 완료·미제출 과제는 아래로 모아 한꺼번에 정리할 수 있는 수행평가 알림이">
 <meta name="class" content="M반 (2-8)">
-<meta name="status" content="3회 개선">
+<meta name="status" content="4회 개선">
 <meta name="design" content="컬러셋 C1 흰 종이와 파랑 · 트렌드 T00 기본 · #2563eb">
 <style>
   @font-face { font-family: "Wanted Sans"; src: url("../assets/fonts/WantedSansVariable.woff2") format("woff2"); font-weight: 400 1000; font-display: swap; }
@@ -77,6 +77,11 @@
   button.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
   button.danger { color: var(--today); border-color: var(--today); }
   button.danger.solid { background: var(--today); border-color: var(--today); color: #fff; }
+  button:disabled { cursor: not-allowed; color: var(--muted); border-color: var(--line); background: #fff; }
+  .bulk { margin: 0 0 12px; }
+  .bulk .msg { margin-top: 8px; }
+  h2:focus { outline: none; }
+  h2:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   .msg { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; font-size: 0.92rem; font-weight: 600; }
   .msg:empty { display: none; }
   .msg.error { background: var(--today-soft); color: #9b1c1c; border-left: 4px solid var(--today); }
@@ -141,7 +146,7 @@
         <select id="colorSelect" aria-describedby="colorHint"></select>
         <span class="subject" id="colorPreview" aria-hidden="true">과목</span>
       </div>
-      <p class="hint" id="colorHint">과목명에 국어·수학·영어·정보·과학·사회·한국사가 들어 있으면 정해진 색이 칠해져요. (예: 영어Ⅰ) 미적분·문학·정보과학처럼 이름이 정해진 과목, 중국어 같은 제2외국어도 알맞은 색으로 칠해져요. 색을 직접 고르면 고른 색이 가장 먼저 적용되고, 그 과목 카드 전체에 칠해져요.</p>
+      <p class="hint" id="colorHint">과목 색은 1순위 직접 고른 색 → 2순위 과목명으로 정해진 색 → 3순위 자동 색 순서로 정해져요. 과목명에 국어·수학·영어·정보·과학·사회·한국사가 들어 있거나 문학·독서·대수·기하·미적분·물리학·화학·정보과학·중국어처럼 알려진 과목이면 정해진 색이에요. (예: 영어Ⅰ) 직접 고른 색은 그 과목 카드 전체에 칠해져요.</p>
     </div>
     <div class="field">
       <label for="contentInput">과제 내용</label>
@@ -166,7 +171,18 @@
   </section>
 
   <section aria-labelledby="doneTitle">
-    <h2 id="doneTitle">완료·지난 수행평가 <span class="count" id="doneCount"></span></h2>
+    <h2 id="doneTitle" tabindex="-1">완료·지난 수행평가 <span class="count" id="doneCount"></span></h2>
+    <div class="bulk">
+      <button type="button" class="danger" id="bulkBtn">지난 과제 일괄 삭제</button>
+      <div class="confirm-box" id="bulkConfirm" hidden>
+        <p id="bulkQuestion"></p>
+        <div class="row">
+          <button type="button" class="danger solid" id="bulkYes">네, 모두 삭제할게요</button>
+          <button type="button" id="bulkNo">취소</button>
+        </div>
+      </div>
+      <p class="msg" id="bulkMsg" role="status" aria-live="polite"></p>
+    </div>
     <ul class="list" id="doneList"></ul>
   </section>
 
@@ -207,22 +223,34 @@
   var FIXED = { "국어": "#c2410c", "수학": "#1d4ed8", "영어": "#7c3aed", "정보": "#0f766e",
                 "과학": "#15803d", "사회": "#475569", "한국사": "#a21caf", "제2외국어": "#3f6212" };
 
-  // ★ 과목 색 찾는 순서 (직접 고른 색이 있으면 그게 가장 먼저예요)
-  //   1) 과목명 전체가 똑같은 과목 (낱말이 겹치거나 낱말이 없는 과목)
-  //   2) 과목명에 들어 있는 낱말 — 긴 낱말부터 찾아요.
-  //      그래서 '중국어'(3글자)가 '국어'(2글자)보다 먼저 잡혀서 국어 색이 되지 않아요.
-  //   3) 아무것도 없으면 자동 색
+  // ★ 과목 색 정하는 순서 (화면 안내 문구와 같은 순서예요)
+  //   1순위) 내가 직접 고른 색 — 있으면 과목명과 상관없이 이 색 (subjectColor 함수)
+  //   2순위) 과목명으로 정해진 색 (keywordColor 함수)
+  //          가) 과목명 전체가 똑같은 과목 (완전 일치)
+  //          나) 과목명에 들어 있는 낱말 — 긴 낱말부터 찾아요.
+  //              그래서 '중국어'(3글자)가 '국어'(2글자)보다 먼저 잡혀서 국어 색이 되지 않아요.
+  //   3순위) 아무것도 없으면 자동 색 (autoColor 함수)
   var EXACT = { "문학": "국어", "독서": "국어", "화법과작문": "국어", "언어와매체": "국어",
                 "대수": "수학", "기하": "수학", "정보과학": "정보" };
   var KEYWORDS = [
-    ["한국사", "한국사"], ["국어", "국어"], ["수학", "수학"], ["미적분", "수학"], ["확률과통계", "수학"],
-    ["영어", "영어"], ["정보", "정보"], ["과학", "과학"], ["물리", "과학"], ["화학", "과학"], ["사회", "사회"],
-    // 예외 낱말: 이 낱말이 들어 있으면 국어가 아니라 제2외국어 색이에요.
+    // 주요 과목 낱말 (길이가 같은 낱말끼리는 위에 있는 게 먼저예요. '정보과학탐구'는 정보 색)
+    ["한국사", "한국사"], ["국어", "국어"], ["수학", "수학"], ["영어", "영어"], ["정보", "정보"],
+    ["과학", "과학"], ["사회", "사회"],
+    // 고등학교 시간표의 세부 과목 낱말
+    ["문학", "국어"], ["독서", "국어"], ["화법", "국어"], ["작문", "국어"], ["언어", "국어"], ["매체", "국어"],
+    ["미적분", "수학"], ["확률과통계", "수학"], ["대수", "수학"], ["기하", "수학"], ["인공지능수학", "수학"],
+    ["영미문학", "영어"],
+    ["인공지능", "정보"], ["데이터", "정보"], ["프로그래밍", "정보"], ["소프트웨어", "정보"],
+    ["물리", "과학"], ["화학", "과학"], ["생명", "과학"], ["생물", "과학"], ["지구", "과학"],
+    ["역학", "과학"], ["전자기", "과학"], ["에너지", "과학"], ["세포", "과학"],
+    ["지리", "사회"], ["역사", "사회"], ["세계사", "사회"], ["동아시아사", "사회"], ["윤리", "사회"],
+    ["정치", "사회"], ["경제", "사회"],
+    // 예외 낱말: 이 낱말이 들어 있으면 국어가 아니라 제2외국어 색이에요. (한문도 같은 색으로 묶어요)
     ["중국어", "제2외국어"], ["일본어", "제2외국어"], ["독일어", "제2외국어"], ["프랑스어", "제2외국어"],
     ["스페인어", "제2외국어"], ["러시아어", "제2외국어"], ["아랍어", "제2외국어"], ["베트남어", "제2외국어"],
-    ["외국어", "제2외국어"]
+    ["외국어", "제2외국어"], ["한문", "제2외국어"]
   ];
-  // 긴 낱말이 앞으로 오게 정렬해요. 길이가 같으면 위에 적은 순서대로예요. ('정보과학탐구'는 정보 색)
+  // 긴 낱말이 앞으로 오게 정렬해요. 길이가 같으면 위에 적은 순서대로예요.
   KEYWORDS = KEYWORDS.map(function (k, i) { return { word: k[0], to: k[1], i: i }; })
     .sort(function (a, b) { return (b.word.length - a.word.length) || (a.i - b.i); });
   var LATE_DAYS = 5;       // 마감이 이만큼 지나면 '지연 심각' 배지를 붙여요.
@@ -280,7 +308,7 @@
 
   function subjectKey(name) { return name.replace(/\s+/g, "").toLowerCase(); }
 
-  // ★ 과목 색 정하기: 내가 고른 색 → 주요 과목 낱말의 정해진 색 → 자동 색 순서로 써요.
+  // ★ 과목 색 정하기: 1순위 내가 고른 색 → 2순위 과목명으로 정해진 색 → 3순위 자동 색
   function subjectColor(name) {
     var key = subjectKey(name);
     return customColors[key] || defaultColor(key);
@@ -554,6 +582,17 @@
     $("limitText").textContent = "(진행 중 " + active.length + " / " + MAX + "개)";
     $("todayText").textContent = prettyDate(todayStr(), true);
     updatePastWarn();
+    updateBulk(done.length, missed.length);
+  }
+
+  // 지난 과제(완료·미제출)가 없으면 일괄 삭제 버튼을 누를 수 없게 해요.
+  // 확인 상자가 열려 있으면 지울 개수를 지금 목록에 맞춰 다시 적어요.
+  function updateBulk(doneN, missedN) {
+    var total = doneN + missedN;
+    $("bulkBtn").disabled = total === 0;
+    if (total === 0) { $("bulkConfirm").hidden = true; return; }
+    $("bulkQuestion").textContent = "완료 " + doneN + "개 · 미제출 " + missedN + "개, 모두 " + total +
+      "개의 지난 과제를 삭제할까요? 진행 중인 과제는 그대로 남아요. 삭제하면 되돌릴 수 없어요.";
   }
 
   // 고른 마감 날짜가 오늘보다 이전이면 폼 아래에 주황색 안내를 보여 줘요. (등록은 막지 않아요)
@@ -573,6 +612,7 @@
     formMsg.textContent = text;
     formMsg.className = "msg" + (kind ? " " + kind : "");
     $("resetMsg").textContent = "";
+    $("bulkMsg").textContent = "";
   }
 
   // ---- 과목 색 고르기 ----
@@ -766,6 +806,36 @@
     render();
     if (t) setMsg("'" + t.subject + " · " + t.content + "' 과제를 삭제했어요.", "ok");
   }
+
+  // ---- 지난 과제 일괄 삭제 ----
+  // 완료한 과제와 미제출 과제만 한꺼번에 지워요. 진행 중인 과제와 직접 고른 과목 색은 그대로예요.
+  $("bulkBtn").addEventListener("click", function () {
+    render();                       // 확인 문구의 개수를 지금 목록에 맞춰요.
+    if ($("bulkBtn").disabled) return;
+    $("bulkConfirm").hidden = false;
+    $("bulkMsg").textContent = "";
+    $("bulkYes").focus();
+  });
+  $("bulkNo").addEventListener("click", function () {
+    $("bulkConfirm").hidden = true;
+    $("bulkBtn").focus();
+  });
+  $("bulkYes").addEventListener("click", function () {
+    var gone = tasks.filter(function (t) { return !isActive(t); });
+    var doneN = gone.filter(function (t) { return t.completed; }).length;
+    var missedN = gone.length - doneN;
+    tasks = tasks.filter(isActive);
+    if (editingId != null && !findTask(editingId)) resetForm();
+    if (confirmDeleteId != null && !findTask(confirmDeleteId)) confirmDeleteId = null;
+    $("bulkConfirm").hidden = true;
+    setMsg("", "");
+    save();
+    render();
+    $("bulkMsg").textContent = "지난 과제 " + gone.length + "개(완료 " + doneN + "개 · 미제출 " + missedN +
+      "개)를 삭제했어요. 진행 중인 과제 " + tasks.length + "개는 그대로예요.";
+    $("bulkMsg").className = "msg ok";
+    $("doneTitle").focus();
+  });
 
   // ---- 전체 초기화 ----
   $("resetBtn").addEventListener("click", function () {
