@@ -6,7 +6,7 @@
 <title>나만의 공부 계획표</title>
 <meta name="description" content="과목, 할 일, 목표 시간을 적어 두면 과목별로 묶어 보여 주고 이 브라우저에 저장해 주는 공부 계획표">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="3회 개선">
+  <meta name="status" content="4회 개선">
   <meta name="design" content="컬러셋 C15 신문지와 남색 · 트렌드 T09 맥시멀리즘 · #1e3a8a">
 <style>
   @font-face { font-family: "Gowun Dodum"; src: url("../assets/fonts/GowunDodum-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
@@ -82,18 +82,29 @@
   .btn-danger-solid { background: var(--err); border-color: var(--err); color: #fff; font-weight: 600; }
   .btn-small { min-height: 40px; padding: 6px 12px; font-size: 0.95rem; }
   .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-  .examples { margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--line); }
-  .examples p { margin: 0 0 8px; font-size: 0.95rem; color: var(--muted); }
-  .examples summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; color: var(--accent); }
-  .examples summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
-  .example-list { list-style: none; margin: 4px 0 0; padding: 0; }
-  .example-list label {
-    display: flex; align-items: center; gap: 10px;
-    margin: 0 0 6px; padding: 8px 12px; min-height: 44px;
-    font-weight: 400; border-radius: 8px; background: var(--accent-weak); cursor: pointer;
+  /* 빠른 계획 목록: 내가 만든 자주 하는 계획을 체크해서 한 번에 넣기 */
+  .quick { margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--line); }
+  .quick p { margin: 0 0 8px; font-size: 0.95rem; color: var(--muted); }
+  .quick summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--accent); }
+  .quick summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  .quick summary .count { font-weight: 400; color: var(--muted); font-size: 0.9rem; }
+  .quick h3 { font-size: 1rem; margin: 12px 0 8px; }
+  .quick .empty { padding: 8px 0; }
+  .quick-list { list-style: none; margin: 4px 0 0; padding: 0; }
+  .quick-item {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+    margin: 0 0 6px; padding: 6px 8px 6px 12px;
+    border-radius: 8px; background: var(--accent-weak);
   }
-  .example-list input[type="checkbox"] { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--accent); }
-  .examples .row { margin-top: 8px; }
+  .quick-item label {
+    flex: 1 1 12rem; min-width: 0;
+    display: flex; align-items: center; gap: 10px;
+    margin: 0; min-height: 44px; font-weight: 400; cursor: pointer;
+  }
+  .quick-item input[type="checkbox"] { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--accent); }
+  .quick-item .confirm-box { flex: 1 1 100%; margin-top: 0; }
+  .quick .row { margin-top: 8px; }
+  .quick-form { margin-top: 16px; padding-top: 4px; border-top: 1px dashed var(--line); }
 
   /* 저장 상태 배지: 목록 위에서 바로 보이게 (색 + 글자로 구분) */
   .save-badge { font-size: 0.9rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
@@ -200,8 +211,8 @@
   .btn-danger-solid { background: var(--err); border-color: var(--ink); color: #fff; }
   .btn-done { border-color: var(--ink); color: var(--ok); }
   button:disabled { cursor: not-allowed; color: var(--muted); }
-  /* 예시 목록·수정 상자: 옅은 구분선 */
-  .example-list label { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; }
+  /* 빠른 목록·수정 상자: 옅은 구분선 */
+  .quick-item { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; }
   .edit-box { background: var(--bg); border: 1px solid var(--line); }
   /* 결과 요약(제목·남은 개수·저장 배지): 색 블록 + 살짝 기울이기 */
   .list-head {
@@ -259,14 +270,29 @@
       <div id="addMessage" class="msg" role="alert" aria-live="assertive"></div>
     </form>
 
-    <details class="examples" id="exampleBox">
-      <summary>예시 계획 목록 열기</summary>
-      <p>필요한 예시에 체크하고 <strong>선택한 예시 추가</strong>를 누르세요. 고른 것만 내 목록에 들어갑니다.</p>
-      <ul class="example-list" id="exampleList"></ul>
+    <details class="quick" id="quickBox">
+      <summary>빠른 계획 목록 열기 <span class="count" id="quickCount"></span></summary>
+      <p>자주 하는 공부를 빠른 목록에 만들어 두세요. 필요한 것에 체크하고 <strong>선택한 계획 추가</strong>를 누르면 고른 것만 내 목록에 들어갑니다. 빠른 목록도 이 브라우저에 저장돼서 새 탭으로 열어도 남아 있어요.</p>
+      <p class="empty" id="quickEmpty">아직 빠른 목록이 비어 있어요. 아래 ‘빠른 목록에 새 계획 만들기’에서 자주 하는 공부를 저장해 보세요.</p>
+      <ul class="quick-list" id="quickList" aria-label="내 빠른 계획 목록"></ul>
       <div class="row">
-        <button type="button" class="btn-primary" id="exampleAddButton">선택한 예시 추가</button>
+        <button type="button" class="btn-primary" id="quickAddButton">선택한 계획 추가</button>
       </div>
-      <div id="exampleMessage" class="msg" role="status" aria-live="polite"></div>
+      <div id="quickMessage" class="msg" role="status" aria-live="polite"></div>
+
+      <form id="quickForm" class="quick-form" novalidate>
+        <h3>빠른 목록에 새 계획 만들기</h3>
+        <label for="quickSubject">과목 이름 <span class="hint">예: 수학</span></label>
+        <input type="text" id="quickSubject" autocomplete="off" maxlength="30" placeholder="과목 이름을 입력하세요">
+        <label for="quickTask">공부할 내용 <span class="hint">예: 문제집 풀기</span></label>
+        <input type="text" id="quickTask" autocomplete="off" maxlength="100" placeholder="무엇을 공부할지 입력하세요">
+        <label for="quickMinutes">목표 공부 시간(분) <span class="hint">1 이상의 정수, 예: 40</span></label>
+        <input type="text" id="quickMinutes" inputmode="numeric" autocomplete="off" maxlength="5" placeholder="분 단위 숫자">
+        <div class="row">
+          <button type="submit" id="quickSaveButton">빠른 목록에 저장</button>
+        </div>
+        <div id="quickFormMessage" class="msg" role="alert" aria-live="assertive"></div>
+      </form>
     </details>
   </section>
 
@@ -286,7 +312,7 @@
     <div class="reset-area">
       <button type="button" class="btn-danger" id="resetButton">전체 초기화</button>
       <div id="resetConfirm" class="confirm-box" hidden>
-        <p>이 프로그램에 등록한 공부 계획 <span id="resetCount">0</span>개를 모두 삭제합니다. 다른 웹사이트의 데이터는 지우지 않습니다. 삭제한 계획은 되돌릴 수 없어요. 정말 초기화할까요?</p>
+        <p>이 프로그램에 등록한 공부 계획 <span id="resetCount">0</span>개를 모두 삭제합니다. 다른 웹사이트의 데이터는 지우지 않습니다. 삭제한 계획은 되돌릴 수 없어요. 빠른 계획 목록은 지우지 않고 그대로 둡니다. 정말 초기화할까요?</p>
         <div class="row">
           <button type="button" class="btn-danger-solid" id="resetYes">네, 모두 삭제</button>
           <button type="button" id="resetNo">취소</button>
@@ -298,21 +324,19 @@
 </main>
 
 <script>
-// ===== 예시 데이터·설정 =====
-// 예시는 체크한 것만 골라서 내 목록에 넣는다 (고르지 않은 예시는 섞이지 않게)
-const EXAMPLE_PLANS = [
-  { subject: "수학", task: "문제집 풀기", minutes: 40 },
-  { subject: "영어", task: "단어 외우기", minutes: 30 },
-  { subject: "수학", task: "개념 복습", minutes: 20 }
-];
+// ===== 설정 =====
 // 이 프로그램만 쓰는 저장 키 (다른 데이터와 겹치지 않도록 접두사 사용)
-const STORAGE_KEY = "sih26:20107:plans";
+const STORAGE_KEY = "sih26:20107:plans";   // 내 공부 계획 (예전 버전과 같은 키)
+const QUICK_KEY = "sih26:20107:quick";     // 빠른 계획 목록 (사용자가 직접 만든 자주 하는 계획)
 
 // ===== 데이터·상태 =====
 let plans = [];            // 공부 계획 목록: { id, subject, task, minutes, done }
 let editingId = null;      // 지금 수정 중인 계획의 id (없으면 null)
 let deletingId = null;     // 삭제 확인을 띄운 계획의 id (없으면 null)
 let storageAvailable = true;
+let quickItems = [];       // 빠른 계획 목록: { id, subject, task, minutes }
+let quickChecked = [];     // 빠른 목록에서 체크한 항목의 id (다시 그려도 체크가 풀리지 않게 기억)
+let quickDeletingId = null; // 삭제 확인을 띄운 빠른 목록 항목의 id
 
 // 전시판 미리보기처럼 "주소(출처)가 없는" 상자 안에서 열리면 origin이 "null"이 된다.
 // 이런 곳에서는 저장이 막히거나, 저장된 것처럼 보여도 새로고침하면 사라진다.
@@ -328,9 +352,17 @@ const addMessage = document.getElementById("addMessage");
 const storageStatus = document.getElementById("storageStatus");
 const planList = document.getElementById("planList");
 const totalText = document.getElementById("totalText");
-const exampleList = document.getElementById("exampleList");
-const exampleAddButton = document.getElementById("exampleAddButton");
-const exampleMessage = document.getElementById("exampleMessage");
+const quickBox = document.getElementById("quickBox");
+const quickCount = document.getElementById("quickCount");
+const quickEmpty = document.getElementById("quickEmpty");
+const quickList = document.getElementById("quickList");
+const quickAddButton = document.getElementById("quickAddButton");
+const quickMessage = document.getElementById("quickMessage");
+const quickForm = document.getElementById("quickForm");
+const quickSubject = document.getElementById("quickSubject");
+const quickTask = document.getElementById("quickTask");
+const quickMinutes = document.getElementById("quickMinutes");
+const quickFormMessage = document.getElementById("quickFormMessage");
 const saveBadge = document.getElementById("saveBadge");
 const doneArea = document.getElementById("doneArea");
 const doneCount = document.getElementById("doneCount");
@@ -375,15 +407,15 @@ function validatePlan(subjectRaw, taskRaw, minutesRaw) {
 
 // localStorage에 저장 시도: 성공하면 true, 실패하면 false
 // "저장 명령을 내렸다"가 아니라 "다시 읽어 봤더니 똑같이 들어 있다"까지 확인해야 성공으로 친다
-function savePlans() {
+function saveList(key, list) {
   if (IN_PREVIEW_BOX) {        // 미리보기 상자 안에서는 새로고침하면 사라지므로 성공이라 하지 않음
     storageAvailable = false;
     return false;
   }
   try {
-    const text = JSON.stringify(plans);
-    localStorage.setItem(STORAGE_KEY, text);
-    const ok = (localStorage.getItem(STORAGE_KEY) === text);   // 다시 읽어서 비교
+    const text = JSON.stringify(list);
+    localStorage.setItem(key, text);
+    const ok = (localStorage.getItem(key) === text);   // 다시 읽어서 비교
     storageAvailable = ok;
     return ok;
   } catch (e) {
@@ -392,35 +424,58 @@ function savePlans() {
   }
 }
 
-// 저장된 계획 불러오기: 결과 상태 문자열을 돌려준다
-function loadPlans() {
+function savePlans() { return saveList(STORAGE_KEY, plans); }
+function saveQuick() { return saveList(QUICK_KEY, quickItems); }
+
+// 저장된 목록 글자 읽기: { state, data } (state: preview / unavailable / none / broken / loaded)
+function readList(key) {
   if (IN_PREVIEW_BOX) {
     storageAvailable = false;
-    return "preview";
+    return { state: "preview" };
   }
   let text;
   try {
-    text = localStorage.getItem(STORAGE_KEY);
+    text = localStorage.getItem(key);
   } catch (e) {
     storageAvailable = false;
-    return "unavailable";
+    return { state: "unavailable" };
   }
-  if (text === null) return "none";
+  if (text === null) return { state: "none" };
   try {
     const data = JSON.parse(text);
-    if (!Array.isArray(data)) return "broken";
-    // 모양이 올바른 항목만 골라서 쓴다
-    plans = data.filter(function (p) {
-      return p && typeof p.id === "string" && typeof p.subject === "string" &&
-        typeof p.task === "string" && Number.isInteger(p.minutes) && p.minutes >= 1;
-    }).map(function (p) {
-      // 예전 버전에서 저장한 계획에는 done이 없다 → "아직 안 함"으로 읽는다
-      return { id: p.id, subject: p.subject, task: p.task, minutes: p.minutes, done: p.done === true };
-    });
-    return "loaded";
+    if (!Array.isArray(data)) return { state: "broken" };
+    return { state: "loaded", data: data };
   } catch (e) {
-    return "broken";
+    return { state: "broken" };
   }
+}
+
+// 계획 한 개의 모양이 올바른지 (과목·내용 글자, 1 이상의 정수 분)
+function isValidItem(p) {
+  return p && typeof p.id === "string" && typeof p.subject === "string" &&
+    typeof p.task === "string" && Number.isInteger(p.minutes) && p.minutes >= 1;
+}
+
+// 저장된 빠른 계획 목록 불러오기 (예전 버전에는 이 키가 없으므로 "none" → 빈 목록으로 시작)
+function loadQuick() {
+  const result = readList(QUICK_KEY);
+  if (result.state !== "loaded") return result.state;
+  quickItems = result.data.filter(isValidItem).map(function (p) {
+    return { id: p.id, subject: p.subject, task: p.task, minutes: p.minutes };
+  });
+  return "loaded";
+}
+
+// 저장된 계획 불러오기: 결과 상태 문자열을 돌려준다
+function loadPlans() {
+  const result = readList(STORAGE_KEY);
+  if (result.state !== "loaded") return result.state;
+  // 모양이 올바른 항목만 골라서 쓴다
+  plans = result.data.filter(isValidItem).map(function (p) {
+    // 예전 버전에서 저장한 계획에는 done이 없다 → "아직 안 함"으로 읽는다
+    return { id: p.id, subject: p.subject, task: p.task, minutes: p.minutes, done: p.done === true };
+  });
+  return "loaded";
 }
 
 // 과목 이름이 같은 계획끼리 묶기 (처음 등장한 순서대로)
@@ -697,40 +752,148 @@ function renderPlans() {
   });
 }
 
-// 예시 목록(체크 상자) 그리기
-function renderExampleList() {
-  EXAMPLE_PLANS.forEach(function (ex, index) {
+// ===== 빠른 계획 목록 =====
+
+// 빠른 목록 항목을 한 줄 글자로 (예: 수학 · 문제집 풀기 · 40분)
+function quickText(item) {
+  return item.subject + " · " + item.task + " · " + item.minutes + "분";
+}
+
+function showQuickMessage(kind, text) {
+  quickMessage.className = "msg msg-" + kind;
+  quickMessage.textContent = text;
+}
+
+// 빠른 목록(체크 상자 + 삭제 버튼) 다시 그리기
+function renderQuickList() {
+  quickList.textContent = "";
+  // 지워진 항목의 체크 기억은 버린다
+  quickChecked = quickChecked.filter(function (id) {
+    return quickItems.some(function (q) { return q.id === id; });
+  });
+  quickCount.textContent = quickItems.length > 0 ? "(저장 " + quickItems.length + "개)" : "";
+  quickEmpty.hidden = (quickItems.length > 0);
+  quickAddButton.disabled = (quickItems.length === 0);   // 고를 것이 없으면 누를 수 없게
+
+  quickItems.forEach(function (item) {
     const li = document.createElement("li");
+    li.className = "quick-item";
+    li.dataset.id = item.id;
     const label = document.createElement("label");
     const box = document.createElement("input");
     box.type = "checkbox";
-    box.value = String(index);              // 몇 번째 예시인지 기억
+    box.value = item.id;
+    box.checked = quickChecked.indexOf(item.id) !== -1;
+    box.addEventListener("change", function () {
+      if (box.checked) {
+        if (quickChecked.indexOf(item.id) === -1) quickChecked.push(item.id);
+      } else {
+        quickChecked = quickChecked.filter(function (id) { return id !== item.id; });
+      }
+    });
     const text = document.createElement("span");
-    text.textContent = ex.subject + " · " + ex.task + " · " + ex.minutes + "분";
+    text.textContent = quickText(item);        // textContent라서 입력이 코드로 실행되지 않음
     label.appendChild(box);
     label.appendChild(text);
     li.appendChild(label);
-    exampleList.appendChild(li);
+
+    const del = makeButton("삭제", "btn-small btn-danger", function () {
+      quickDeletingId = item.id;
+      renderQuickList();
+    });
+    del.setAttribute("aria-label", "‘" + quickText(item) + "’ 빠른 목록에서 삭제");
+    li.appendChild(del);
+
+    // 삭제 확인 상자 (실수로 지우지 않도록)
+    if (quickDeletingId === item.id) {
+      const confirmBox = document.createElement("div");
+      confirmBox.className = "confirm-box";
+      const p = document.createElement("p");
+      p.textContent = "‘" + quickText(item) + "’을(를) 빠른 목록에서 지울까요? 이미 내 목록에 넣은 계획은 그대로 남아요.";
+      const row = document.createElement("div");
+      row.className = "row";
+      const yes = makeButton("네, 지우기", "btn-small btn-danger-solid", function () { deleteQuickItem(item.id); });
+      row.appendChild(yes);
+      row.appendChild(makeButton("취소", "btn-small", function () {
+        quickDeletingId = null;
+        renderQuickList();
+        const back = quickList.querySelector('[data-id="' + item.id + '"] button');
+        if (back) back.focus();
+      }));
+      confirmBox.appendChild(p);
+      confirmBox.appendChild(row);
+      li.appendChild(confirmBox);
+      setTimeout(function () { yes.focus(); }, 0);
+    }
+    quickList.appendChild(li);
   });
 }
 
-// 체크한 예시만 내 계획에 추가
-function addSelectedExamples() {
-  const checked = exampleList.querySelectorAll("input[type=checkbox]:checked");
-  if (checked.length === 0) {
-    exampleMessage.className = "msg msg-error";
-    exampleMessage.textContent = "선택 안내: 추가할 예시를 하나 이상 체크해 주세요.";
+// 빠른 목록에 새 계획 저장 (내 공부 계획에는 아직 넣지 않음)
+function saveQuickItem() {
+  const result = validatePlan(quickSubject.value, quickTask.value, quickMinutes.value);
+  const inputs = { subject: quickSubject, task: quickTask, minutes: quickMinutes };
+  if (result.errors.length === 0) {
+    // 과목·내용·시간이 모두 같은 항목이 이미 있으면 또 만들지 않는다
+    const same = quickItems.some(function (q) {
+      return q.subject === result.subject && q.task === result.task && q.minutes === result.minutes;
+    });
+    if (same) {
+      result.errors.push({ field: "task", text: "빠른 목록에 ‘" + result.subject + " · " + result.task + " · " + result.minutes + "분’이 이미 있어요. 과목, 내용, 시간 중 하나라도 다르게 적어 주세요." });
+    }
+  }
+  showErrors(quickFormMessage, result.errors, inputs);
+  if (result.errors.length > 0) return;
+
+  const item = { id: makeId(), subject: result.subject, task: result.task, minutes: result.minutes };
+  quickItems.push(item);
+  quickSubject.value = "";
+  quickTask.value = "";
+  quickMinutes.value = "";
+  quickDeletingId = null;
+  renderQuickList();
+  if (saveQuick()) {
+    showQuickMessage("ok", "저장 완료: ‘" + quickText(item) + "’을(를) 빠른 목록에 저장했어요. 위에서 체크하고 ‘선택한 계획 추가’를 누르면 내 목록에 들어가요.");
+  } else {
+    showQuickMessage("warn", "저장 안 됨: ‘" + quickText(item) + "’을(를) 빠른 목록에 넣었지만 새로고침하거나 새 탭으로 열면 사라질 수 있어요. " + whyNotSaved());
+  }
+  quickSubject.focus();
+}
+
+// 빠른 목록에서 한 항목 지우기 (이미 내 목록에 넣은 계획은 건드리지 않음)
+function deleteQuickItem(id) {
+  const item = quickItems.find(function (q) { return q.id === id; });
+  if (!item) return;
+  quickItems = quickItems.filter(function (q) { return q.id !== id; });
+  quickDeletingId = null;
+  renderQuickList();
+  if (saveQuick()) {
+    showQuickMessage("ok", "삭제 완료: ‘" + quickText(item) + "’을(를) 빠른 목록에서 지웠어요.");
+  } else {
+    showQuickMessage("warn", "삭제(화면만): ‘" + quickText(item) + "’을(를) 지웠지만 저장이 안 돼서 새로 열면 다시 보일 수 있어요. " + whyNotSaved());
+  }
+  if (quickAddButton.disabled) quickSubject.focus();   // 다 지웠으면 새로 만드는 칸으로
+  else quickAddButton.focus();
+}
+
+// 빠른 목록에서 체크한 것만 내 계획에 추가
+function addSelectedQuick() {
+  const picked = quickItems.filter(function (q) { return quickChecked.indexOf(q.id) !== -1; });
+  if (picked.length === 0) {
+    showQuickMessage("error", "선택 안내: 추가할 계획을 빠른 목록에서 하나 이상 체크해 주세요.");
     return;
   }
-  checked.forEach(function (box) {
-    const ex = EXAMPLE_PLANS[Number(box.value)];
-    plans.push({ id: makeId(), subject: ex.subject, task: ex.task, minutes: ex.minutes, done: false });
-    box.checked = false;   // 체크를 풀어서 버튼을 또 눌러도 중복으로 들어가지 않게 함
+  picked.forEach(function (q) {
+    plans.push({ id: makeId(), subject: q.subject, task: q.task, minutes: q.minutes, done: false });
   });
-  exampleMessage.className = "msg msg-ok";
-  exampleMessage.textContent = "추가 완료: 고른 예시 " + checked.length + "개를 목록에 넣었어요.";
+  quickChecked = [];   // 체크를 풀어서 버튼을 또 눌러도 중복으로 들어가지 않게 함
+  quickDeletingId = null;
+  renderQuickList();
+  showQuickMessage("ok", "추가 완료: 빠른 목록에서 고른 계획 " + picked.length + "개를 내 목록에 넣었어요.");
+  resetMessage.textContent = "";
+  resetMessage.className = "msg";
   renderPlans();
-  saveAndReport("예시 계획 " + checked.length + "개를 추가했어요.");
+  saveAndReport("빠른 목록에서 계획 " + picked.length + "개를 추가했어요.");
 }
 
 // ===== 계획 추가·수정·삭제·초기화 =====
@@ -837,7 +1000,11 @@ resetNo.addEventListener("click", function () {
   resetButton.focus();
 });
 resetYes.addEventListener("click", resetAllPlans);
-exampleAddButton.addEventListener("click", addSelectedExamples);
+quickAddButton.addEventListener("click", addSelectedQuick);
+quickForm.addEventListener("submit", function (event) {
+  event.preventDefault();
+  saveQuickItem();
+});
 
 // ===== 시작 =====
 (function start() {
@@ -854,7 +1021,14 @@ exampleAddButton.addEventListener("click", addSelectedExamples);
   } else {
     showStorageStatus("ok", "저장 준비됨: 아직 저장된 계획이 없어요. 계획을 추가하면 이 브라우저에 자동으로 저장돼요.");
   }
-  renderExampleList();
+  // 빠른 계획 목록은 따로 불러온다 (내 계획 불러오기와 서로 영향 없음)
+  const quickState = loadQuick();
+  if (quickState === "broken") {
+    quickItems = [];
+    showQuickMessage("warn", "불러오기 실패: 저장된 빠른 목록을 읽을 수 없어서 빈 목록으로 시작해요. 새로 저장하면 다시 저장됩니다.");
+  }
+  if (quickItems.length > 0) quickBox.open = true;   // 만들어 둔 빠른 목록이 있으면 펼친 채로 시작
+  renderQuickList();
   renderPlans();
 })();
 </script>
