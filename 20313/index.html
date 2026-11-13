@@ -7,7 +7,7 @@
 <title>그림 주제 뽑기</title>
 <meta name="description" content="그림 분야·난이도·연습 목적을 고르면 조건에 맞는 그림 연습 주제 10개를 번호·설명이 있는 카드로 한꺼번에 추천해 주는 프로그램">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C13 회색과 빨강 · 트렌드 T01 리퀴드 글래스 · #d10511">
 
 <!-- ===== 스타일 ===== -->
@@ -27,6 +27,8 @@
     --accent-soft: #fde8e8;
     --warn-bg: #fff5e1;   /* 경고 안내: 원래의 노랑 계열 유지 (강조 빨강과 구분) */
     --warn-line: #b07612;
+    --alert-bg: #ffe08a;  /* 필수 항목 경고: 같은 노랑 계열을 더 진하게 */
+    --alert-line: #7a4a00;
     --ok-bg: #edf4ec;     /* 완료 안내: 원래의 초록 계열 유지 */
     --ok-line: #4f7a4a;
     --shadow: 0 4px 16px rgba(0,0,0,.06);
@@ -123,6 +125,17 @@
     border: 1px solid var(--warn-line); background: var(--warn-bg); color: var(--text); font-weight: 600;
   }
   .message.ok { border-color: var(--ok-line); background: var(--ok-bg); }
+  /* 필수 항목을 고르지 않았을 때의 경고: 더 진한 노랑 바탕 + 두꺼운 테두리 + 검은 '선택 필요' 표시로 눈에 띄게
+     (다른 안내 메시지는 위의 기본 모양 그대로) */
+  .message.alert {
+    border: 2px solid var(--alert-line); background: var(--alert-bg); color: #111111;
+    box-shadow: 0 4px 14px rgba(122,74,0,.18);
+  }
+  .message.alert .tag {
+    padding: 2px 10px; border-radius: 999px;
+    background: #111111; color: #ffffff; font-weight: 800;
+  }
+  .message.alert strong { font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
   .message[hidden] { display: none; }
   .tag { display: inline-block; margin-right: 6px; font-weight: 700; }
 
@@ -197,7 +210,6 @@
   <!-- 버튼 -->
   <div class="actions">
     <button type="button" class="btn-primary" id="btnRecommend">주제 추천</button>
-    <button type="button" id="btnAgain" disabled>다시 뽑기</button>
     <button type="button" id="btnReset" disabled>처음부터 다시 뽑기</button>
   </div>
 
@@ -565,7 +577,7 @@ Object.keys(TOPIC_SETS).forEach(key => {
 });
 
 // 결과 아래에 항상 보여 줄 안내 문구
-const NOTE_TEXT = "이 주제는 연습 아이디어예요. 마음에 들지 않으면 다시 뽑거나 원하는 주제를 직접 선택해도 돼요.";
+const NOTE_TEXT = "추천한 주제 10개는 그림 연습을 위한 아이디어예요.";
 const MSG_NONE = "조건에 맞는 주제가 없어요. 다른 조건을 선택해 주세요.";
 const MSG_DONE = "이 조건의 주제 10개를 모두 확인했어요. 다른 조건을 선택한 뒤 ‘주제 추천’을 눌러 보세요.";
 const DRAW_COUNT = 10; // 한 번 추천할 때 보여 줄 주제 카드 수
@@ -639,7 +651,6 @@ function drawTopics(list, cond, drawn, count) {
 const resultEl = document.getElementById("result");
 const messageEl = document.getElementById("message");
 const btnRecommend = document.getElementById("btnRecommend");
-const btnAgain = document.getElementById("btnAgain");
 const btnReset = document.getElementById("btnReset");
 
 function showMessage(text, kind) {
@@ -650,6 +661,26 @@ function showMessage(text, kind) {
   messageEl.appendChild(tag);
   messageEl.appendChild(document.createTextNode(text));
   messageEl.className = kind === "ok" ? "message ok" : "message";
+  messageEl.hidden = false;
+}
+
+// 필수 항목을 고르지 않았을 때만 쓰는 강조 경고 (다른 안내 메시지 모양은 그대로)
+// 고르지 않은 항목 이름은 굵게 표시해요.
+function showMissingAlert(missing) {
+  messageEl.textContent = "";
+  const tag = document.createElement("span");
+  tag.className = "tag";
+  tag.textContent = "⚠ 선택 필요";
+  messageEl.appendChild(tag);
+  messageEl.appendChild(document.createTextNode(" 아직 선택하지 않은 항목이 있어요: "));
+  missing.forEach((name, i) => {
+    if (i > 0) messageEl.appendChild(document.createTextNode(", "));
+    const strong = document.createElement("strong");
+    strong.textContent = name;
+    messageEl.appendChild(strong);
+  });
+  messageEl.appendChild(document.createTextNode(". 이 항목을 선택한 뒤 ‘주제 추천’을 눌러 주세요."));
+  messageEl.className = "message alert";
   messageEl.hidden = false;
 }
 function hideMessage() {
@@ -709,20 +740,19 @@ function showNotice(text) {
 }
 
 function updateButtons() {
-  btnAgain.disabled = !hasDrawn;
   btnReset.disabled = !hasDrawn;
 }
 
 // ===== 이벤트 =====
 
-// [주제 추천]과 [다시 뽑기]가 함께 쓰는 동작
+// [주제 추천] 버튼을 눌렀을 때의 동작
 // 클릭 처리는 한 번에 하나씩 끝까지 실행되므로, 빠르게 여러 번 눌러도
 // 매번 history가 먼저 갱신된 뒤 다음 클릭이 처리되어 같은 주제가 다시 나오지 않아요.
 function handleDraw() {
   const cond = readConditions();
   const missing = GROUPS.filter(g => cond[g.key] === null).map(g => g.label);
   if (missing.length > 0) {
-    showMessage("아직 선택하지 않은 항목이 있어요: " + missing.join(", ") + ". 이 항목을 선택한 뒤 ‘주제 추천’을 눌러 주세요.", "warn");
+    showMissingAlert(missing);
     return;
   }
   hideMessage();
@@ -745,7 +775,6 @@ function handleDraw() {
 }
 
 btnRecommend.addEventListener("click", handleDraw);
-btnAgain.addEventListener("click", handleDraw);
 
 // 조건 변경과 초기화에 따라 기록을 갱신하는 부분 ①: 조건 변경
 // 세 조건 중 하나라도 바뀌면 이전 조건에서 뽑은 기록을 비우고 결과도 지워서 새 조건으로 처음부터 시작해요.
