@@ -6,7 +6,7 @@
 <title>집중 공부 타이머</title>
 <meta name="description" content="15분·25분·50분 중 공부 시간을 골라 카운트다운하고, 끝나면 5분 휴식으로 이어 주는 공부 타이머">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <meta name="design" content="컬러셋 C11 밤하늘과 보라 · 트렌드 T02 벤토 그리드 · #8b9cff">
 <style>
   /* ===== 글꼴: 전시판 공용 글꼴 (못 불러오면 아래 대체 글꼴로) ===== */
@@ -120,6 +120,7 @@
   .done-count { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; font-weight: 700; }
   .done-count .label { color: var(--muted); }
   .done-count .num { font-size: 1.6rem; line-height: 1.2; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+  .done-count .mins { color: var(--accent-text); font-variant-numeric: tabular-nums; }
   .done-count .save-note { flex-basis: 100%; font-size: 0.95rem; font-weight: 600; color: var(--warn); }
   .done-count .save-note[hidden] { display: none; }
 
@@ -180,8 +181,9 @@
     <p class="time" id="timeDisplay" aria-label="남은 시간">25:00</p>
     <p class="time-label" id="timeLabel">공부 25분 준비</p>
 
-    <!-- 오늘 집중 완료 횟수 (공부 타이머가 끝날 때마다 +1, 초기화·새로고침해도 유지, 날짜가 바뀌면 0) -->
-    <p class="done-count" id="doneCountBox"><span class="label">오늘 집중 완료:</span> <span><span class="num" id="doneCount">0</span>회</span><span class="save-note" id="saveNote" hidden></span></p>
+    <!-- 오늘 집중 완료 횟수와 누적 공부 시간 "N회 (M분)"
+         (공부 타이머가 끝날 때마다 횟수 +1, 시간 + 고른 모드 분. 초기화·새로고침해도 유지, 날짜가 바뀌면 0회 (0분)) -->
+    <p class="done-count" id="doneCountBox"><span class="label">오늘 집중 완료:</span> <span><span class="num" id="doneCount">0</span>회 <span class="mins" id="doneMinutes">(0분)</span></span><span class="save-note" id="saveNote" hidden></span></p>
 
     <!-- '휴식 시작' 버튼은 공부가 끝났을 때만 보인다 -->
     <button type="button" class="btn-rest" id="breakBtn" hidden>☕ 휴식 시작 (5분)</button>
@@ -214,7 +216,8 @@
   const BREAK_MINUTES = 5;      // 휴식 시간
   const PAGE_TITLE = document.title;
   const COUNT_KEY = 'sih26:20211:completedCount'; // 완료 횟수를 저장하는 이름표
-  const DATE_KEY = 'sih26:20211:lastDate';        // 그 횟수가 어느 날짜의 것인지 저장하는 이름표
+  const MINUTES_KEY = 'sih26:20211:completedMinutes'; // 누적 공부 시간(분)을 저장하는 이름표
+  const DATE_KEY = 'sih26:20211:lastDate';        // 그 횟수·시간이 어느 날짜의 것인지 저장하는 이름표
 
   // ===== 상태를 기억하는 변수들 =====
   // isTimerRunning: 지금 시간이 줄어들고 있는지(true) 멈춰 있는지(false)를 기억한다.
@@ -229,7 +232,8 @@
   let endTime = 0;               // 타이머가 끝날 '시각'(밀리초)
   let timerId = null;            // setInterval이 돌려준 번호. clearInterval로 멈출 때 필요하다.
   let completedCount = 0;        // 오늘 공부 타이머를 끝까지 마친 횟수 (브라우저에 저장, 날짜가 바뀌면 0)
-  let countDate = getToday();    // completedCount가 어느 날짜의 횟수인지
+  let completedMinutes = 0;      // 오늘 끝까지 마친 공부 시간의 합(분). 15분 모드를 마치면 +15 (날짜가 바뀌면 0)
+  let countDate = getToday();    // completedCount·completedMinutes가 어느 날짜의 기록인지
 
   // ===== 화면 요소 =====
   const statusBox = document.getElementById('status');
@@ -244,6 +248,7 @@
   const breakBtn = document.getElementById('breakBtn');
   const modeButtons = document.querySelectorAll('.mode');
   const doneCount = document.getElementById('doneCount');
+  const doneMinutes = document.getElementById('doneMinutes');
   const saveNote = document.getElementById('saveNote');
 
   // 오늘 날짜를 "2026-11-06" 모양의 글자로 만든다.
@@ -253,43 +258,61 @@
     return now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
   }
 
-  // 브라우저에 저장된 오늘 횟수를 읽는다. 날짜가 다르거나 값이 이상하면 0.
+  // 저장된 글자를 0 이상의 정수로 읽는다. 비었거나 이상한 값이면 0.
+  function toCount(text) {
+    const value = Number(text);
+    return Number.isInteger(value) && value > 0 ? value : 0;
+  }
+
+  // 브라우저에 저장된 오늘 횟수와 누적 시간(분)을 읽는다. 날짜가 다르거나 값이 이상하면 0.
+  // 시간 기록이 생기기 전(2회 개선)에 저장된 횟수는 그대로 읽고, 시간은 없으니 0분부터 센다.
   // 전시판 미리보기처럼 저장소가 막힌 곳에서는 접근 자체가 오류를 내므로 try로 감싼다.
-  function readSavedCount() {
+  function readSaved() {
     try {
-      if (localStorage.getItem(DATE_KEY) !== countDate) return 0;
-      const saved = Number(localStorage.getItem(COUNT_KEY));
-      return Number.isInteger(saved) && saved > 0 ? saved : 0;
+      if (localStorage.getItem(DATE_KEY) !== countDate) return { count: 0, minutes: 0 };
+      return {
+        count: toCount(localStorage.getItem(COUNT_KEY)),
+        minutes: toCount(localStorage.getItem(MINUTES_KEY))
+      };
     } catch (error) {
-      return 0;
+      return { count: 0, minutes: 0 };
     }
   }
 
-  // 횟수와 날짜를 브라우저에 저장한다. 실패해도 타이머는 그대로 동작하고, 저장 안 됨 안내만 보여 준다.
+  // 횟수·시간과 날짜를 브라우저에 저장한다. 실패해도 타이머는 그대로 동작하고, 저장 안 됨 안내만 보여 준다.
   function saveCount() {
     try {
       localStorage.setItem(COUNT_KEY, String(completedCount));
+      localStorage.setItem(MINUTES_KEY, String(completedMinutes));
       localStorage.setItem(DATE_KEY, countDate);
       saveNote.hidden = true;
     } catch (error) {
       // 전시판 미리보기(sandbox) 안에서는 페이지 주소의 출처가 "null"이다.
       const inPreview = window.origin === 'null' && location.protocol !== 'file:';
       saveNote.textContent = inPreview
-        ? '저장되지 않음 — 전시판 미리보기에서는 브라우저 저장이 막혀 있어요. 횟수를 남기려면 ‘새 탭 실행’으로 열어 주세요.'
-        : '저장되지 않음 — 이 환경에서는 브라우저 저장을 쓸 수 없어요. 새로고침하면 횟수가 사라져요.';
+        ? '저장되지 않음 — 전시판 미리보기에서는 브라우저 저장이 막혀 있어요. 횟수·시간을 남기려면 ‘새 탭 실행’으로 열어 주세요.'
+        : '저장되지 않음 — 이 환경에서는 브라우저 저장을 쓸 수 없어요. 새로고침하면 횟수·시간이 사라져요.';
       saveNote.hidden = false;
     }
   }
 
-  // 날짜가 바뀌었으면 횟수를 0으로 되돌리고, 저장된 횟수가 더 크면(다른 탭에서 완료 등) 그 값을 따른다.
-  // 저장이 막혀 있어도 메모리의 횟수는 지워지지 않는다.
+  // 날짜가 바뀌었으면 횟수와 시간을 0으로 되돌리고, 저장된 횟수가 더 크면(다른 탭에서 완료 등) 그 기록을 따른다.
+  // 저장이 막혀 있어도 메모리의 횟수·시간은 지워지지 않는다.
   function syncToday() {
     const today = getToday();
     if (countDate !== today) {
       countDate = today;
       completedCount = 0;
+      completedMinutes = 0;
     }
-    completedCount = Math.max(completedCount, readSavedCount());
+    const saved = readSaved();
+    if (saved.count > completedCount) {
+      // 횟수와 시간은 한 쌍이라 함께 가져온다.
+      completedCount = saved.count;
+      completedMinutes = saved.minutes;
+    } else if (saved.count === completedCount) {
+      completedMinutes = Math.max(completedMinutes, saved.minutes);
+    }
   }
 
   // 초(예: 1500)를 "25:00" 모양의 글자로 바꾼다.
@@ -330,7 +353,9 @@
       timeLabel.textContent = '공부 ' + selectedMinutes + '분' + (phase === 'idle' ? ' 준비' : '');
     }
 
+    // "2회 (75분)" 모양으로 보여 준다. 0회일 때도 "0회 (0분)".
     doneCount.textContent = String(completedCount);
+    doneMinutes.textContent = '(' + completedMinutes + '분)';
 
     startBtn.textContent = isPaused ? '이어서 시작' : '시작';
     breakBtn.hidden = phase !== 'breakReady';
@@ -359,6 +384,7 @@
         phase = 'breakReady';
         syncToday();         // 공부하는 동안 날짜가 바뀌었을 수도 있어서 먼저 맞춘다
         completedCount += 1; // 공부 타이머가 끝났을 때만 센다 (휴식 끝은 세지 않음)
+        completedMinutes += selectedMinutes; // 이번에 마친 모드의 시간(15·25·50분)을 더한다
         saveCount();
         remainingSeconds = 0; // 00:00에서 멈춘 채로 휴식 시작을 기다린다
         render();
