@@ -7,7 +7,7 @@
 <title>한눈에 보는 교과목 연계 지도</title>
 <meta name="description" content="과목을 카드로, 선수-후속 관계를 화살표로 이어 과목 간 연계를 그래프로 한눈에 보는 도구">
   <meta name="class" content="M반 (2-8)">
-  <meta name="status" content="3회 개선">
+  <meta name="status" content="4회 개선">
   <meta name="design" content="컬러셋 C1 흰 종이와 파랑 · 트렌드 T04 에디토리얼 · #2563eb">
 
 <!-- ===== 2. 스타일 ===== -->
@@ -155,8 +155,13 @@
   .flow-step + .flow-step::before { content: "↓"; display: block; color: var(--accent); font-weight: 700; font-size: 20px; line-height: 1; padding: 0 0 6px 12px; }
   .flow-label { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--ink-soft); }
   .flow-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .flow-chip { padding: 6px 12px; background: var(--panel); border: 2px solid var(--accent); color: var(--ink); font-weight: 500; line-height: 1.3; }
+  .flow-chip { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 12px; background: var(--panel); border: 2px solid var(--accent); border-radius: 0; color: var(--ink); font-size: 17px; font-weight: 500; line-height: 1.3; text-align: left; }
+  /* 선수·후속 과목 칸은 누르면 그 과목으로 옮겨 가는 버튼 */
+  button.flow-chip { cursor: pointer; }
+  button.flow-chip::after { content: "↗"; margin-left: 6px; font-size: 14px; color: var(--accent); }
+  button.flow-chip:hover { background: #e8efff; text-decoration: underline; text-underline-offset: 3px; }
   .flow-step.is-selected .flow-chip { background: var(--accent); color: #fff; font-family: var(--serif); font-weight: 700; }
+  .flow-step.is-selected .flow-chip:focus { outline: 3px solid var(--accent); outline-offset: 2px; }
   .flow-step.is-none .flow-chip { background: var(--bg); border: 1px dashed var(--line); color: var(--ink-soft); }
   @media (min-width: 600px) {
     .flow-steps { flex-direction: row; flex-wrap: wrap; align-items: flex-end; gap: 12px 0; }
@@ -166,7 +171,12 @@
   }
 
   /* 선택 결과: 상자 없이 가는 줄로만 나누고, 선택한 과목은 잡지 인용구처럼 명조로 크게 */
-  .selection-info { margin: 27px 0 0; padding: 0; max-width: 40em; border-top: 1px solid var(--ink); }
+  /* 상세 글 설명: 기본은 접어 두고 버튼으로 펼치기/접기 */
+  .detail { margin: 24px 0 0; }
+  .detail[hidden] { display: none; }
+  .btn-detail::after { content: " ▾"; }
+  .btn-detail[aria-expanded="true"]::after { content: " ▴"; }
+  .selection-info { margin: 15px 0 0; padding: 0; max-width: 40em; border-top: 1px solid var(--ink); }
   .selection-info[hidden] { display: none; }
   .selection-info p { margin: 0; padding: 12px 0; border-bottom: 1px solid var(--rule); }
   .selection-info p:first-child { padding: 18px 0 15px; }
@@ -246,10 +256,13 @@
       </div>
       <section class="flow" id="flow" hidden aria-labelledby="h-flow">
         <h3 id="h-flow">선택한 과목 연계 흐름 모아보기</h3>
-        <p class="hint">왼쪽(위)부터 차례로 들으면 되는 순서예요. 같은 단계에 있는 과목은 함께 묶었어요.</p>
+        <p class="hint">왼쪽(위)부터 차례로 들으면 되는 순서예요. 같은 단계에 있는 과목은 함께 묶었어요. 선수·후속 과목 칸(↗)을 누르면 그 과목으로 바로 옮겨 가요.</p>
         <ol class="flow-steps" id="flow-steps"></ol>
       </section>
-      <div class="selection-info" id="selection-info" hidden aria-live="polite"></div>
+      <div class="detail" id="detail" hidden>
+        <button type="button" class="btn-line btn-detail" id="btn-detail" aria-expanded="false" aria-controls="selection-info">상세 글 설명 보기</button>
+        <div class="selection-info" id="selection-info" hidden></div>
+      </div>
 
       <section class="summary" aria-labelledby="h-summary">
         <h3 id="h-summary">연결 요약 (글로 보기)</h3>
@@ -301,6 +314,7 @@ const CARD_W = 132, CARD_H = 56, GAP_X = 16, GAP_Y = 52, PAD = 16;
 // ===== 5. 데이터·상태 =====
 let graph = { nodes: [], edges: [] };  // 그래프 = 노드 배열 + 간선 배열
 let selectedId = null;                  // 지금 눌러 둔 과목 카드
+let detailOpen = false;                 // 상세 글 설명을 펼쳤는지 (과목을 새로 고르면 다시 접힘)
 let storageOk = true;                   // 브라우저 저장이 되는지
 
 // ===== 6. 처리 함수 =====
@@ -443,7 +457,7 @@ function deleteSubject(id) {
   if (!node) return { ok: false, text: "이미 지워진 과목이에요." };
   graph.nodes = graph.nodes.filter(n => n.id !== id);
   graph.edges = graph.edges.filter(e => e.from !== id && e.to !== id);
-  if (selectedId === id) selectedId = null;  // 강조 중이던 과목이면 강조도 해제
+  if (selectedId === id) selectSubject(null);  // 강조 중이던 과목이면 강조도 해제
   saveGraph();
   return { ok: true, text: `'${node.name}' 과목을 삭제했어요.` };
 }
@@ -452,8 +466,14 @@ function deleteSubject(id) {
 function resetGraph() {
   clearSaved();
   graph = makeSampleGraph();
-  selectedId = null;
+  selectSubject(null);
   saveGraph();
+}
+
+// 기준 과목 바꾸기 (null = 선택 해제). 과목이 바뀌면 상세 글 설명은 다시 접는다
+function selectSubject(id) {
+  if (id !== selectedId) detailOpen = false;
+  selectedId = id;
 }
 
 // 과목마다 몇 번째 줄(층)에 둘지 계산: 선수 과목이 있으면 그보다 한 줄 아래
@@ -641,11 +661,16 @@ function drawMap() {
   });
 }
 
-// 선택한 과목의 연계 흐름을 글로 보여 주기
+// 선택한 과목의 연계 흐름을 글로 보여 주기 (기본은 접힘, [상세 글 설명 보기]로 펼침)
 function drawSelectionInfo() {
+  const wrap = document.getElementById("detail");
+  const btn = document.getElementById("btn-detail");
   const box = document.getElementById("selection-info");
   box.innerHTML = "";
-  if (selectedId === null || !findNode(selectedId)) { box.hidden = true; return; }
+  if (selectedId === null || !findNode(selectedId)) { wrap.hidden = true; box.hidden = true; return; }
+  wrap.hidden = false;
+  btn.setAttribute("aria-expanded", detailOpen ? "true" : "false");
+  btn.textContent = detailOpen ? "상세 글 설명 접기" : "상세 글 설명 보기";
   const adj = buildAdjacency();
   const names = set => [...set].map(id => findNode(id).name);
   const pre = names(reachable(selectedId, adj.prev));
@@ -661,7 +686,7 @@ function drawSelectionInfo() {
     else p.textContent = t;
     box.appendChild(p);
   });
-  box.hidden = false;
+  box.hidden = !detailOpen;
 }
 
 // 연계 흐름 모아보기: 선수 과목 ➔ 선택한 과목 ➔ 후속 과목을 지도의 줄(층) 순서대로 단계별로 묶어 보여 주기
@@ -676,14 +701,15 @@ function drawFlow() {
   const byLevel = set => {
     const groups = {};
     graph.nodes.filter(n => set.has(n.id)).forEach(n => {
-      (groups[level[n.id]] = groups[level[n.id]] || []).push(n.name);
+      (groups[level[n.id]] = groups[level[n.id]] || []).push(n);
     });
     return Object.keys(groups).map(Number).sort((a, b) => a - b).map(lv => groups[lv]);
   };
   const preSteps = byLevel(reachable(selectedId, adj.prev));
   const postSteps = byLevel(reachable(selectedId, adj.next));
 
-  const addStep = (label, names, kind) => {
+  // kind: "none"(없음) · "selected"(지금 기준 과목) → 보기 전용 칸 / 그 밖(선수·후속) → 누르면 이동하는 버튼
+  const addStep = (label, nodes, kind) => {
     const li = document.createElement("li");
     li.className = "flow-step" + (kind ? " is-" + kind : "");
     const inner = document.createElement("div");
@@ -692,21 +718,29 @@ function drawFlow() {
     lab.textContent = label;
     const chips = document.createElement("span");
     chips.className = "flow-chips";
-    names.forEach(name => {
-      const chip = document.createElement("span");
+    nodes.forEach(n => {
+      const chip = document.createElement(kind ? "span" : "button");
       chip.className = "flow-chip";
-      chip.textContent = name;   // 사용자 입력은 textContent로 안전하게
+      chip.textContent = n.name;   // 사용자 입력은 textContent로 안전하게
+      if (kind === "selected") {
+        chip.id = "flow-current";
+        chip.tabIndex = -1;          // 이동한 뒤 초점을 받을 자리
+      } else if (!kind) {
+        chip.type = "button";
+        chip.dataset.id = n.id;
+        chip.setAttribute("aria-label", `${n.name} 과목으로 이동해 연계 흐름 보기`);
+      }
       chips.appendChild(chip);
     });
     inner.append(lab, chips);
     li.appendChild(inner);
     list.appendChild(li);
   };
-  if (preSteps.length === 0) addStep("선수 과목", ["없음"], "none");
-  preSteps.forEach((names, i) => addStep(`선수 과목 ${i + 1}단계`, names));
-  addStep("선택한 과목", [findNode(selectedId).name], "selected");
-  postSteps.forEach((names, i) => addStep(`후속 과목 ${i + 1}단계`, names));
-  if (postSteps.length === 0) addStep("후속 과목", ["없음"], "none");
+  if (preSteps.length === 0) addStep("선수 과목", [{ name: "없음" }], "none");
+  preSteps.forEach((nodes, i) => addStep(`선수 과목 ${i + 1}단계`, nodes));
+  addStep("선택한 과목", [findNode(selectedId)], "selected");
+  postSteps.forEach((nodes, i) => addStep(`후속 과목 ${i + 1}단계`, nodes));
+  if (postSteps.length === 0) addStep("후속 과목", [{ name: "없음" }], "none");
   box.hidden = false;
 }
 
@@ -796,10 +830,28 @@ document.getElementById("map").addEventListener("click", ev => {
   const card = ev.target.closest(".node");
   if (!card) return;
   const id = Number(card.dataset.id);
-  selectedId = (selectedId === id) ? null : id;
+  selectSubject(selectedId === id ? null : id);
   render();
   const again = document.querySelector(`.node[data-id="${id}"]`);
   if (again) again.focus();
+});
+
+// 모아보기의 선수·후속 과목 칸: 누르면 그 과목이 새 기준 과목이 된다 (지도 강조도 함께 바뀜)
+document.getElementById("flow-steps").addEventListener("click", ev => {
+  const chip = ev.target.closest("button.flow-chip");
+  if (!chip) return;
+  const id = Number(chip.dataset.id);
+  if (!findNode(id)) return;
+  selectSubject(id);
+  render();
+  const current = document.getElementById("flow-current");
+  if (current) current.focus();   // 위로 올라가지 않고 모아보기 안에서 이어서 탐색
+});
+
+// 상세 글 설명 펼치기/접기
+document.getElementById("btn-detail").addEventListener("click", () => {
+  detailOpen = !detailOpen;
+  drawSelectionInfo();
 });
 
 // 요약 목록의 [삭제] 버튼: 연결 하나 또는 과목 하나만 지운다
