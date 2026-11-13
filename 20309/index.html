@@ -6,7 +6,7 @@
 <title>마인크래프트 다단계 아이템 재료 계산기</title>
 <meta name="description" content="만들 아이템과 개수를 고르면 단계별 조합 트리, 창고에서 챙길 기본 원재료 총합, 올림 조합 횟수와 남는 재료, 64개 세트 단위를 계산해 주는 마인크래프트 재료 계산기">
 <meta name="class" content="M반 (2-8)">
-<meta name="status" content="2회 개선">
+<meta name="status" content="3회 개선">
 <style>
   :root {
     --bg: #f5f6f3;
@@ -167,6 +167,16 @@
     border-radius: 8px; background: var(--fuel-weak); color: var(--text);
     font-size: 1rem;
   }
+  .restore-note { margin: 10px 0 0; font-size: 1rem; color: var(--accent); font-weight: 600; }
+  /* 인벤토리 운반 횟수 상자 (요약 목록 아래) */
+  .carry {
+    margin: 14px 0 0; padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: 8px; background: #f7f8f6;
+  }
+  .carry h3 { font-size: 1.05rem; margin: 0 0 4px; line-height: 1.4; }
+  .carry p { margin: 0; }
+  .carry .carry-main { font-weight: 600; }
+  .carry .carry-detail { margin-top: 6px; font-size: 1rem; color: var(--muted); }
 
   /* 영역 B: 단계별 조합 트리 (들여쓰기, 파란 계열) */
   .area-b { border-color: #b3c3e3; }
@@ -276,12 +286,22 @@
             <td>빈칸, 0, -5, 1000 입력 / 정상 숫자로 [계산하기] 5번 연속</td>
             <td>안내 문구가 뜨고 계산하지 않음 / 결과는 한 벌만 보임</td>
           </tr>
+          <tr>
+            <td>챙김 표시 유지</td>
+            <td>책장 11개 계산 → 원목 체크 → [계산하기] 다시 누름 / [초기화] 후 다시 계산</td>
+            <td>같은 아이템·개수면 원목 체크가 남음 / 초기화하면 체크가 모두 풀림</td>
+          </tr>
+          <tr>
+            <td>인벤토리 운반 횟수</td>
+            <td>신호기 999개 계산</td>
+            <td>모래 79칸 + 흑요석 47칸 + 네더의 별 16칸 + 석탄 10칸 = 152칸 → 36칸씩 5번에 나눠 옮김</td>
+          </tr>
         </tbody>
       </table>
     </div>
   </details>
 
-  <p class="foot">이 계산기는 입력한 내용을 브라우저에 저장하지 않아요. [초기화]나 새로고침을 하면 처음 화면으로 돌아가요.</p>
+  <p class="foot">이 계산기는 마지막으로 계산한 목록의 챙김 표시만 이 브라우저에 저장해요. 같은 아이템·개수로 다시 계산하면 체크가 그대로 남고, [초기화]를 누르면 체크도 모두 지워져요. 저장이 막힌 환경(전시판 미리보기 등)에서는 새로고침하면 체크가 사라져요.</p>
 </div>
 
 <script>
@@ -374,6 +394,25 @@ function craftTimes(need, outputCount) {
 const SMELTS_PER_COAL = 8;
 function coalNeeded(smelts) {
   return Math.ceil(smelts / SMELTS_PER_COAL);
+}
+
+// =====================================================================
+// ③-3 인벤토리 칸 수와 운반 횟수
+// ---------------------------------------------------------------------
+// 플레이어 인벤토리는 36칸(핫바 9칸 + 가방 27칸)이고, 한 칸에는 같은 재료만 64개까지 들어가요.
+// 서로 다른 재료는 한 칸에 섞을 수 없으니 "전체 개수 ÷ 2,304"가 아니라 재료마다 칸을 따로 세요.
+//   재료 하나의 칸 수 = Math.ceil(개수 ÷ 64)      예) 사탕수수 99개 → 2칸
+//   모든 재료의 칸 수를 더한 값 = 총 칸 수
+//   운반 횟수 = Math.ceil(총 칸 수 ÷ 36)          예) 152칸 → 4.2… → 5번
+// 빈 인벤토리(도구나 다른 블록을 들고 있지 않음)를 기준으로 계산해요.
+// =====================================================================
+const STACK_SIZE = 64;
+const INVENTORY_SLOTS = 36;
+function slotsFor(count) {
+  return Math.ceil(count / STACK_SIZE);
+}
+function tripsFor(slots) {
+  return Math.ceil(slots / INVENTORY_SLOTS);
 }
 
 function setText(count) {
@@ -557,15 +596,77 @@ function resultCard(areaClass, stepNo, titleId, titleText, desc) {
   return { card: card, body: body };
 }
 
+// =====================================================================
+// ④ 챙김 표시(체크) 기억하기
+// ---------------------------------------------------------------------
+// 마지막으로 계산한 목록 하나의 체크 상태만 기억해요.
+//   checkState = { item: 아이템 이름표, count: 제작 개수, checked: [체크한 재료 이름표들] }
+// 같은 아이템·같은 개수로 다시 계산하면 이 기억을 꺼내 체크를 되살리고,
+// 다른 아이템이나 개수로 계산하면 새 목록이므로 빈 체크로 새로 시작해요.
+// 기억은 변수(checkState)에 먼저 두고, localStorage에도 저장해서 새로고침 뒤에도 남겨요.
+// 저장이 막힌 환경(예: 전시판 미리보기)에서는 변수만 써요 → 새로고침 전까지만 유지돼요.
+// [초기화]를 누르면 변수와 저장된 값을 모두 지워요.
+// =====================================================================
+const STORE_KEY = "sih26:20309:checks";
+let checkState = loadChecks();
+
+function loadChecks() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    // 저장된 값의 모양이 맞을 때만 사용 (깨진 값은 무시)
+    if (d && typeof d.item === "string" && ITEMS[d.item] &&
+        Number.isInteger(d.count) && Array.isArray(d.checked)) {
+      return { item: d.item, count: d.count,
+               checked: d.checked.filter(function (x) { return typeof x === "string"; }) };
+    }
+  } catch (e) { /* 저장소를 못 쓰거나 값이 깨졌으면 기억 없이 시작 */ }
+  return null;
+}
+
+function saveChecks() {
+  try {
+    if (checkState) localStorage.setItem(STORE_KEY, JSON.stringify(checkState));
+    else localStorage.removeItem(STORE_KEY);
+  } catch (e) { /* 저장이 막혀도 화면 기능은 그대로 */ }
+}
+
+// 이번 계산(아이템·개수)에 맞는 체크 기억을 준비한다. 되살린 체크 개수를 돌려준다.
+function prepareChecks(itemId, count) {
+  if (checkState && checkState.item === itemId && checkState.count === count) {
+    return checkState.checked.length;
+  }
+  checkState = { item: itemId, count: count, checked: [] };
+  saveChecks();
+  return 0;
+}
+
+function setChecked(key, on) {
+  if (!checkState) return;
+  const i = checkState.checked.indexOf(key);
+  if (on && i === -1) checkState.checked.push(key);
+  if (!on && i !== -1) checkState.checked.splice(i, 1);
+  saveChecks();
+}
+
+function clearChecks() {
+  checkState = null;
+  saveChecks();
+}
+
 // 요약 목록 한 줄: 맨 앞 체크박스로 "챙김" 표시를 켜고 끈다.
-// 체크 상태는 화면에서만 바뀌고 저장하지 않아요. (다시 계산하면 모두 풀려요)
-function sumRow(name, badgeEl, count, extraClass) {
+// key는 체크를 기억할 때 쓰는 재료 이름표예요. (석탄은 "coal")
+function sumRow(key, name, badgeEl, count, extraClass) {
   const li = el("li", extraClass || "");
   const row = el("label", "sum-check");
   const box = document.createElement("input");
   box.type = "checkbox";
+  box.checked = !!checkState && checkState.checked.indexOf(key) !== -1;
+  li.classList.toggle("checked", box.checked);
   box.addEventListener("change", function () {
     li.classList.toggle("checked", box.checked);
+    setChecked(key, box.checked);
   });
   row.appendChild(box);
   const label = el("span", "sum-label");
@@ -581,6 +682,50 @@ function sumRow(name, badgeEl, count, extraClass) {
   return li;
 }
 
+// 인벤토리 운반 안내 상자: 재료마다 칸 수를 세고 더한 뒤, 36칸씩 몇 번에 옮길지 알려 준다.
+function carryBox(items) {
+  let totalSlots = 0;
+  const parts = [];
+  for (const pair of items) {
+    const slots = slotsFor(pair[1]);
+    totalSlots += slots;
+    parts.push(pair[0] + " " + slots + "칸");
+  }
+  const trips = tripsFor(totalSlots);
+
+  const box = el("div", "carry");
+  box.setAttribute("role", "group");
+  box.setAttribute("aria-labelledby", "carryTitle");
+  const h = el("h3", "", "인벤토리 운반 횟수 (36칸 기준)");
+  h.id = "carryTitle";
+  box.appendChild(h);
+
+  let main = "총 필요한 재료는 인벤토리 칸 수 기준으로 총 " + totalSlots + "칸을 차지하며, ";
+  if (trips <= 1) {
+    main += "인벤토리 36칸 안에 들어가서 창고에서 한 번에 모두 옮길 수 있어요.";
+  } else {
+    main += "창고에서 " + trips + "번에 나누어 옮겨야 해요.";
+  }
+  const mainP = el("p", "carry-main", main);
+  mainP.id = "carryMain";
+  box.appendChild(mainP);
+
+  let detail = "재료마다 64개가 한 칸: " + parts.join(" + ") + " = " + totalSlots + "칸.";
+  if (trips > 1) {
+    const lastSlots = totalSlots - (trips - 1) * INVENTORY_SLOTS;
+    if (lastSlots === INVENTORY_SLOTS) {
+      detail += " 36칸을 꽉 채워 " + trips + "번 옮기면 돼요.";
+    } else {
+      detail += " 36칸을 꽉 채워 " + (trips - 1) + "번 옮기고, 마지막 " + trips + "번째에는 " + lastSlots + "칸만 옮기면 돼요.";
+    }
+  } else {
+    detail += " 인벤토리에 " + (INVENTORY_SLOTS - totalSlots) + "칸이 남아요.";
+  }
+  detail += " (빈 인벤토리 기준이라 도구나 다른 물건을 들고 있으면 칸이 줄어요.)";
+  box.appendChild(el("p", "carry-detail", detail));
+  return box;
+}
+
 function calculate() {
   const n = readCount();
   if (n === null) {
@@ -592,6 +737,7 @@ function calculate() {
 
   const tree = calcNode(itemSelect.value, n);
   const totals = collectBase(tree, new Map());
+  const restored = prepareChecks(itemSelect.value, n); // 같은 아이템·개수면 체크를 되살림
 
   // 이전 결과를 완전히 비우고 새로 그린다 (연타해도 결과가 쌓이지 않음)
   resultArea.innerHTML = "";
@@ -601,8 +747,10 @@ function calculate() {
     "창고에서 챙길 기본 원재료 (" + tree.item.name + " " + n + "개)",
     "이 목록대로 창고에서 꺼내 가면 돼요. 챙긴 재료는 눌러서 체크해 두세요.");
   const list = el("ul", "sum-list");
+  const carryItems = []; // 인벤토리 칸 계산용: [이름, 개수]
   totals.forEach(function (count, id) {
-    list.appendChild(sumRow(ITEMS[id].name, badge("base"), count));
+    list.appendChild(sumRow(id, ITEMS[id].name, badge("base"), count));
+    carryItems.push([ITEMS[id].name, count]);
   });
 
   // 화로 제련이 있으면 석탄 필요량을 같은 목록 맨 아래에 함께 보여 준다
@@ -617,7 +765,8 @@ function calculate() {
     });
     const coal = coalNeeded(totalSmelts);                 // 모두 더한 뒤 한 번만 올림
     const spare = coal * SMELTS_PER_COAL - totalSmelts;   // 남는 제련 가능 횟수
-    list.appendChild(sumRow("석탄", el("span", "badge fuel", "[화로 연료]"), coal, "fuel-row"));
+    list.appendChild(sumRow("coal", "석탄", el("span", "badge fuel", "[화로 연료]"), coal, "fuel-row"));
+    carryItems.push(["석탄", coal]);
     let text = "화로 제련 " + parts.join(" + ");
     if (parts.length > 1) text += " = 모두 " + totalSmelts + "번";
     text += " → 석탄 1개로 " + SMELTS_PER_COAL + "번 제련하니 석탄 " + coal + "개가 필요해요(올림).";
@@ -626,7 +775,12 @@ function calculate() {
     fuelNote = el("p", "fuel-note", text);
   }
   a.body.appendChild(list);
+  if (restored > 0) {
+    a.body.appendChild(el("p", "restore-note",
+      "같은 계산이라 챙김 표시 " + restored + "개를 그대로 남겨 뒀어요. 처음부터 다시 체크하려면 [초기화]를 눌러 주세요."));
+  }
   if (fuelNote) a.body.appendChild(fuelNote);
+  a.body.appendChild(carryBox(carryItems));
   resultArea.appendChild(a.card);
 
   // 영역 B: 단계별 조합 트리 상세
@@ -641,6 +795,7 @@ function calculate() {
 function resetAll() {
   itemSelect.value = DEFAULT_ITEM;
   countInput.value = "";
+  clearChecks();        // 챙김 표시 기억도 함께 지운다
   clearError();
   showGuide();
   showTip();
@@ -663,7 +818,12 @@ document.getElementById("exBookshelf").addEventListener("click", function () { r
 document.getElementById("exPiston").addEventListener("click", function () { runExample("piston", 1); });
 itemSelect.addEventListener("change", showTip);
 
-resetAll();
+// 처음 열 때: 화면만 처음 상태로 (저장된 챙김 표시는 지우지 않음 → 새로고침 뒤 같은 계산을 하면 되살아남)
+itemSelect.value = DEFAULT_ITEM;
+countInput.value = "";
+clearError();
+showGuide();
+showTip();
 </script>
 </body>
 </html>
