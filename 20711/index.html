@@ -7,30 +7,82 @@
 <meta name="description" content="내가 만든 빵 레시피를 직접 적어 카테고리별로 오른쪽 요리책 인덱스 탭에 모아 두고, 끝낸 단계를 눌러 줄을 그어 가며 요리 흐름을 확인하는 주방용 레시피 메모지">
   <meta name="class" content="M반 (2-8)">
   <meta name="status" content="4회 개선">
+  <meta name="design" content="컬러셋 C9 흙과 올리브 · 트렌드 T13 Y2K 크롬 · #5f6b3a">
 <style>
+  @font-face { font-family: "Gowun Dodum"; src: url("../assets/fonts/GowunDodum-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  /* 디자인: 컬러셋 C9 흙과 올리브 + 트렌드 T13 Y2K 크롬(맨 위 배너 한 줄) */
   :root {
-    --bg: #fafaf8;
-    --surface: #ffffff;
-    --text: #1f2328;
-    --muted: #6b7078;
-    --done: #9aa0a6;
-    --line: #e3e3de;
-    --field: #767b82;         /* 입력칸 테두리 */
-    --accent: #2f6b4f;        /* 선택된 인덱스 탭 색 */
-    --accent-soft: #e8f1ec;   /* 선택 안 된 인덱스 탭 색 */
+    --bg: #f3ece2;
+    --surface: #faf6ef;
+    --text: #2f2a22;
+    --muted: #5e5444;
+    --done: #5e5444;          /* 완료한 단계 글씨 (줄 긋기 + '완료' 글자로도 구분) */
+    --line: #ddd0bd;          /* 카드·작은 항목 테두리 */
+    --field: #5e5444;         /* 입력칸·보조 버튼 테두리 */
+    --accent: #5f6b3a;        /* 선택된 탭·가장 중요한 버튼 */
+    --accent-ink: #8a4b2a;    /* 바탕 위 강조 글자 */
+    --block: #eadcc6;         /* 선택 안 된 인덱스 탭 색 */
     --error: #b42318;
+    --btn-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45), 0 4px 12px color-mix(in srgb, #5f6b3a 35%, transparent);
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-family: "Gowun Dodum", system-ui, -apple-system, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
     font-size: 17px;
     line-height: 1.7;
     word-break: keep-all;
     overflow-wrap: break-word;
   }
+
+  /* Y2K 크롬 배너: 맨 위 한 줄, 어두운 바탕 위 크롬 글자 (장식) */
+  .y2k-banner {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px 12px;
+    background: #111111;
+    overflow: hidden;
+  }
+  .y2k-banner::after {   /* 아래쪽 홀로그램 빛줄 */
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #b8c0cc, #a8e6ff, #e3c8ff, #fff1b8, #b8f0d8, #b8c0cc);
+    opacity: 0.85;
+  }
+  .y2k-banner .chrome {
+    background: linear-gradient(180deg,#fff 0%,#b8c0cc 45%,#5b6472 50%,#e9edf2 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-size: clamp(1.15rem, 5.5vw, 1.6rem);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+  .y2k-banner .spark {
+    display: inline-block;
+    color: #e9edf2;
+    font-size: 1rem;
+    line-height: 1;
+    animation: twinkle 2.8s ease-in-out infinite;
+  }
+  .y2k-banner .spark:last-child { animation-delay: 1.4s; }
+  @keyframes twinkle {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.75); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .y2k-banner .spark { animation: none; }
+  }
+
   main {
     max-width: 44rem;
     margin: 0 auto;
@@ -43,7 +95,7 @@
   .save-note[hidden] { display: none; }
 
   button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
-    outline: 3px solid #1a5fb4;
+    outline: 3px solid var(--text);
     outline-offset: 2px;
   }
 
@@ -56,28 +108,28 @@
     align-items: flex-end;
     gap: 6px;
     margin-bottom: -1px;
-    padding: 0 8px;
+    padding: 0 20px;
   }
   .cat-tabs { display: contents; }
   .cat-tab, .cat-add {
     min-height: 44px;
     max-width: 100%;
-    padding: 6px 14px;
+    padding: 6px 16px;
     font: inherit;
     font-size: 0.92rem;
     font-weight: 600;
     line-height: 1.35;
-    border-radius: 10px 10px 0 0;
+    border-radius: 22px 22px 0 0;
     cursor: pointer;
     overflow-wrap: anywhere;
   }
   .cat-tab {
-    background: var(--accent-soft);
+    background: var(--block);
     color: var(--text);
-    border: 1px solid #b9cfc2;
+    border: 1px solid var(--field);
     border-bottom: none;
   }
-  .cat-tab:hover { background: #d6e6dc; }
+  .cat-tab:hover { background: var(--line); }
   .cat-tab[aria-pressed="true"] {
     background: var(--accent);
     border-color: var(--accent);
@@ -85,31 +137,31 @@
   }
   .cat-add {
     background: var(--surface);
-    color: var(--accent);
-    border: 2px dashed var(--accent);
+    color: var(--accent-ink);
+    border: 1px dashed var(--field);
     border-bottom: none;
     font-weight: 700;
   }
-  .cat-add:hover { background: var(--accent-soft); }
+  .cat-add:hover { background: var(--bg); }
   .cat-form {
     display: grid;
     gap: 6px;
     margin: 0 0 16px;
-    padding: 12px;
+    padding: 16px;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 24px;
   }
   .cat-form[hidden] { display: none; }
   .cat-form label { font-weight: 700; }
   .cat-form input {
     width: 100%;
     font: inherit;
-    padding: 8px 10px;
+    padding: 8px 12px;
     background: var(--surface);
     color: var(--text);
     border: 1px solid var(--field);
-    border-radius: 8px;
+    border-radius: 12px;
   }
 
   /* 요리책: 왼쪽은 레시피 페이지, 오른쪽은 인덱스(견출지) 탭 */
@@ -125,34 +177,34 @@
     padding: 20px 16px;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 10px 0 10px 10px;
+    border-radius: 24px;
   }
   .index {
     display: grid;
     gap: 6px;
-    padding-top: 14px;
+    padding-top: 28px;
   }
   .tabs { display: grid; gap: 6px; }
   .tab {
     width: calc(100% - 8px);
     min-height: 52px;
     margin-left: -1px;
-    padding: 8px 8px 8px 10px;
+    padding: 8px 10px 8px 10px;
     font: inherit;
     font-size: 0.92rem;
     font-weight: 600;
     line-height: 1.35;
     text-align: left;
-    background: var(--accent-soft);
+    background: var(--block);
     color: var(--text);
-    border: 1px solid #b9cfc2;
+    border: 1px solid var(--field);
     border-left: none;
-    border-radius: 0 10px 10px 0;
+    border-radius: 0 26px 26px 0;
     cursor: pointer;
     overflow-wrap: anywhere;
     transition: width 0.15s ease, background-color 0.15s ease;
   }
-  .tab:hover { background: #d6e6dc; }
+  .tab:hover { background: var(--line); }
   /* 선택된 탭: 페이지에 붙은 채로 바깥으로 살짝 더 튀어나오고 진한 색 */
   .tab[aria-pressed="true"] {
     position: relative;
@@ -161,25 +213,25 @@
     background: var(--accent);
     border-color: var(--accent);
     color: #fff;
-    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--btn-shadow);
   }
   .add-btn {
     width: calc(100% - 8px);
     min-height: 52px;
     margin-top: 4px;
-    padding: 8px;
+    padding: 8px 10px 8px 8px;
     font: inherit;
     font-size: 0.9rem;
     font-weight: 700;
     line-height: 1.35;
     background: var(--surface);
-    color: var(--accent);
-    border: 2px dashed var(--accent);
+    color: var(--accent-ink);
+    border: 1px dashed var(--field);
     border-left: none;
-    border-radius: 0 10px 10px 0;
+    border-radius: 0 26px 26px 0;
     cursor: pointer;
   }
-  .add-btn:hover { background: var(--accent-soft); }
+  .add-btn:hover { background: var(--bg); }
   /* 휴지통 탭: 레시피 탭과 구분되게 무채색 (선택되면 다른 탭처럼 진한 색) */
   .tab-trash {
     margin-top: 4px;
@@ -191,8 +243,8 @@
   .placeholder {
     margin: 0;
     padding: 20px 16px;
-    border: 1px dashed #c9c9c2;
-    border-radius: 10px;
+    border: 1px dashed var(--field);
+    border-radius: 12px;
     color: var(--muted);
   }
   .hint { margin: 0 0 10px; color: var(--muted); font-size: 0.95rem; }
@@ -204,7 +256,7 @@
     padding: 8px 12px 8px 6px;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 12px;
     color: var(--text);
     word-break: keep-all;
   }
@@ -223,14 +275,14 @@
   .step-num {
     width: 28px; height: 28px;
     border-radius: 50%;
-    border: 2px solid var(--accent);
-    color: var(--accent);
+    border: 2px solid var(--accent-ink);
+    color: var(--accent-ink);
     font-weight: 700;
     font-size: 0.9rem;
     display: grid;
     place-items: center;
   }
-  .num-btn:hover .step-num { background: var(--accent-soft); }
+  .num-btn:hover .step-num { background: var(--block); }
   /* 새 단계를 적는 줄의 번호 자리 (아직 완료 체크 대상이 아니라 버튼이 아님) */
   .num-slot {
     flex: none;
@@ -253,7 +305,7 @@
     padding: 0;
     background: none;
     border: none;
-    border-radius: 8px;
+    border-radius: 12px;
     color: var(--muted);
     cursor: grab;
     touch-action: none;
@@ -266,7 +318,7 @@
   .steps > li.dragging { position: relative; z-index: 5; }
   .steps > li.dragging .step {
     border-color: var(--accent);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 6px 16px rgba(47, 42, 34, 0.2);
   }
   .steps > li.dragging .drag-handle { cursor: grabbing; }
 
@@ -280,7 +332,7 @@
     text-align: left;
     background: none;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: text;
     -webkit-user-select: none;
     user-select: none;
@@ -297,11 +349,11 @@
   .inline-edit input, .inline-edit textarea {
     width: 100%;
     font: inherit;
-    padding: 8px 10px;
+    padding: 8px 12px;
     background: var(--surface);
     color: var(--text);
     border: 1px solid var(--field);
-    border-radius: 8px;
+    border-radius: 12px;
   }
   .inline-edit textarea { resize: vertical; }
   .inline-error { margin: 0; color: var(--error); font-weight: 600; font-size: 0.92rem; }
@@ -309,7 +361,7 @@
   .inline-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
   /* 완료한 단계: 글씨가 연해지고 가운데 줄이 그어짐 */
-  .step.done { background: #f3f3f0; }
+  .step.done { background: var(--bg); }
   .step.done .step-text,
   .step.done .step-memo {
     text-decoration: line-through;
@@ -338,11 +390,11 @@
     padding: 10px 12px;
     background: var(--surface);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 12px;
   }
   .trash-name { display: block; font-weight: 700; }
   .trash-meta { display: block; margin-bottom: 8px; font-size: 0.9rem; color: var(--muted); }
-  .trash-note { margin: 0 0 10px; color: var(--accent); font-weight: 600; font-size: 0.95rem; }
+  .trash-note { margin: 0 0 10px; color: var(--accent-ink); font-weight: 600; font-size: 0.95rem; }
   .trash-note:empty { display: none; }
 
   /* 화면 아래 고정 입력창 */
@@ -353,20 +405,20 @@
     max-height: 75vh;
     overflow-y: auto;
     background: var(--surface);
-    border-top: 3px solid var(--accent);
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.15);
+    border-top: 1px solid var(--field);
+    border-radius: 24px 24px 0 0;
   }
   .editor[hidden] { display: none; }
-  .editor-inner { max-width: 44rem; margin: 0 auto; padding: 16px 16px 20px; }
+  .editor-inner { max-width: 44rem; margin: 0 auto; padding: 20px 16px 20px; }
   .field-label { display: block; font-weight: 700; margin-bottom: 4px; }
   .editor input, .editor textarea, .editor select {
     width: 100%;
     font: inherit;
-    padding: 8px 10px;
+    padding: 8px 12px;
     background: var(--surface);
     color: var(--text);
     border: 1px solid var(--field);
-    border-radius: 8px;
+    border-radius: 12px;
   }
   .editor textarea { resize: vertical; min-height: 64px; }
   .editor select { min-height: 44px; }
@@ -380,7 +432,7 @@
     margin-bottom: 10px;
     padding: 10px 12px;
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 16px;
     background: var(--bg);
   }
   .step-field label { font-size: 0.92rem; font-weight: 600; }
@@ -389,18 +441,20 @@
   .editor-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .btn {
     min-height: 44px;
-    padding: 8px 16px;
+    padding: 8px 20px;
     font: inherit;
     font-weight: 700;
-    border-radius: 10px;
+    border-radius: 999px;
     cursor: pointer;
+    box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45), 0 4px 12px rgba(95, 107, 58, 0.35);
+    box-shadow: var(--btn-shadow);
   }
-  .btn-sub { background: var(--surface); color: var(--accent); border: 2px solid var(--accent); }
-  .btn-main { background: var(--accent); color: #fff; border: 2px solid var(--accent); }
+  .btn-sub { background: var(--surface); color: var(--accent-ink); border: 1px solid var(--field); }
+  .btn-main { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
   .btn-plain { background: var(--surface); color: var(--text); border: 1px solid var(--field); }
   .editor-actions .btn-plain { margin-left: auto; }
-  .btn-danger { background: var(--error); color: #fff; border: 2px solid var(--error); }
-  .btn-forever { background: var(--surface); color: var(--error); border: 2px solid var(--error); }
+  .btn-danger { background: var(--error); color: #fff; border: 1px solid var(--error); }
+  .btn-forever { background: var(--surface); color: var(--error); border: 1px solid var(--error); }
 
   /* 삭제 확인 창 (페이지 안에서 띄움) */
   .confirm-back {
@@ -410,16 +464,16 @@
     display: grid;
     place-items: center;
     padding: 16px;
-    background: rgba(0, 0, 0, 0.45);
+    background: rgba(47, 42, 34, 0.5);
   }
   .confirm-back[hidden] { display: none; }
   .confirm-box {
     width: 100%;
     max-width: 22rem;
-    padding: 20px;
+    padding: 24px;
     background: var(--surface);
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--line);
+    border-radius: 24px;
   }
   .confirm-box h2 { margin: 0 0 6px; }
   .confirm-box p { margin: 0; color: var(--muted); }
@@ -432,6 +486,7 @@
 </style>
 </head>
 <body>
+<div class="y2k-banner" aria-hidden="true"><span class="spark">✦</span><span class="chrome">레시피 메모지</span><span class="spark">✦</span></div>
 <main>
   <h1>레시피 메모지</h1>
   <p class="lead">위쪽 카테고리 탭으로 종류를 고르고, 오른쪽 인덱스 탭에서 레시피를 고르세요. 끝낸 단계의 동그란 번호를 눌러 줄을 그어 가고, 잘못 눌렀다면 한 번 더 누르면 돌아옵니다. 모든 단계를 끝낸 레시피는 다음에 열 때 체크가 비워져 있어요.</p>
