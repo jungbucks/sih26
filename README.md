@@ -200,6 +200,8 @@ npm run build
 npm run serve
 ```
 
+**로컬 미리보기(빌드 없이):** `npm run local` 또는 `local-preview.cmd` 더블클릭 → 저장소 폴더를 그대로 띄우고 대시보드를 엽니다. `projects.json`은 지금 작업 폴더(push 안 한 커밋 포함)로 그 자리에서 만들며, 학생 HTML·`feedback.json`·커밋이 바뀌면 다시 만듭니다(첫 생성 수 초). 미리보기 이미지는 없습니다. HTML을 파일로 직접 열면(`file://`) 모듈 스크립트가 막혀 목록이 뜨지 않으므로 이 방법을 쓰세요.
+
 테스트·촬영은 Linux 프로세스 그룹 종료와 fontconfig를 사용합니다. Windows에서는 WSL 또는 위 Linux 컨테이너를 사용하세요. `npm run serve`는 **dist만** `/sih26/` 접두사로 제공합니다. 개발용 Node/Playwright/sharp/parse5는 배포 페이지에서 로드하지 않습니다. 사이트 JS/CSS를 수정한 뒤 다시 build하세요.
 
 표준 브라우저 다운로드가 막힌 클라우드에서는 설치된 브라우저를 `CAPTURE_BROWSER=/usr/lib/chromium/chromium`으로 지정할 수 있습니다. 이는 CI의 고정 Chromium과 다른 환경이므로 측정 결과에 구분해 기록합니다. 브라우저 다운로드를 위해 TLS·체크섬 검증을 끄지 마세요.

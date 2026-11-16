@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="assets/style.css" />
     <script type="module" src="assets/about.js"></script>
     <script type="module" src="assets/work.js"></script>
+    <!-- 파일을 더블클릭해 열면(file://) 모듈 스크립트가 막혀 계속 '불러오는 중'이 됨 → 로컬 미리보기 안내 -->
+    <script>if (location.protocol === "file:") addEventListener("DOMContentLoaded", function () { document.getElementById("status").textContent = "파일로 직접 열면 작품을 불러올 수 없어요. 저장소 폴더의 local-preview.cmd를 더블클릭(또는 npm run local)해서 여세요."; });</script>
   </head>
   <body class="work-page">
     <a class="skip" href="#main">본문으로 이동</a>
