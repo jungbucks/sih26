@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>집중 공부 타이머</title>
-<meta name="description" content="15분·25분·50분 중 공부 시간을 골라 카운트다운하고, 끝나면 5분 휴식으로 이어 주는 공부 타이머">
+<meta name="description" content="15분·25분·50분 중 공부 시간을 골라 카운트다운하고, 끝나면 5분·10분·15분 중 고른 휴식으로 이어 주는 공부 타이머">
 <meta name="class" content="O반 (2-5)">
-<meta name="status" content="3회 개선">
+<meta name="status" content="4회 개선">
 <meta name="design" content="컬러셋 C11 밤하늘과 보라 · 트렌드 T02 벤토 그리드 · #8b9cff">
 <style>
   /* ===== 글꼴: 전시판 공용 글꼴 (못 불러오면 아래 대체 글꼴로) ===== */
@@ -81,7 +81,7 @@
   }
   .card[aria-label="타이머"] > .time-label { background: var(--card); }
   .card[aria-label="타이머"] > .time { order: -1; grid-column: 1 / -1; background: var(--accent-weak); padding: 20px 16px; }
-  .card[aria-label="타이머"] > .btn-rest, .card[aria-label="타이머"] > .msg { grid-column: 1 / -1; }
+  .card[aria-label="타이머"] > .breaks, .card[aria-label="타이머"] > .msg { grid-column: 1 / -1; }
   .card[aria-label="타이머"] > .done-count { grid-column: 1 / -1; background: var(--card); }
   @media (max-width: 480px) {
     .card[aria-label="타이머"] { grid-template-columns: 1fr; }
@@ -144,15 +144,16 @@
   .mode[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
   .btn-main { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
   .btn-main:hover { border-color: var(--accent); filter: brightness(1.08); }
+  /* 휴식 시간 버튼 3개(5분·10분·15분)를 나란히 놓는 칸. 공부가 끝났을 때만 보인다. */
+  .breaks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .breaks[hidden] { display: none; }
   .btn-rest {
     width: 100%;
-    margin-top: 12px;
+    min-width: 0;
     background: var(--rest);
     border-color: var(--rest-text);
     color: #fff;
   }
-  .card[aria-label="타이머"] > .btn-rest { margin-top: 0; }
-  .btn-rest[hidden] { display: none; }
 
   /* 경고·안내 문구 영역 (비어 있을 땐 칸이 아니라 빈 자리만) */
   .msg { min-height: 1.7em; margin: 16px 0 0; padding: 0; border-radius: 18px; font-weight: 600; }
@@ -168,7 +169,7 @@
 <body>
 <main class="wrap">
   <h1>집중 공부 타이머</h1>
-  <p class="intro">공부 시간을 고르고 시작을 누르세요. 시간이 다 되면 5분 휴식으로 이어갈 수 있어요.</p>
+  <p class="intro">공부 시간을 고르고 시작을 누르세요. 시간이 다 되면 5분·10분·15분 중 원하는 휴식으로 이어갈 수 있어요.</p>
 
   <section class="card" aria-label="타이머">
     <!-- 상단: 지금 상태 -->
@@ -185,8 +186,12 @@
          (공부 타이머가 끝날 때마다 횟수 +1, 시간 + 고른 모드 분. 초기화·새로고침해도 유지, 날짜가 바뀌면 0회 (0분)) -->
     <p class="done-count" id="doneCountBox"><span class="label">오늘 집중 완료:</span> <span><span class="num" id="doneCount">0</span>회 <span class="mins" id="doneMinutes">(0분)</span></span><span class="save-note" id="saveNote" hidden></span></p>
 
-    <!-- '휴식 시작' 버튼은 공부가 끝났을 때만 보인다 -->
-    <button type="button" class="btn-rest" id="breakBtn" hidden>☕ 휴식 시작 (5분)</button>
+    <!-- 휴식 시간 버튼(5분·10분·15분)은 공부가 끝났을 때만 보인다. 누른 시간으로 휴식이 바로 시작된다. -->
+    <div class="breaks" id="breakButtons" role="group" aria-label="휴식 시간 선택" hidden>
+      <button type="button" class="btn-rest" data-break="5">☕ 5분 휴식</button>
+      <button type="button" class="btn-rest" data-break="10">☕ 10분 휴식</button>
+      <button type="button" class="btn-rest" data-break="15">☕ 15분 휴식</button>
+    </div>
 
     <!-- 경고·안내 문구 영역 -->
     <p class="msg" id="message" role="alert" aria-live="assertive"></p>
@@ -213,7 +218,6 @@
 <script>
   // ===== 기본 설정값 =====
   const DEFAULT_MINUTES = 25;   // 처음 화면과 초기화 후에 선택되는 공부 시간
-  const BREAK_MINUTES = 5;      // 휴식 시간
   const PAGE_TITLE = document.title;
   const COUNT_KEY = 'sih26:20211:completedCount'; // 완료 횟수를 저장하는 이름표
   const MINUTES_KEY = 'sih26:20211:completedMinutes'; // 누적 공부 시간(분)을 저장하는 이름표
@@ -228,6 +232,7 @@
   let phase = 'idle';
   let isPaused = false;          // 일시정지 상태인지
   let selectedMinutes = DEFAULT_MINUTES;
+  let selectedBreakMinutes = 5;  // 공부가 끝난 뒤 고른 휴식 시간(5·10·15분). 휴식 버튼을 누를 때 정해진다.
   let remainingSeconds = DEFAULT_MINUTES * 60; // 화면에 보이는 남은 시간(초)
   let endTime = 0;               // 타이머가 끝날 '시각'(밀리초)
   let timerId = null;            // setInterval이 돌려준 번호. clearInterval로 멈출 때 필요하다.
@@ -245,7 +250,8 @@
   const startBtn = document.getElementById('startBtn');
   const pauseBtn = document.getElementById('pauseBtn');
   const resetBtn = document.getElementById('resetBtn');
-  const breakBtn = document.getElementById('breakBtn');
+  const breakButtons = document.getElementById('breakButtons');
+  const breakBtns = breakButtons.querySelectorAll('.btn-rest');
   const modeButtons = document.querySelectorAll('.mode');
   const doneCount = document.getElementById('doneCount');
   const doneMinutes = document.getElementById('doneMinutes');
@@ -346,9 +352,9 @@
     timeDisplay.setAttribute('aria-label', '남은 시간 ' + Math.floor(remainingSeconds / 60) + '분 ' + (remainingSeconds % 60) + '초');
 
     if (phase === 'breakReady') {
-      timeLabel.textContent = '공부 끝 · 다음은 휴식 ' + BREAK_MINUTES + '분';
+      timeLabel.textContent = '공부 끝 · 원하는 휴식 시간을 고르세요';
     } else if (phase === 'break') {
-      timeLabel.textContent = '휴식 ' + BREAK_MINUTES + '분';
+      timeLabel.textContent = '휴식 ' + selectedBreakMinutes + '분';
     } else {
       timeLabel.textContent = '공부 ' + selectedMinutes + '분' + (phase === 'idle' ? ' 준비' : '');
     }
@@ -358,7 +364,7 @@
     doneMinutes.textContent = '(' + completedMinutes + '분)';
 
     startBtn.textContent = isPaused ? '이어서 시작' : '시작';
-    breakBtn.hidden = phase !== 'breakReady';
+    breakButtons.hidden = phase !== 'breakReady';
 
     // 작동 중일 때는 브라우저 탭 제목에도 남은 시간을 보여 준다.
     if (isTimerRunning) {
@@ -389,7 +395,7 @@
         remainingSeconds = 0; // 00:00에서 멈춘 채로 휴식 시작을 기다린다
         render();
         showMessage('🎉 공부 완료! 휴식을 시작하세요', 'done');
-        breakBtn.focus();
+        breakBtns[0].focus();
       } else if (phase === 'break') {
         phase = 'idle';
         remainingSeconds = selectedMinutes * 60;
@@ -425,7 +431,7 @@
       return;
     }
     if (phase === 'breakReady') {
-      showMessage('공부 시간이 끝났어요. 위의 ‘휴식 시작’ 버튼을 눌러 주세요.', 'info');
+      showMessage('공부 시간이 끝났어요. 위의 휴식 시간 버튼(5분·10분·15분) 중 하나를 골라 주세요.', 'info');
       return;
     }
     if (isPaused) {
@@ -465,13 +471,17 @@
     render();
   });
 
-  breakBtn.addEventListener('click', function () {
-    if (phase !== 'breakReady') return;
-    phase = 'break';
-    remainingSeconds = BREAK_MINUTES * 60;
-    showMessage('', '');
-    runInterval();
-    startBtn.focus();
+  // 휴식 시간 버튼(5분·10분·15분): 누른 버튼의 시간으로 휴식 타이머를 바로 시작한다.
+  breakBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (phase !== 'breakReady') return;
+      selectedBreakMinutes = Number(btn.dataset.break);
+      phase = 'break';
+      remainingSeconds = selectedBreakMinutes * 60;
+      showMessage('', '');
+      runInterval();
+      startBtn.focus();
+    });
   });
 
   // 모드(15/25/50분)를 바꾸고 버튼 모양도 맞춘다.
