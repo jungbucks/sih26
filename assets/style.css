@@ -1265,10 +1265,7 @@ footer {
 }
 
 /* ── 진행 대시보드(dashboard.html): 학번 + 단계 배지 6칸(PRD·1~4회 개선·디자인) ── */
-.dash-page main {
-  max-width: 64rem;
-  padding: 32px max(24px, calc((100% - 64rem) / 2)) 64px;
-}
+/* 폭은 전시판과 같은 main(1328px)을 그대로 쓴다. 예전엔 여기서 max-width와 좌우 padding을 같이 줄여 넓은 화면일수록 본문이 좁아졌다 */
 .dash-check {
   display: inline-flex;
   flex-direction: row;
@@ -1324,44 +1321,52 @@ footer {
 .dash-bucket-count {
   font-weight: 500;
 }
+/* 한 줄에 학생 5명: 칸마다 윗줄 = 학번 + n/6, 아랫줄 = 단계 배지 6칸. 칸 사이는 가는 선(바깥 테두리와 겹치는 오른쪽·아래 선은 overflow로 잘라 냄) */
 .dash-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin: 0;
   padding: 0;
   list-style: none;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   background: var(--canvas);
 }
 .dash-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
-  padding: 10px 16px;
-}
-.dash-row + .dash-row {
-  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 -1px -1px 0;
+  padding: 12px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 .dash-row .student-id {
-  min-width: 4.5ch;
+  justify-self: start;
   font-size: 19px;
   text-decoration: none;
 }
 .dash-row .student-id:hover {
   text-decoration: underline;
 }
+/* 배지 6칸은 늘 한 줄: 글자 수에 맞춰 PRD·디자인 칸만 조금 넓게 */
 .dash-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: 1.25fr repeat(4, minmax(0, 1fr)) 1.6fr;
+  gap: 4px;
 }
 .dash-step {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 3.6em;
+  min-width: 0;
   min-height: 26px;
-  padding: 0 8px;
+  padding: 0 2px;
+  white-space: nowrap;
   border: 1px dashed var(--field);
   border-radius: var(--r-sm);
   background: transparent;
@@ -1377,6 +1382,7 @@ footer {
 }
 /* 마친 디자인: 전시판과 같은 강조색 칩(.dash-step의 점선·투명 바탕보다 우선) */
 .dash-step.student-design {
+  padding: 0 2px;
   border: 1px solid transparent;
   background: var(--glow);
   color: var(--design-ink, #ffffff);
@@ -1425,7 +1431,6 @@ footer {
   }
 }
 .dash-count {
-  margin-left: auto;
   font-size: 14px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1444,14 +1449,25 @@ footer {
   .design-open + .design-open {
     margin-left: 0;
   }
-  .dash-row {
-    padding: 10px 12px;
+}
+/* 화면이 좁아지면 한 줄 학생 수를 줄인다(배지 6칸이 한 줄에 들어가는 폭 유지) */
+@media (max-width: 1180px) {
+  .dash-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
-  .dash-steps {
-    gap: 4px;
+}
+@media (max-width: 960px) {
+  .dash-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .dash-step {
-    min-width: 0;
-    padding: 0 6px;
+}
+@media (max-width: 720px) {
+  .dash-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 500px) {
+  .dash-list {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
